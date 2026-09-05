@@ -1,0 +1,41 @@
+{
+  "name": "rougle",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rougle \u2014 a roguelike Wordle. Engine is framework-agnostic; see docs/technical-brief.md.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "solver:bench": "tsx sim/bench.ts",
+    "calibrate": "tsx sim/calibrate.ts",
+    "wordlists": "tsx scripts/build-wordlists.ts",
+    "sim": "tsx sim/harness.ts"
+  },
+  "dependencies": {
+    "next": "15.5.25",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "15.5.25",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

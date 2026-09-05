@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  # S-05 — the check that actually matters. Runs the harness under plain tsx
+  # with NO Next build step. If it fails on module resolution, someone imported
+  # a Next module into lib/engine and every balance number after that commit is
+  # suspect (technical brief §1.3).
+  engine-boundary:
+    name: Engine boundary (harness, no build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsx sim/harness.ts --runs 50
+
+  test:
+    name: Tests, types and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      # The dev server is stopped: the engine and the sim must run in plain Node.
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+
+  build:
+    name: Static export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
