@@ -6,7 +6,25 @@ The design bet: *Wordle's failure state is boring because it's isolated. Make it
 
 ## Status
 
-Pre-implementation. Rules, relics and visual design are all specified; no code exists yet.
+**Phase 0 and Phase 1 are built. Gate 1 is met.** The engine plays a full
+twenty-word run headlessly, deterministically, and the harness runs 1000 seeded
+runs in about 20 seconds. There is a debug view but no designed UI: S.01–S.12
+are Phase 2, and Phase 2's gate — *is the shared pool tense?* — needs humans
+playing the build, not an agent.
+
+What exists: the ported scorer with its differential test, address-based RNG,
+the pure reducer, the pool reducer with the §2.4 floor, the transform chain,
+board projection, the emergency ladder, the relic registry with its eight
+validations, 23 of the 36 codes in `relics.json`, the eight word modifiers, all
+three bosses, the word lists, save/load, the entropy solver, the harness and its
+calibration.
+
+What does not: branching maps, shops, forges, events, elite nodes (so STACKED,
+the ninth modifier, has nothing to attach to), and 13 relics — five of them
+blocked on rulings. `sim/harness.ts` prints the pending list with every sweep.
+
+See `docs/balance/001.json` for the first measured numbers and
+`docs/decisions/` for what was decided along the way.
 
 ## Documents
 
@@ -17,10 +35,16 @@ Pre-implementation. Rules, relics and visual design are all specified; no code e
 | [`design/`](design/) | The interface | Layout, colour, type, motion, component states |
 | [`docs/technical-brief.md`](docs/technical-brief.md) | The build | Architecture, types, algorithms, 50-ticket plan |
 | [`docs/AGENTS.md`](docs/AGENTS.md) | The rules of the repo | How to work here |
+| [`docs/decisions/`](docs/decisions/) | The record | Every call made where the specs were silent or wrong |
+| [`docs/balance/`](docs/balance/) | The numbers | One snapshot per tuning pass, diffable |
 
-**Start with MECHANICS.md, then technical brief §0 and §13.** §13 lists fourteen engineering problems in the specs; nine block specific tickets and need a decision before those tickets can be built.
+**Start with MECHANICS.md, then technical brief §0 and §13.** §13 lists twenty
+engineering problems in the specs. Nine of the first fourteen block specific
+tickets; six more (I-15 … I-20) were found while building Phase 1, and three of
+those were live bugs that could make a word unwinnable.
 
-`docs/archive/Roguelike Wordle Mechanics.md` is the v0 brief. It is historical. Do not read it for rules.
+The v0 brief (`Roguelike Wordle Mechanics.md`) has been deleted. It is historical
+and MECHANICS.md supersedes it entirely.
 
 ## Stack
 
@@ -31,11 +55,18 @@ The rules engine at `lib/engine/` is pure TypeScript — no React, no Next, no b
 ## Commands
 
 ```bash
-npm run dev                    # Next dev server
-npm run build                  # static export
-npm test                       # engine + sim, no Next required
-npm run sim -- --runs 1000     # headless balance simulation
-npm run wordlists              # regenerate /data (offline, occasional)
+npm install --legacy-peer-deps   # npm 10's peer resolver trips over vitest 4 otherwise
+npm run dev                      # Next dev server
+npm run build                    # static export
+npm test                         # engine + sim, no Next required
+npm run lint                     # includes the engine boundary rules
+npm run typecheck
+
+npm run sim -- --runs 1000                 # headless balance simulation
+npm run sim -- --runs 1000 --snapshot 002  # and write docs/balance/002.json
+npm run sim -- --runs 500 --no-relics      # Gate 3: does a no-relic bot die in Act II?
+npm run calibrate -- --runs 400            # re-fit the solver handicap to the human baseline
+npm run wordlists                          # regenerate /data (offline, occasional)
 ```
 
 ## The three things most likely to go wrong
