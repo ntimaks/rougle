@@ -11,6 +11,7 @@ import {
   isHookName,
   isImplemented,
   isPreGuessReveal,
+  activationFor,
 } from './registry';
 import { IMPLEMENTATIONS } from './impl';
 import { HOOK_NAMES } from './types';
@@ -128,6 +129,45 @@ describe('registry validation', () => {
     for (const d of RELIC_DEFS) {
       if (!d.ruling) continue;
       expect(mechanics, `${d.code} cites ${d.ruling}`).toContain(`**${d.ruling} ·`);
+    }
+  });
+
+  it('8b. `rule` is player-facing copy, not engine instructions', () => {
+    // relics.json's own note: `rule` is normative AND it is what the relic card
+    // prints. A dotted identifier in it means implementation detail has leaked
+    // into the thing a player reads mid-run; `engine_note` is where that goes.
+    for (const d of RELIC_DEFS) {
+      expect(d.rule, `${d.code} rule reads like code`).not.toMatch(/\b[A-Z][a-zA-Z]*\.[a-z]/);
+      expect(d.rule, `${d.code} rule addresses the implementer`).not.toMatch(
+        /\bmust be\b|===|\bnull\b/,
+      );
+    }
+  });
+
+  it('9. a non-consumable on hook onUse declares an activation, and vice versa', () => {
+    // R-015 opened onUse to relics. The block is what makes that legal, so the
+    // two must never drift apart: an onUse relic without one would be a relic
+    // nothing can fire, and an activation on another hook would never run.
+    for (const d of RELIC_DEFS) {
+      if (d.isConsumable) continue;
+      expect(d.hook === 'onUse', `${d.code}`).toBe(d.activation !== undefined);
+    }
+  });
+
+  it('10. every activation block is well formed', () => {
+    const timings = ['ANY_TIME_IN_WORD', 'BEFORE_FIRST_GUESS', 'BEFORE_SUBMIT'];
+    for (const code of Object.keys(IMPLEMENTATIONS)) {
+      const activation = activationFor(code);
+      if (!activation) continue;
+      expect(timings, `${code} timing`).toContain(activation.timing);
+      expect(
+        activation.usesPerWord === null || activation.usesPerWord > 0,
+        `${code} usesPerWord`,
+      ).toBe(true);
+      // An uncapped activation must cost something, or it is free and infinite.
+      if (activation.usesPerWord === null) {
+        expect(Object.keys(activation.cost).length, `${code} is uncapped and free`).toBeGreaterThan(0);
+      }
     }
   });
 });

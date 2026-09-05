@@ -6,24 +6,30 @@ The design bet: *Wordle's failure state is boring because it's isolated. Make it
 
 ## Status
 
-**Phase 0 and Phase 1 are built. Gate 1 is met.** The engine plays a full
-twenty-word run headlessly, deterministically, and the harness runs 1000 seeded
-runs in about 20 seconds. There is a debug view but no designed UI: S.01–S.12
-are Phase 2, and Phase 2's gate — *is the shared pool tense?* — needs humans
-playing the build, not an agent.
+**Phases 0, 1 and 2 are built. Gate 1 is met; Gate 2 is now askable.** The engine
+plays a full twenty-word run headlessly and deterministically, the harness runs
+1000 seeded runs in about 20 seconds, and every phase the reducer can reach now
+has a designed screen. Gate 2 — *is the shared pool tense?* — needs humans
+playing the build, which is the one thing an agent cannot do for the project.
 
 What exists: the ported scorer with its differential test, address-based RNG,
 the pure reducer, the pool reducer with the §2.4 floor, the transform chain,
-board projection, the emergency ladder, the relic registry with its eight
-validations, 23 of the 36 codes in `relics.json`, the eight word modifiers, all
-three bosses, the word lists, save/load, the entropy solver, the harness and its
-calibration.
+board projection, player activations, the emergency ladder, the relic registry
+with its ten validations, 28 of the 36 codes in `relics.json`, the eight word
+modifiers, all three bosses, the word lists, save/load, the entropy solver, the
+harness and its calibration — and on top of them S.01–S.08, the component set,
+and the relic drawer that fires activations.
 
 What does not: branching maps, shops, forges, events, elite nodes (so STACKED,
-the ninth modifier, has nothing to attach to), and 13 relics — five of them
-blocked on rulings. `sim/harness.ts` prints the pending list with every sweep.
+the ninth modifier, has nothing to attach to), and 8 relics — all waiting on
+Phase 3 machinery except RL.27, which is blocked on §13 I-15.
+`sim/harness.ts` prints the pending list with every sweep.
 
-See `docs/balance/001.json` for the first measured numbers and
+Phase 3 is deliberately not started. It is the largest phase in the brief, and
+building shops and branching routes on top of a core loop nobody has confirmed
+is tense would be building on an unverified bet.
+
+See `docs/balance/002.json` for the latest measured numbers and
 `docs/decisions/` for what was decided along the way.
 
 ## Documents
@@ -38,10 +44,10 @@ See `docs/balance/001.json` for the first measured numbers and
 | [`docs/decisions/`](docs/decisions/) | The record | Every call made where the specs were silent or wrong |
 | [`docs/balance/`](docs/balance/) | The numbers | One snapshot per tuning pass, diffable |
 
-**Start with MECHANICS.md, then technical brief §0 and §13.** §13 lists twenty
-engineering problems in the specs. Nine of the first fourteen block specific
-tickets; six more (I-15 … I-20) were found while building Phase 1, and three of
-those were live bugs that could make a word unwinnable.
+**Start with MECHANICS.md, then technical brief §0 and §13.** §13 lists
+twenty-two engineering problems: fourteen from reading the specs, six from
+building Phase 1, two from measuring it. Nine are ruled (MECHANICS.md §11
+R-014 … R-019); each of the rest says what it blocks.
 
 The v0 brief (`Roguelike Wordle Mechanics.md`) has been deleted. It is historical
 and MECHANICS.md supersedes it entirely.

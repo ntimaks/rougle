@@ -33,7 +33,8 @@
       "archetype": "INFO",
       "rarity": "COMMON",
       "hook": "onFeedbackTransform",
-      "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word. Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
+      "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word.",
+      "engine_note": "Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.04"],
       "anti_synergy_reason": "Rangefinder withholds letter identity, so there is nothing for the Sieve to eliminate."
@@ -53,12 +54,12 @@
       "archetype": "INFO",
       "rarity": "RARE",
       "hook": "onFeedbackTransform",
-      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is. Sets Tile.letter to null and Tile.distance to an integer.",
+      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is.",
       "flavor": "Distance, not identity.",
       "pre_guess_reveal": false,
       "transform_order": 3,
       "anti_synergy": ["RL.02"],
-      "engine_note": "For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
+      "engine_note": "Sets Tile.letter to null and Tile.distance to an integer. For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
     },
     {
       "code": "RL.05",
@@ -83,7 +84,8 @@
       "name": "THE AUDITOR",
       "archetype": "INFO",
       "rarity": "RARE",
-      "hook": "onGuessSubmit",
+      "hook": "onUse",
+      "activation": { "timing": "ANY_TIME_IN_WORD", "usesPerWord": 1, "cost": { "gold": 5 }, "input": "UNTRIED_LETTER" },
       "rule": "Once per word, at any time, name one untried letter and pay 5g. He stamps it PRESENT or ABSENT. If you cannot pay, he does not answer.",
       "flavor": "Never wrong. Never free.",
       "pre_guess_reveal": false,
@@ -196,8 +198,11 @@
       "name": "BLINDFOLD",
       "archetype": "RISK",
       "rarity": "UNCOMMON",
-      "hook": "onGuessSubmit",
+      "hook": "onUse",
+      "activation": { "timing": "BEFORE_SUBMIT", "usesPerWord": 1, "cost": {}, "input": null },
       "rule": "Choose to take no feedback on a guess. If that guess was within one letter of the solution, gain 3 guesses. Otherwise nothing.",
+      "engine_note": "\"Within one letter\" is Hamming distance <= 1: the guess and the solution are the same length, and at most one position differs. Transpositions do not count. Ruled in R-017.",
+      "ruling": "R-017",
       "pre_guess_reveal": false
     },
     {
@@ -205,7 +210,8 @@
       "name": "ALL IN",
       "archetype": "RISK",
       "rarity": "RARE",
-      "hook": "onWordStart",
+      "hook": "onUse",
+      "activation": { "timing": "BEFORE_FIRST_GUESS", "usesPerWord": 1, "cost": {}, "input": "WAGER" },
       "rule": "Before a word, wager any number of guesses. Solve within that count and gain the same number back. Fail and lose all of them.",
       "pre_guess_reveal": false,
       "refund": { "amount": "wager", "trigger": "solve_within_wager" },
@@ -274,11 +280,15 @@
       "name": "SHAVED COIN",
       "archetype": "RISK",
       "rarity": "RARE",
-      "hook": "onFeedbackTransform",
+      "hook": "onUse",
+      "activation": { "timing": "ANY_TIME_IN_WORD", "usesPerWord": 1, "cost": {}, "input": null },
       "rule": "Once per word, re-roll which positions report truthfully. You do not get to see the roll.",
       "flavor": "Heads it tells you. Tails it does not.",
       "pre_guess_reveal": false,
-      "transform_order": 1
+      "transform_order": 1,
+      "offer_from_act": 3,
+      "engine_note": "Nothing reports untruthfully unless the Liar Letter modifier is active, and that is Act III only, so the relic is inert before then. Offered from Act III onwards rather than given a second clause. Ruled in R-016.",
+      "ruling": "R-016"
     },
     {
       "code": "RL.29",
@@ -373,7 +383,10 @@
       "archetype": "INFO",
       "pool_modifier": -4,
       "innate": "May spend a guess to reveal one letter outright, at any time, on any word.",
-      "pre_guess_reveal": false
+      "pre_guess_reveal": false,
+      "hook": "onUse",
+      "activation": { "timing": "ANY_TIME_IN_WORD", "usesPerWord": null, "cost": { "guesses": 1 }, "input": null },
+      "engine_note": "No use cap: the guess it costs is the cap."
     }
   ]
 }

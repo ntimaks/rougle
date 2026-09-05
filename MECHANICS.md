@@ -1,6 +1,6 @@
 # Rougle — Mechanics Specification
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Canonical
 **Supersedes:** `Roguelike Wordle Mechanics.md` (v0, the original brief) — that document is now historical and should be deleted from the repo or moved to `docs/archive/`.
 **Companion file:** `relics.json` — machine-readable relic registry, normative for all relic rules.
@@ -45,7 +45,7 @@ The brief was written before the design pass. The design pass renamed most relic
 - Rangefinder's rule changed but the tile spec didn't follow. Ruled (§11).
 - The Moth could render a word unsolvable. Ruled (§11).
 - The Guillotine's failure penalty was ambiguous. Ruled (§11).
-- Mirror/Twins scoring was flagged blocked. Ruled (§7.1). **No longer blocked.**
+- Mirror/Twins scoring was flagged blocked. Ruled (§7.2). **No longer blocked.**
 
 **Adopted from the design pass:**
 - Prototype relic names are canonical. They are better than v0's and they are already rendered.
@@ -70,9 +70,14 @@ The brief was written before the design pass. The design pass renamed most relic
 
 | Act | Pool | Solve nodes | Boss | Word-equivalents | Guesses/word |
 |---|---|---|---|---|---|
-| I | 22 | 4 | Twins (2 words) | 6 | 3.67 |
-| II | 19 | 4 | Cipher (1 word, deferred) | 5.5 | 3.45 |
+| I | 22 | 4 | Cipher (1 word, deferred) | 5 | 4.40 |
+| II | 19 | 4 | Twins (2 words) | 6 | 3.17 |
 | III | 17 | 4 (long) | Gauntlet (own pool) | 4 | 4.25 |
+
+The boss order changed in v1.1 (R-019) and the word-equivalents column moved
+with it. **These budgets have not been re-derived since.** Simulation puts the
+win rate at 51% against the 25–35% target, so §2.2 is still the open question
+(ticket B-02) — the boss move fixed where players die, not how often.
 
 Act III's higher per-word figure is correct: those are 6- and 7-letter words, which cost more even with a good build. The Gauntlet runs on a **fixed, separate pool of 14** and does not draw from the act pool.
 
@@ -233,7 +238,7 @@ Modifiers attach to words. They are the entire difficulty curve.
 | Long Word | II+ | 6 letters |
 | Decay | II+ | GREEN reverts to UNKNOWN after one turn |
 | Fog | II+ | Feedback for guess *n* shows only after guess *n+1* is submitted |
-| Mirror | II+ | Two solutions, one pool (§7.1) |
+| Mirror | III | Two solutions, one pool (§7.2). Act III only since v1.1 — see R-019 |
 | Liar Letter | III | One position reports false for the whole word; position fixed at word start |
 | Longer Word | III | 7 letters |
 | Stacked | III | Elites roll 2 modifiers |
@@ -257,6 +262,11 @@ onRunStart  onActStart  onNodeEnter  onWordStart  onGuessSubmit
 onFeedbackTransform  onWordSolved  onWordFailed  onActEnd
 onGoldChange  onPoolChange  onUse
 ```
+
+`onUse` covers **player activations**, not just consumables. A relic the player
+*fires* — rather than one that reacts to an event — declares `hook: "onUse"` and
+an `activation` block in `relics.json` giving its timing window, uses per word,
+cost and required input. See §6.6 and R-013.
 
 ### 6.2 Rarity
 
@@ -290,9 +300,49 @@ Purchasable in shops, occasionally awarded by events. Inventory cap 3. Used from
 
 ---
 
+### 6.6 Activations — normative
+
+Five entries are things the player does at a moment of their choosing. They are
+not a separate system: they are `onUse`, with a declared block that the engine
+reads.
+
+```
+activation: { timing, usesPerWord, cost, input }
+```
+
+| Field | Values |
+|---|---|
+| `timing` | `ANY_TIME_IN_WORD` · `BEFORE_FIRST_GUESS` · `BEFORE_SUBMIT` |
+| `usesPerWord` | integer, or `null` when the cost is the cap |
+| `cost` | `{ gold }` and/or `{ guesses }`, both optional |
+| `input` | `UNTRIED_LETTER` · `WAGER` · `null` |
+
+Three rules the engine enforces, so no relic has to:
+
+1. **The engine charges the cost**, from the block. A relic never debits gold or
+   pool for its own activation.
+2. **An unaffordable activation is refused, not consumed.** The Auditor's "if
+   you cannot pay, he does not answer" is this rule, and it means a failed
+   attempt does not burn the once-per-word cap.
+3. **A guess cost may never empty the pool.** Dying to an optional action is
+   what the emergency ladder (§2.3) exists to prevent.
+
+Activations are used from the relic drawer, at any point where input is
+accepted — the same affordance as consumables (§6.5).
+
 ## 7. Bosses
 
-### 7.1 Act I — The Twins
+### 7.1 Act I — The Cipher
+
+No feedback until three guesses are committed; all three then resolve at once. No corruption — just blind. Forces the player to plan an information tree rather than react.
+
+Deferral uses the same mechanism as Fog (transform step 5), with depth 3 instead of 1.
+
+It opens the run because its cost is nearly fixed — commit three guesses, read
+three rows — so it teaches the pool's arithmetic rather than gambling with it
+(R-019).
+
+### 7.2 Act II — The Twins
 
 Two solutions. One pool. Each guess is scored against both.
 
@@ -303,12 +353,6 @@ This is the simplest rule that is also the most informative, and it is the only 
 Keyboard letter state under Mirror shows the **best** state across both solutions, since the keyboard is a memory aid rather than a claim about a specific word.
 
 Solving one solution locks its row and continues the other. Both must be solved to clear.
-
-### 7.2 Act II — The Cipher
-
-No feedback until three guesses are committed; all three then resolve at once. No corruption — just blind. Forces the player to plan an information tree rather than react.
-
-Deferral uses the same mechanism as Fog (transform step 5), with depth 3 instead of 1.
 
 ### 7.3 Act III — The Gauntlet
 
@@ -401,7 +445,7 @@ Every contradiction found across v0, the prototype and the component sheet, and 
 → **Ruled:** keyboard clause dropped entirely. Penalty is −20g. A punish clause with two unrelated effects is noise, and the keyboard effect duplicates The Moth. Rarity confirmed as UNCOMMON per the prototype, down from v0's RARE.
 
 **R-005 · Mirror / Twins scoring.** Flagged blocked in the design.
-→ **Ruled:** two independent results, two rows, no merging (§7.1). **Unblocked.** The Twins screen can be finalised.
+→ **Ruled:** two independent results, two rows, no merging (§7.2). **Unblocked.** The Twins screen can be finalised.
 
 **R-006 · Refund stacking.** v0 allowed unbounded composition to zero or negative cost.
 → **Ruled:** §2.4 Rules A, B and C.
@@ -426,6 +470,25 @@ Every contradiction found across v0, the prototype and the component sheet, and 
 
 **R-013 · Stale handoff bundle.** Root `Rougle.dc.html` is a newer revision than the copy inside `design_handoff_rougle/` — different character-select treatment, different default accent.
 → **Design action:** regenerate the bundle before the developer begins. Not a rules issue.
+
+**R-014 · No mechanic may render a solution untypable.** R-003 covers The Moth, the Locked Key modifier and the Guillotine, because each *draws* a letter and can be told not to draw a solution letter. `RL.02` The Sieve does not draw — it derives locks from feedback — so R-003 did not reach it, and three mechanics can make a solution letter *read* grey: Liar Letter corrupting a tile, Silent Start reporting GREY in place of YELLOW, and Decay reverting a GREEN whose letter is also grey elsewhere in the row. Each hard-locks a letter the answer needs, with no counterplay. All three were reproduced by the harness; the third produced a run with no legal guess at all.
+→ **Ruled:** generalised from R-003. **No mechanic may remove a letter the current solution needs, by any route.** A lock derived from feedback must rest on an honest, uncorrupted, unsuppressed observation. New mechanics inherit this rather than each needing its own patch. Raised as technical brief §13 I-18.
+
+**R-015 · Player-activated relics.** `RL.07`, `RL.20`, `RL.21`, `RL.28` and `CH.03` all describe something the player chooses to do, but each was assigned a reactive hook it does not fit — the Auditor "at any time" on `onGuessSubmit`, All In's wager on `onWordStart`. `onUse` had the right shape and was scoped to consumables.
+→ **Ruled:** `onUse` is open to relics that declare an `activation` block (§6.6). The engine owns timing, the use cap and the cost; the relic owns only what happens. Raised as technical brief §13 I-04.
+
+**R-016 · `RL.28` Shaved Coin outside Act III.** It re-rolls which positions report truthfully. Nothing reports untruthfully unless the Liar Letter modifier is active, and that is Act III only, so a RARE relic offered in Acts I–II does nothing at all.
+→ **Ruled:** withheld from the offer pool until Act III (`offer_from_act: 3`) rather than given a second clause. A relic that does nothing is a worse reward than a relic you were not offered, and a second clause would change what the relic is. Raised as technical brief §13 I-05.
+
+**R-017 · `RL.20` Blindfold's "within one letter".** Undefined — Hamming distance 1, or substitutions and transpositions both?
+→ **Ruled:** Hamming distance ≤ 1. The guess and the solution are always the same length, so at most one position may differ. Transpositions do not count: "within one letter" reads as one letter wrong, and a transposition-inclusive reading would make the relic materially stronger than the phrase promises. Raised as technical brief §13 I-06.
+
+**R-019 · The Twins is the Act II boss; Mirror is Act III.** Measured, not argued. As the Act I boss the Twins ended **20.5% of all runs** — half of every death in the game, against 4.3% for the next worst node. Not because Mirror is broken: two solutions cost 5.20 guesses against the ~7.8 two independent words would cost, exactly as technical brief §13 I-10 predicted. The problem is variance landing on a hard wall at the end of the shortest act, with the fewest relics to absorb it. Raising Act I's pool to 28 left the rate at 21.5%, so it was never a budget problem.
+→ **Ruled:** the Cipher opens the run and the Twins becomes the Act II boss; the Mirror modifier moves from Act II+ to Act III only. Act I deaths fall from 20.8% to 3.9%, inside the §10.3 target for the first time. **The spike relocated rather than dissolved** — the Twins now ends 37.8% of runs in Act II — but a death there is a fair one: the player has a built deck, has learned the economy, and chose to walk into it. Giving the Twins its own fixed pool was measured and rejected: the Gauntlet pattern removes the emergency ladder with it, and 74.8% died there.
+
+**R-018 · The refund floor and word-start refunds.** §2.4 Rule A applied at the moment a refund fires truncates any refund on guess 1 to nothing, because gross spend is 1 and the floor is 1. That makes `RL.13` Opening Gambit — whose entire rule is "your first guess of a word is refunded" — never refund, and `RL.19` The Moth eat a letter for free.
+→ **Ruled:** Rule A binds the **word's total**, as §2.4 already says ("applies per word, not per guess"). A refund the floor cannot grant yet is carried and retried on later guesses of the same word, and dropped when the word ends. Rule B is unaffected: the losers of an event are discarded, never carried, so two relics still cannot stack across turns. Raised as technical brief §13 I-16.
+
 
 ---
 

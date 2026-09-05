@@ -49,7 +49,7 @@ export function DebugView() {
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-3 border-x border-line-soft p-3 text-xs">
+    <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3 text-xs">
       <Chrome state={state} />
 
       {word && view && (
@@ -200,7 +200,7 @@ export function DebugView() {
           {JSON.stringify(state, null, 1)}
         </pre>
       </details>
-    </main>
+    </div>
   );
 }
 

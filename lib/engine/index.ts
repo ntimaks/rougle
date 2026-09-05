@@ -17,7 +17,8 @@ export { serialize, deserialize, migrate, SaveError } from './core/serialize';
 export { draw, drawInt, drawPick, drawShuffle, drawWeighted, formatSeed, hash32, isValidSeed, DOMAIN, SEED_LENGTH } from './core/rng';
 export { spendGuess, grantableRefund, highestRefund, currentPool } from './core/pool';
 export { resolveHook, resolveUse, holdersInOrder } from './core/hooks';
-export { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './core/letters';
+export { ALPHABET, eligibleLettersForRemoval, hammingDistance, isLetterAvailable } from './core/letters';
+export { checkActivation, usesThisWord, isBlindfolded } from './core/activation';
 
 // Types
 export type { Action, EngineError, EngineErrorCode, GameEvent, ReduceResult } from './core/actions';
@@ -64,17 +65,27 @@ export {
   RELIC_DEFS,
   CHARACTERS,
   CHARACTER_BY_CODE,
-  OFFERABLE_RELICS,
-  OFFERABLE_CONSUMABLES,
+  offerableRelics,
+  offerableConsumables,
   PRE_GUESS_REVEAL_CODES,
   PENDING_IMPLEMENTATION,
   isImplemented,
   isHookName,
   isPreGuessReveal,
+  isActivated,
+  activationFor,
+  offerableInAct,
   def,
   impl,
 } from './content/registry';
-export { HOOK_NAMES, type HookName, type RelicDef, type RelicImpl } from './content/types';
+export {
+  HOOK_NAMES,
+  type ActivationDef,
+  type ActivationTiming,
+  type HookName,
+  type RelicDef,
+  type RelicImpl,
+} from './content/types';
 export { MODIFIERS, availableModifiers, canStack, lengthFor, rollModifiers } from './content/modifiers';
 export { BOSSES, type BossDef } from './content/bosses';
 

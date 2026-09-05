@@ -1,6 +1,6 @@
 # ADR-0001 · Board projection is a layer, not a chain step
 
-**Status:** Provisional. Needs a MECHANICS.md §11 ruling on technical brief §13 I-02.
+**Status:** Accepted in code; the §13 I-02 ruling is still outstanding.
 **Ticket:** E-09.
 
 ## Context

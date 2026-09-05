@@ -20,15 +20,25 @@ describe('generated game tokens', () => {
   });
 });
 
+/** Comments are prose. A hex NAMED in an explanation is documentation. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
 describe('no hex literals in components', () => {
   it('every colour comes from a token', async () => {
     const { globSync } = await import('node:fs');
     const files = globSync('components/**/*.{ts,tsx}');
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
-      const source = readFileSync(file, 'utf8');
-      const hexes = source.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+      const code = stripComments(readFileSync(file, 'utf8'));
+      const hexes = code.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
       expect(hexes, `${file} declares a colour instead of importing one`).toEqual([]);
     }
+  });
+
+  it('the check would still catch a real declaration', () => {
+    expect(stripComments('const a = "#FF0000";').match(/#[0-9a-fA-F]{3,8}\b/g)).toEqual(['#FF0000']);
+    expect(stripComments('// the prototype says #FF0000').match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
   });
 });

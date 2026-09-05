@@ -22,7 +22,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 of this document lists twenty engineering problems.** Fourteen were found while reading the specs; six more (I-15 … I-20) were found while building Phase 1 and are recorded in `docs/decisions/ADR-0006`. Nine of the original fourteen need a rules or design decision before the affected ticket can be built. Read §13 before starting a ticket.
+**§13 lists twenty-two engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, and two (I-21, I-22) from measuring it. **Nine are now ruled** — see MECHANICS.md §11 R-014 … R-019 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -803,11 +803,11 @@ Found while reading MECHANICS.md v1.0, `relics.json` and the design bundle. Nine
 
 **I-03 · The information cap's suppression order is a trap.** §6.3 suppresses excess pre-guess reveals in acquisition order, earliest wins. `RL.31` Rosetta Slab is a BOSS relic that **costs −3 act pool**. A player holding Lexicon and The Concordance from Act I who then takes Rosetta pays the −3 and receives nothing, permanently. → *Proposed:* suppress by ascending rarity, ties broken by earliest acquired, so a BOSS relic always displaces two COMMONs. Alternatively let the player choose the active two from the drawer, which is better but costs UI. Blocking R-10.
 
-**I-04 · Five relics are player-activated and no hook covers activation.** `RL.07` The Auditor is listed as `onGuessSubmit` but its rule is *"once per word, at any time."* Same shape: `RL.20` Blindfold (opt in before submitting), `RL.21` All In (wager before a word), `RL.28` Shaved Coin (once per word), `CH.03` The Cryptographer (any time). `onUse` exists but `relics.json` scopes it to consumables. → *Proposed:* extend `onUse` to relics with an `activation` block declaring cost, timing window and uses-per-word. Blocking C-06.
+**I-04 · RULED (R-015). Five relics are player-activated and no hook covers activation.** `RL.07` The Auditor is listed as `onGuessSubmit` but its rule is *"once per word, at any time."* Same shape: `RL.20` Blindfold (opt in before submitting), `RL.21` All In (wager before a word), `RL.28` Shaved Coin (once per word), `CH.03` The Cryptographer (any time). `onUse` exists but `relics.json` scopes it to consumables. → **Ruled** as proposed: `onUse` is open to relics declaring an `activation` block, and the engine owns timing, the use cap and the cost (MECHANICS.md §6.6). All five are implemented. See ADR-0008.
 
-**I-05 · `RL.28` Shaved Coin is dead outside Act III.** It re-rolls which positions report truthfully. Nothing reports untruthfully unless Liar Letter is active, and Liar Letter is Act III only. A RARE relic offered in Acts I–II therefore does nothing for most of a run. → *Proposed:* gate it out of Act I–II offer pools, or give it a second clause. Blocking C-05.
+**I-05 · RULED (R-016). `RL.28` Shaved Coin is dead outside Act III.** It re-rolls which positions report truthfully. Nothing reports untruthfully unless Liar Letter is active, and Liar Letter is Act III only. A RARE relic offered in Acts I–II therefore does nothing for most of a run. → **Ruled:** withheld from the offer pool until Act III via `offer_from_act`. A relic that does nothing is a worse reward than a relic you were not offered, and a second clause would change what the relic is.
 
-**I-06 · `RL.20` Blindfold's "within one letter" is undefined.** Hamming distance 1? One letter substituted, or also transposed? The rule must be deterministic and testable before it can be implemented or simulated. Blocking C-06.
+**I-06 · RULED (R-017). `RL.20` Blindfold's "within one letter" was undefined.** → **Ruled:** Hamming distance ≤ 1. Guess and solution are always the same length, so at most one position may differ; transpositions do not count. `hammingDistance` in `core/letters.ts` is the single home for it.
 
 **I-07 · Pool-max reductions acquired mid-act.** `RL.31` Rosetta (−3) and `RL.09` The Anvil (−1) reduce the act pool. Applied immediately — which can kill a player at low pool the moment they take a reward — or at next act start? → *Proposed:* apply immediately, clamped so `pool` never drops below 1; any unapplied remainder is lost rather than deferred. Blocking C-05.
 
@@ -817,7 +817,7 @@ Found while reading MECHANICS.md v1.0, `relics.json` and the design bundle. Nine
 
 ### Flags, not blockers
 
-**I-10 · Twins is counted as 2 word-equivalents.** §2.2's Act I row treats the Twins as two words. But each guess scores against both solutions, so information is shared and the pair costs materially less than two independent words — plausibly 5–6 guesses rather than 7.3. Act I is likely more generous than the table implies. Measure it (B-06) rather than assuming either way.
+**I-10 · MEASURED. Twins is counted as 2 word-equivalents.** Confirmed: 5.20 guesses against the ~7.8 two independent words would cost. Information is shared exactly as predicted. But the measurement also found what the estimate hid — as the Act I boss the Twins ended **20.5% of all runs**, half of every death in the game, because the *variance* landed on a wall at the end of the shortest act. Resolved by R-019 (see I-21).
 
 **I-11 · `RL.30` Ouroboros and `actStartSnapshot` interact with the info cap.** Restoring an act-start snapshot restores the relic list as it was, but Ouroboros says relics are retained *as they are now*. Which acquisition order survives determines which reveals are suppressed under §6.3. Pick one, write it down, test it.
 
@@ -844,3 +844,17 @@ overturn it.
 **I-19 · Under Mirror, which solution does a pre-guess reveal describe?** Lexicon reports "how many vowels the answer holds" and the Twins has two answers. Applying solution A's reveal to solution B eliminates the real answer on turn one; this presented as an unbeatable Act I boss. → *Implemented as* "solution A only", in the engine and in the solver's model. Not blocking, but it changes what the Twins costs.
 
 **I-20 · Character innates are missing from §6.3's affected list.** `relics.json` marks `CH.01` The Linguist `pre_guess_reveal: true`, but §6.3's prose lists only relics. A Linguist holding Lexicon and Palimpsest is already at the cap. → *Implemented per the data*, which is normative; the prose list is what needs updating.
+
+**I-16 · RULED (R-018).** Rule A binds the word's total, as §2.4 already said. The carry stands.
+
+**I-17 · PART-RULED.** Silent Start's chain slot is settled — declared step 0, `suppression`, shared with RL.20 Blindfold. Its *rule* ("GREY only; no yellows") is still implemented as the second reading, greens surviving, and has not been ruled.
+
+**I-18 · RULED (R-014).** Generalised from R-003: no mechanic may remove a letter the current solution needs, by any route. A lock derived from feedback must rest on an honest, uncorrupted, unsuppressed observation.
+
+**I-19 · IMPLEMENTED, not ruled.** Pre-guess reveals describe solution A under Mirror, in the engine and in the solver's model.
+
+**I-20 · RESOLVED in favour of the data.** `isPreGuessReveal` covers relics, consumables and character innates alike; §6.3's prose list is what needs updating.
+
+**I-21 · One node still ends a third of all runs.** R-019 moved the Twins to Act II and Act I deaths fell from 20.8% to 3.9% — inside the §10.3 target for the first time. But the spike relocated rather than dissolved: the Twins now ends **37.8%** of runs. A death there is a fairer death — the player has a built deck and chose to walk into it — but one node ending more than a third of runs should not be permanent. Giving it the Gauntlet's own-pool pattern was measured and rejected (that pattern removes the emergency ladder; 74.8% died). Not blocking; the next candidate is an emergency-ladder reset at the boss, which needs a rules decision.
+
+**I-22 · The harness does not fire activations.** The solver holds RL.07, RL.20, RL.21, RL.28 and CH.03 without using them, so their pick rates and their contribution to the win rate are understated, and RL.21's flagged co-occurrence with RL.04/RL.07 cannot be measured at all. The report says so with every sweep. Not blocking; it is solver work, not rules work.

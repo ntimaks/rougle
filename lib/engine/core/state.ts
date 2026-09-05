@@ -187,6 +187,14 @@ export interface GameState {
   /** Ad-hoc counters. Also the source of RNG indices where none is natural. */
   counters: Record<string, number>;
   stats: RunStats;
+  /**
+   * The act-end receipt, held while phase is ACT_END.
+   *
+   * The conversion has to be legible as a TRADE, not a total: leftover guesses
+   * count down while gold counts up. That needs both numbers at once, so they
+   * are kept rather than folded into `gold` and forgotten.
+   */
+  actReceipt: { actIndex: number; leftover: number; goldGained: number; rate: number } | null;
   /** Terminal outcome, set with phase DEATH or VICTORY. */
   outcome: { result: 'WIN' | 'DEATH'; cause: DeathCause | null } | null;
 }

@@ -1,5 +1,5 @@
 import relicsJson from '../../../relics.json';
-import type { CharacterDef, HookName, RelicDef, RelicImpl } from './types';
+import type { ActivationDef, CharacterDef, HookName, RelicDef, RelicImpl } from './types';
 import { HOOK_NAMES } from './types';
 import { IMPLEMENTATIONS, PENDING_IMPLEMENTATION } from './impl';
 
@@ -63,14 +63,44 @@ export function isImplemented(code: string): boolean {
   return code in IMPLEMENTATIONS;
 }
 
-/** Relics only (no consumables), for offer generation. */
-export const OFFERABLE_RELICS: readonly RelicDef[] = RELIC_DEFS.filter(
-  (d) => !d.isConsumable && isImplemented(d.code),
-);
+/**
+ * The activation block for a code, if it has one. Characters carry theirs on
+ * the character entry rather than the relic list, so both are looked up here —
+ * a caller should never need to know which array a code came from.
+ */
+export function activationFor(code: string): ActivationDef | undefined {
+  return REGISTRY[code]?.activation ?? CHARACTER_BY_CODE[code]?.activation;
+}
 
-export const OFFERABLE_CONSUMABLES: readonly RelicDef[] = RELIC_DEFS.filter(
-  (d) => d.isConsumable && isImplemented(d.code),
-);
+export function isActivated(code: string): boolean {
+  return activationFor(code) !== undefined;
+}
+
+/**
+ * Relics only (no consumables), for offer generation.
+ *
+ * A function, not a module-level constant. Relic implementation modules import
+ * shared engine helpers, and those helpers may import this file; evaluating
+ * `IMPLEMENTATIONS` while that cycle is still resolving reads it as undefined.
+ * Deferring the filter to call time removes the hazard entirely rather than
+ * relying on import order staying lucky.
+ */
+export function offerableRelics(): readonly RelicDef[] {
+  return RELIC_DEFS.filter((d) => !d.isConsumable && isImplemented(d.code));
+}
+
+/**
+ * May this relic be offered in this act? R-015: a relic that provably does
+ * nothing yet is withheld rather than given a second clause, so RL.28 Shaved
+ * Coin waits for the Liar Letter modifier to exist.
+ */
+export function offerableInAct(d: RelicDef, actIndex: number): boolean {
+  return d.offer_from_act === undefined || actIndex >= d.offer_from_act - 1;
+}
+
+export function offerableConsumables(): readonly RelicDef[] {
+  return RELIC_DEFS.filter((d) => d.isConsumable && isImplemented(d.code));
+}
 
 /**
  * MECHANICS.md §6.3: the pre-guess reveal effects the cap applies to.

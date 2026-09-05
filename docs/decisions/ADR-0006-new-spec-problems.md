@@ -1,6 +1,6 @@
 # ADR-0006 · Six more engineering problems, found while building
 
-**Status:** Raised, unresolved. Each needs a rules or design decision.
+**Status:** I-16, I-17, I-18, I-19 and I-20 are ruled (R-018, R-014, R-017 and the §6.3 flag). I-15 is still open.
 **Numbering:** continues technical brief §13, which ends at I-14.
 
 Technical brief §13 lists fourteen problems found by *reading* the specs. These
@@ -40,7 +40,7 @@ be granted, which makes RL.13 Opening Gambit and RL.19 The Moth's refund clause
 dead. Full argument and the implemented fix (carry the shortfall within the
 word) in ADR-0005.
 
-→ **Needs a ruling.** Implemented provisionally so both relics function.
+→ **Ruled: R-018.** Rule A binds the word's total, as §2.4 already said.
 
 ---
 
@@ -87,9 +87,9 @@ legal guess at all.
 `deriveProvenGrey` requires an honest, untainted GREY observation, and reads the
 undecayed projection. `projection.test.ts` asserts all three.
 
-→ **Still needs a ruling**, because the general principle — "no mechanic may
-render a solution untypable" — belongs in MECHANICS.md §11 alongside R-003
-rather than living in one function's comment.
+→ **Ruled: R-014**, generalised from R-003. No mechanic may remove a letter the
+current solution needs, by any route; a lock derived from feedback must rest on
+an honest, uncorrupted, unsuppressed observation.
 
 ---
 

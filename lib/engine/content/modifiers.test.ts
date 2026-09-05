@@ -8,18 +8,22 @@ describe('act gating', () => {
     expect(availableModifiers(0).map((m) => m.id).sort()).toEqual(['LOCKED_KEY', 'SILENT_START']);
   });
 
-  it('Act II adds the long/decay/fog/mirror set but not the Act III ones', () => {
+  it('Act II adds the long/decay/fog set but not the Act III ones', () => {
     const ids = availableModifiers(1).map((m) => m.id);
     expect(ids).toContain('DECAY');
-    expect(ids).toContain('MIRROR');
+    expect(ids).toContain('FOG');
+    expect(ids).toContain('LONG_WORD');
     expect(ids).not.toContain('LIAR_LETTER');
     expect(ids).not.toContain('LONGER_WORD');
+    // R-019 moved Mirror out of Act II along with the Twins.
+    expect(ids).not.toContain('MIRROR');
   });
 
-  it('Act III adds Liar Letter and the 7-letter words', () => {
+  it('Act III adds Liar Letter, Mirror and the 7-letter words', () => {
     const ids = availableModifiers(2).map((m) => m.id);
     expect(ids).toContain('LIAR_LETTER');
     expect(ids).toContain('LONGER_WORD');
+    expect(ids).toContain('MIRROR');
   });
 });
 

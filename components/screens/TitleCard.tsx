@@ -16,7 +16,7 @@ export function TitleCard() {
   const [seed, setSeed] = useState(() => formatSeed(hash32(String(Date.now()))));
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-6 border-x border-line-soft p-4">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
       <div>
         <p className="text-[10px] tracking-[0.2em] text-fg3">CHOOSE A CHARACTER</p>
         <h1 className="mt-2 font-display text-3xl font-bold text-fg0">ROUGLE</h1>
@@ -68,6 +68,6 @@ export function TitleCard() {
           );
         })}
       </ul>
-    </main>
+    </div>
   );
 }
