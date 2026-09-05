@@ -1,3 +1,4 @@
+import { isBlindfolded } from '../core/activation';
 import { DOMAIN, draw } from '../core/rng';
 import type { GameState, WordState } from '../core/state';
 import { hasModifier, hasRelic } from '../core/state';
@@ -37,8 +38,26 @@ export interface TransformStep {
 
 const VISIBLE_STATES: TileState[] = ['GREEN', 'YELLOW', 'GREY'];
 
-/** Step 0 — Silent Start. Yellows are withheld on the first guess only. */
-function silentStart(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
+/**
+ * Step 0 — suppression. Two sources withhold information before anything
+ * interprets it:
+ *
+ * - Silent Start reports GREY in place of YELLOW, on the first guess only.
+ * - RL.20 Blindfold withholds a row the player chose to fly blind on.
+ *
+ * Both run first because everything downstream reads the reported state.
+ */
+function suppression(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
+  if (isBlindfolded(ctx.state, ctx.word.nodeId, ctx.turn)) {
+    const blind = cloneFeedback(fb);
+    for (const tile of blind.tiles) {
+      tile.state = 'HIDDEN';
+      tile.letter = null;
+      tile.distance = null;
+    }
+    blind.meta = { ...blind.meta, deferred: true, revealedLetters: [] };
+    return blind;
+  }
   if (!hasModifier(ctx.word, 'SILENT_START') || ctx.turn !== 0) return fb;
   const out = cloneFeedback(fb);
   for (const tile of out.tiles) if (tile.state === 'YELLOW') tile.state = 'GREY';
@@ -148,7 +167,7 @@ function injection(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
  * derivation produces the keyboard rather than the row.
  */
 export const CHAIN: readonly TransformStep[] = Object.freeze([
-  { order: 0, id: 'suppression', source: 'MOD:SILENT_START', apply: silentStart },
+  { order: 0, id: 'suppression', source: 'MOD:SILENT_START | RL.20', apply: suppression },
   { order: 1, id: 'truth-roll', source: 'RL.28', apply: truthRoll },
   { order: 2, id: 'corruption', source: 'MOD:LIAR_LETTER | RL.29', apply: corruption },
   { order: 3, id: 'distance', source: 'RL.04', apply: distance },

@@ -2,10 +2,12 @@ import { BOSSES } from '../content/bosses';
 import { lengthFor } from '../content/modifiers';
 import {
   CHARACTER_BY_CODE,
-  OFFERABLE_RELICS,
+  offerableRelics,
   REGISTRY,
+  activationFor,
   impl as implFor,
   isImplemented,
+  offerableInAct,
 } from '../content/registry';
 import { annotateDistances } from '../feedback/chain';
 import { activeReveals } from '../feedback/infoCap';
@@ -15,9 +17,10 @@ import { generateLinearAct } from '../map/generate';
 import { drawSolution, hasWordList, isValidGuess, type WordLength } from '../words';
 import type { Action, EngineError, GameEvent, ReduceResult } from './actions';
 import { CONFIG, type GameConfig } from './config';
+import { checkActivation } from './activation';
 import type { Effect } from './effects';
 import { EffectDepthError } from './effects';
-import { resolveHook, resolveUse } from './hooks';
+import { holdersInOrder, resolveHook, resolveUse } from './hooks';
 import { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './letters';
 import { addPool, addPoolMax, currentPool, offerRefund, refillPool, spendGuess } from './pool';
 import { DOMAIN, draw, drawInt, drawWeighted } from './rng';
@@ -147,9 +150,13 @@ export function canDispatch(
       if (!s.pendingOffer) return { code: 'NO_OFFER', message: 'Nothing to skip.' };
       return null;
     case 'USE_ITEM': {
-      const held = [...s.relics, ...s.consumables].some((i) => i.instanceId === action.instanceId);
-      if (!held) return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
-      return null;
+      // holdersInOrder normalises consumables into the relic shape, so the
+      // activation check does not have to know which list a code came from.
+      const holder = holdersInOrder(s).find((i) => i.instanceId === action.instanceId);
+      if (!holder) return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
+      // Consumables have no activation block and are usable wherever input is
+      // accepted (MECHANICS.md §6.5). Relics that declare one are gated by it.
+      return checkActivation(s, holder)?.error ?? null;
     }
     case 'BUY_EMERGENCY': {
       if (s.phase !== 'EMERGENCY') return wrongPhase('EMERGENCY');
@@ -602,8 +609,11 @@ function grantNodeReward(
  */
 export function rollOffer(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): string[] {
   const held = s.relics.filter((r) => REGISTRY[r.code]).map((r) => REGISTRY[r.code]!);
-  const available = OFFERABLE_RELICS.filter(
-    (d) => !d.isConsumable && !s.relics.some((r) => r.code === d.code),
+  const available = offerableRelics().filter(
+    (d) =>
+      !d.isConsumable &&
+      !s.relics.some((r) => r.code === d.code) &&
+      offerableInAct(d, s.actIndex),
   );
   if (available.length === 0) return [];
 
@@ -766,12 +776,42 @@ function applyItemUse(
       error: { code: 'NO_SUCH_ITEM', message: `${instanceId} has no onUse handler.` },
     };
   }
-  const code = [...s.relics, ...s.consumables].find((i) => i.instanceId === instanceId)!.code;
-  const applied = applyEffects(s, effects, cfg);
-  return {
-    state: applied.state,
-    events: [{ type: 'CONSUMABLE_USED', code }, ...applied.events],
-  };
+  const holder = [...s.relics, ...s.consumables].find((i) => i.instanceId === instanceId)!;
+  const events: GameEvent[] = [{ type: 'CONSUMABLE_USED', code: holder.code }];
+
+  // The cost is charged by the engine from the declared block, not by the
+  // relic, so every activation pays the same way and a relic cannot forget to.
+  let next = s;
+  const activation = activationFor(holder.code);
+  if (activation?.cost.gold) {
+    const paid = applyEffects(
+      next,
+      [{ kind: 'GOLD', delta: -activation.cost.gold, reason: holder.code }],
+      cfg,
+    );
+    next = paid.state;
+    events.push(...paid.events);
+  }
+  if (activation?.cost.guesses) {
+    const paid = applyEffects(
+      next,
+      [{ kind: 'POOL', delta: -activation.cost.guesses, reason: holder.code }],
+      cfg,
+    );
+    next = paid.state;
+    events.push(...paid.events);
+  }
+
+  const applied = applyEffects(next, effects, cfg);
+  next = applied.state;
+  events.push(...applied.events);
+
+  // Spending a guess can empty the pool. The offer is mandatory even when the
+  // player emptied it themselves (MECHANICS.md §2.3).
+  if (next.word && !next.word.solved.every(Boolean) && currentPool(next) <= 0) {
+    return offerEmergency(next, events, cfg);
+  }
+  return { state: next, events };
 }
 
 // ----------------------------------------------------------------- effects

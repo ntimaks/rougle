@@ -91,6 +91,30 @@ export interface RelicImpl {
   initialState?: Record<string, unknown>;
 }
 
+/**
+ * When a player may fire an activation. MECHANICS.md §6.6 (R-014's companion),
+ * added because five relics are things the player *does* rather than reactions
+ * to an event — see §13 I-04.
+ */
+export type ActivationTiming =
+  /** Any point in a word where input is accepted. RL.07, RL.28, CH.03. */
+  | 'ANY_TIME_IN_WORD'
+  /** Only before the first guess of a word. RL.21's wager. */
+  | 'BEFORE_FIRST_GUESS'
+  /** Arms the next guess. RL.20 Blindfold. */
+  | 'BEFORE_SUBMIT';
+
+/** What the player must supply, if anything. */
+export type ActivationInput = 'UNTRIED_LETTER' | 'WAGER' | null;
+
+export interface ActivationDef {
+  timing: ActivationTiming;
+  /** null = uncapped; the cost is the cap. */
+  usesPerWord: number | null;
+  cost: { gold?: number; guesses?: number };
+  input: ActivationInput;
+}
+
 export type Rarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'BOSS' | 'CONSUMABLE';
 export type Archetype = 'INFO' | 'TEMPO' | 'RISK' | 'GREED' | 'ROUTE';
 
@@ -112,6 +136,17 @@ export interface RelicDef {
   ruling?: string;
   engine_note?: string;
   balance_flag?: string;
+  /**
+   * Present on relics the player fires rather than ones that react to an event.
+   * Its presence is what makes `hook: "onUse"` legal on a non-consumable.
+   */
+  activation?: ActivationDef;
+  /**
+   * 1-indexed act from which this may be OFFERED. Not a rule about what the
+   * relic does — a filter that stops the game offering something provably inert
+   * (RL.28 Shaved Coin before Liar Letter exists). See R-015.
+   */
+  offer_from_act?: number;
   /** Set by the loader: consumables live in their own array in the JSON. */
   isConsumable: boolean;
 }
@@ -125,4 +160,6 @@ export interface CharacterDef {
   pre_guess_reveal: boolean;
   refund?: { amount: number; trigger: string };
   engine_note?: string;
+  hook?: HookName;
+  activation?: ActivationDef;
 }

@@ -36,3 +36,23 @@ export function isLetterAvailable(
   if (hasRelic(s, 'RL.02') && provenGrey.has(letter)) return false;
   return true;
 }
+
+/**
+ * How many positions differ between a guess and the nearest solution.
+ *
+ * R-016 fixes "within one letter" (RL.20 Blindfold) as Hamming distance <= 1:
+ * the guess and the solution are always the same length, so at most one
+ * position may differ. Transpositions do not count — "within one letter" reads
+ * as one letter wrong, and a Damerau-style reading would make the relic
+ * materially stronger for a phrase that does not say so.
+ */
+export function hammingDistance(guess: string, solutions: readonly string[]): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (const solution of solutions) {
+    if (solution.length !== guess.length) continue;
+    let differing = 0;
+    for (let i = 0; i < guess.length; i++) if (guess[i] !== solution[i]) differing++;
+    if (differing < best) best = differing;
+  }
+  return best;
+}

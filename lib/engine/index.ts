@@ -64,17 +64,27 @@ export {
   RELIC_DEFS,
   CHARACTERS,
   CHARACTER_BY_CODE,
-  OFFERABLE_RELICS,
-  OFFERABLE_CONSUMABLES,
+  offerableRelics,
+  offerableConsumables,
   PRE_GUESS_REVEAL_CODES,
   PENDING_IMPLEMENTATION,
   isImplemented,
   isHookName,
   isPreGuessReveal,
+  isActivated,
+  activationFor,
+  offerableInAct,
   def,
   impl,
 } from './content/registry';
-export { HOOK_NAMES, type HookName, type RelicDef, type RelicImpl } from './content/types';
+export {
+  HOOK_NAMES,
+  type ActivationDef,
+  type ActivationTiming,
+  type HookName,
+  type RelicDef,
+  type RelicImpl,
+} from './content/types';
 export { MODIFIERS, availableModifiers, canStack, lengthFor, rollModifiers } from './content/modifiers';
 export { BOSSES, type BossDef } from './content/bosses';
 
