@@ -1,6 +1,6 @@
 # ADR-0005 · Refunds the floor cannot grant yet are carried within the word
 
-**Status:** Provisional. Needs a ruling on technical brief §13 I-16.
+**Status:** Accepted. Ruled as MECHANICS.md R-018.
 **Ticket:** E-06.
 
 ## Context
@@ -58,6 +58,7 @@ ticks down and stays down. The decrement is still unconditional (Rule C).
 
 ## Consequences
 
-`WordState` gains `pendingRefunds`. If the ruling goes the other way — greedy
-truncation is intended and both relics are meant to be dead — deleting
-`offerRefund`'s queue and `drainPendingRefunds` restores it exactly.
+`WordState` gains `pendingRefunds`.
+
+**Outcome:** ruled in favour, as R-018. §2.4 already said "applies per word, not
+per guess"; the sketch enforced something stricter than the rule it implemented.
