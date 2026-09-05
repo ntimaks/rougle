@@ -132,6 +132,18 @@ describe('registry validation', () => {
     }
   });
 
+  it('8b. `rule` is player-facing copy, not engine instructions', () => {
+    // relics.json's own note: `rule` is normative AND it is what the relic card
+    // prints. A dotted identifier in it means implementation detail has leaked
+    // into the thing a player reads mid-run; `engine_note` is where that goes.
+    for (const d of RELIC_DEFS) {
+      expect(d.rule, `${d.code} rule reads like code`).not.toMatch(/\b[A-Z][a-zA-Z]*\.[a-z]/);
+      expect(d.rule, `${d.code} rule addresses the implementer`).not.toMatch(
+        /\bmust be\b|===|\bnull\b/,
+      );
+    }
+  });
+
   it('9. a non-consumable on hook onUse declares an activation, and vice versa', () => {
     // R-015 opened onUse to relics. The block is what makes that legal, so the
     // two must never drift apart: an onUse relic without one would be a relic

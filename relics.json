@@ -33,7 +33,8 @@
       "archetype": "INFO",
       "rarity": "COMMON",
       "hook": "onFeedbackTransform",
-      "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word. Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
+      "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word.",
+      "engine_note": "Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.04"],
       "anti_synergy_reason": "Rangefinder withholds letter identity, so there is nothing for the Sieve to eliminate."
@@ -53,12 +54,12 @@
       "archetype": "INFO",
       "rarity": "RARE",
       "hook": "onFeedbackTransform",
-      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is. Sets Tile.letter to null and Tile.distance to an integer.",
+      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is.",
       "flavor": "Distance, not identity.",
       "pre_guess_reveal": false,
       "transform_order": 3,
       "anti_synergy": ["RL.02"],
-      "engine_note": "For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
+      "engine_note": "Sets Tile.letter to null and Tile.distance to an integer. For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
     },
     {
       "code": "RL.05",
