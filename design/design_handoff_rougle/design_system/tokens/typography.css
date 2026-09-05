@@ -1,0 +1,40 @@
+/* NIKOLASS — TYPE
+   Three families + one serif accent. Mono is the default body face;
+   that alone defines half the system. The 16–22px midrange is
+   intentionally underused — it reads like a printed manual. */
+:root {
+  --ff-mono:     'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'Courier New', monospace; /* @kind font */
+  --ff-mono-alt: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace; /* @kind font */
+  --ff-display:  'Space Grotesk', 'Helvetica Neue Condensed', 'Arial Narrow', sans-serif; /* @kind font */
+  --ff-pixel:    'VT323', 'JetBrains Mono', monospace; /* @kind font */
+  --ff-serif:    'DM Serif Display', 'Times New Roman', serif; /* @kind font */
+
+  /* SIZE — weighted to the small end (data UI) and the huge end (posters) */
+  --fs-3xs: 9px;    /* metadata stamps */
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  13px;
+  --fs-md:  15px;   /* body */
+  --fs-lg:  18px;
+  --fs-xl:  22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 40px;
+  --fs-4xl: 64px;
+  --fs-5xl: 96px;
+  --fs-display: 144px;
+
+  --fw-regular: 400; /* @kind font */
+  --fw-medium:  500; /* @kind font */
+  --fw-bold:    700; /* @kind font */
+
+  --lh-tight: 1.05; /* @kind font */
+  --lh-snug:  1.2;  /* @kind font */
+  --lh-base:  1.45; /* @kind font */
+  --lh-loose: 1.7;  /* @kind font */
+
+  --tr-tight:  -0.02em; /* @kind font */
+  --tr-normal: 0;       /* @kind font */
+  --tr-wide:   0.05em;  /* @kind font */
+  --tr-wider:  0.12em;  /* @kind font */
+  --tr-widest: 0.2em;   /* @kind font */
+}

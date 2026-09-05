@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="design_system/tokens/fonts.css">
+<link rel="stylesheet" href="design_system/tokens/colors.css">
+<link rel="stylesheet" href="design_system/tokens/typography.css">
+<link rel="stylesheet" href="design_system/tokens/spacing.css">
+<link rel="stylesheet" href="design_system/tokens/motion.css">
+<link rel="stylesheet" href="design_system/tokens/base.css">
+<script src="design_system/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=VT323&family=Space+Grotesk:wght@400;500;700&display=swap">
+<style>
+:root{
+  --g-chrome:#0F0F0F;      /* top chrome strip */
+  --g-panel:#161616;       /* panel above ground */
+  --g-strip:#1F1F1F;       /* card header strip, selected row */
+  --g-sunken:#141414;      /* dead key, sold row */
+  --g-absent:#1C1C1B;      /* absent tile fill */
+  --g-absent-fg:#4A4A48;   /* absent tile / dead key glyph */
+  --g-line-soft:#262626;   /* dotted hairline */
+  --g-line:#2A2A2A;        /* card border, common rarity */
+  --g-line-strong:#3A3A38; /* key border, unselected control */
+  --g-ink:#0C0C0C;         /* TRUE ink — accent-fill borders. never var(--ink-0) */
+  --g-scrim:rgba(10,10,10,.7);
+}
+html,body{margin:0;padding:0;background:var(--term-bg);color:var(--dark-fg-0);font-family:'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button{font-family:inherit;cursor:pointer;border-radius:0}
+::selection{background:var(--term-fg);color:var(--g-ink)}
+a{color:var(--term-blue);text-decoration:underline;text-underline-offset:3px}
+a:hover{background:var(--term-fg);color:var(--g-ink);text-decoration:none}
+@keyframes rg-flip{0%{transform:scaleY(1)}34%{transform:scaleY(.04)}35%{transform:scaleY(.04)}100%{transform:scaleY(1)}}
+@keyframes rg-flicker{0%,92%,100%{opacity:1}93%,95%{opacity:.45}94%{opacity:1}}
+@keyframes rg-scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+@keyframes rg-pulse{0%,55%{opacity:1}56%,100%{opacity:.2}}
+@keyframes rg-caret{50%{opacity:0}}
+</style>
+</helmet>
+<div data-theme="dark" style="--acc:{{ accent }};min-height:100vh;background:var(--term-bg);padding:0 0 80px">
+
+<div style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;height:32px;padding:0 20px;border-bottom:1px solid var(--dark-fg-0);background:var(--g-chrome)">
+<span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.2em">ROUGLE</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.18em;color:var(--dark-fg-2)">COMPONENT &amp; INTERACTION SHEET</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">[REV.01] // 2026.09.04</span>
+</div>
+
+<div style="max-width:1180px;margin:0 auto;padding:0 20px">
+
+<div style="padding:40px 0 30px;border-bottom:1px solid var(--dark-3)">
+<h1 style="margin:0;font:700 56px/0.9 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase">COMPONENT<br>SHEET</h1>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;margin-top:26px">
+<p style="margin:0;font:400 12px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">Thirteen components, every state, and the engine hook that drives each one. Values are literal — copy them.</p>
+<p style="margin:0;font:400 12px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-2);text-wrap:pretty">The system is the NIKOLASS paper-and-ink language inverted onto a charcoal ground. Square corners, hard 1px rules, stamp offsets, no blur, no gradient, one accent.</p>
+<p style="margin:0;font:400 12px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-2);text-wrap:pretty">Screens live in <a href="Rougle.dc.html">Rougle.dc.html</a> — every state below is reachable there via <span style="color:var(--dark-fg-1)">[IDX]</span>, bottom right.</p>
+</div>
+</div>
+
+<div style="padding:34px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§01</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">FOUNDATIONS</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">DEVIATIONS FROM THE SYSTEM ARE FLAGGED</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:14px">
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">COLOR ROLES</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">FND.01</span></div>
+<div style="padding:6px 11px 11px">
+<sc-for list="{{ palette }}" as="c" hint-placeholder-count="15">
+<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;width:22px;height:22px;border:1px solid {{ c.bd }};background:{{ c.swatch }}"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<span style="font:500 10px/1.2 'JetBrains Mono',monospace;letter-spacing:0.08em">{{ c.role }}</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;color:var(--term-blue)">{{ c.token }}</span>
+</span>
+<span style="flex:none;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ c.hex }}</span>
+</div>
+</sc-for>
+<p style="margin:10px 0 0;font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);text-wrap:pretty">Every value is a NIKOLASS token — the game is the system's <span style="color:var(--dark-fg-1)">dark paper</span> ramp with the <span style="color:var(--dark-fg-1)">terminal</span> palette promoted from strips to the whole surface. <span style="color:var(--dark-fg-1)">data-theme="dark"</span> is pinned on the root, not toggleable.</p>
+<p style="margin:8px 0 0;font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);text-wrap:pretty">⚠ Accent fills always take a literal <span style="color:var(--dark-fg-1)">var(--g-ink)</span> border — never white, and never <span style="color:var(--dark-fg-1)">var(--ink-0)</span>, which inverts to near-white under the dark theme. Lime on paper is illegal contrast.</p>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">TYPE</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">FND.02</span></div>
+<div style="padding:11px 11px 13px;display:flex;flex-direction:column;gap:11px">
+<div>
+<div style="font:700 30px/0.95 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase">DISPLAY 68/42/30</div>
+<div style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3);margin-top:3px">SPACE GROTESK 700 · SCREEN TITLES, BOSS NAMES ONLY</div>
+</div>
+<div style="border-top:1px dotted var(--g-line-soft);padding-top:10px">
+<div style="font:400 40px/0.8 'VT323',monospace;color:var(--acc,var(--term-fg))">24 · 145g</div>
+<div style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3);margin-top:5px">VT323 · ALL LIVE COUNTERS. NEVER FOR PROSE</div>
+</div>
+<div style="border-top:1px dotted var(--g-line-soft);padding-top:10px">
+<div style="font:400 12px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-1)">Body 12–13px. Relic and event prose only.</div>
+<div style="font:500 10px/1.2 'JetBrains Mono',monospace;letter-spacing:0.14em;margin-top:6px">LABEL 10PX · TRACKING 0.14EM</div>
+<div style="font:400 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-top:5px">META 9PX · TRACKING 0.2EM</div>
+<div style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3);margin-top:7px">JETBRAINS MONO · THE 16–22PX MIDRANGE STAYS EMPTY</div>
+</div>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">GEOMETRY &amp; PRESS</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">FND.03</span></div>
+<div style="padding:6px 11px 12px">
+<sc-for list="{{ geometry }}" as="g" hint-placeholder-count="7">
+<div style="display:flex;align-items:baseline;gap:9px;padding:6px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;font:400 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ g.k }}</span>
+<span style="margin-left:auto;text-align:right;font:500 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-0)">{{ g.v }}</span>
+</div>
+</sc-for>
+<div style="display:flex;gap:9px;margin-top:13px;align-items:center">
+<button style="flex:none;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;padding:0 12px;min-height:40px;box-shadow:3px 3px 0 0 var(--dark-fg-0);transition:transform 120ms linear,box-shadow 120ms linear" style-hover="transform:translate(1px,1px);box-shadow:2px 2px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)">PRESS ME</button>
+<span style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3)">hover 1px<br>press 3px, stamp gone</span>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§02</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">COMPONENTS</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">13 PARTS · CMP.01 → CMP.13</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.01</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">POOL METER</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--acc,var(--term-fg))">THE HEALTH BAR · PERSISTENT</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+<div style="padding:15px 14px;background:var(--g-chrome);border-right:1px solid var(--g-line-soft);display:flex;flex-direction:column;gap:16px">
+<sc-for list="{{ poolSpecimens }}" as="p" hint-placeholder-count="3">
+<div>
+<div style="display:flex;align-items:flex-end;gap:9px;margin-bottom:6px">
+<div style="display:flex;flex-direction:column;gap:2px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">GUESS POOL</span>
+<div style="display:flex;align-items:baseline;gap:5px"><span style="font:400 34px/0.8 'VT323',monospace;color:{{ p.hue }};animation:{{ p.anim }}">{{ p.n }}</span><span style="font:400 10px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">/24</span></div>
+</div>
+<span style="margin-left:auto;font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ p.hue }};border:1px solid {{ p.hue }};padding:3px 5px">{{ p.state }}</span>
+</div>
+<div style="display:flex;gap:2px;height:11px">
+<sc-for list="{{ p.pips }}" as="pp">
+<div style="flex:1;border:1px solid {{ pp.bd }};background:{{ pp.bg }}"></div>
+</sc-for>
+</div>
+<div style="font:400 9px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:6px">{{ p.note }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:13px 14px">
+<sc-for list="{{ specPool }}" as="r" hint-placeholder-count="6">
+<div style="display:flex;gap:11px;padding:7px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;width:72px;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ r.k }}</span>
+<span style="flex:1;min-width:0;font:400 10px/1.5 'JetBrains Mono',monospace;color:{{ r.hue }};text-wrap:pretty">{{ r.v }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.02</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">TILE</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--acc,var(--term-fg))">8 STATES · THE CORRUPTION LANGUAGE</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+<div style="padding:16px 14px;background:var(--g-chrome);border-right:1px solid var(--g-line-soft)">
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<sc-for list="{{ tiles }}" as="t" hint-placeholder-count="8">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:58px">
+<div style="width:52px;height:52px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font:700 22px/1 'JetBrains Mono',monospace">{{ t.ch }}
+<sc-if value="{{ t.lie }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(238,238,238,.55) 0 1px,transparent 1px 3px)"></div>
+<div style="position:absolute;left:0;right:0;height:6px;background:rgba(238,238,238,.22);animation:rg-scan 1.9s linear infinite"></div>
+</sc-if>
+<sc-if value="{{ t.dist }}" hint-placeholder-val="{{ false }}">
+<span style="position:absolute;top:1px;right:2px;font:400 9px/1 'JetBrains Mono',monospace;color:var(--g-ink);opacity:.7">{{ t.dist }}</span>
+</sc-if>
+</div>
+<span style="font:400 8px/1.25 'JetBrains Mono',monospace;letter-spacing:0.08em;color:var(--dark-fg-2);text-align:center">{{ t.label }}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin:16px 0 0;font:400 10px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-3);text-wrap:pretty">Scanline fill = <span style="color:var(--dark-fg-0)">this tile's report is not trustworthy</span>. It is the one texture in the system that moves on its own, so adversarial information never reads as a rendering bug (§14).</p>
+</div>
+<div style="padding:13px 14px">
+<sc-for list="{{ specTile }}" as="r" hint-placeholder-count="7">
+<div style="display:flex;gap:11px;padding:7px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;width:72px;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ r.k }}</span>
+<span style="flex:1;min-width:0;font:400 10px/1.5 'JetBrains Mono',monospace;color:{{ r.hue }};text-wrap:pretty">{{ r.v }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.03</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">KEY / KEYBOARD</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--acc,var(--term-fg))">44PX FLOOR · 5 STATES</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+<div style="padding:16px 14px;background:var(--g-chrome);border-right:1px solid var(--g-line-soft)">
+<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+<sc-for list="{{ keys }}" as="k" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:62px">
+<div style="width:34px;height:46px;position:relative;display:flex;align-items:center;justify-content:center;background:{{ k.bg }};border:1px solid {{ k.bd }};color:{{ k.fg }};font:700 14px/1 'JetBrains Mono',monospace">{{ k.ch }}
+<sc-if value="{{ k.dead }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:2px;right:2px;height:1px;background:var(--dark-fg-3)"></span></sc-if>
+</div>
+<span style="font:400 8px/1.25 'JetBrains Mono',monospace;letter-spacing:0.08em;color:var(--dark-fg-2);text-align:center">{{ k.label }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:4px">
+<div style="flex:1.9;min-height:46px;display:flex;align-items:center;justify-content:center;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em">ENTER</div>
+<div style="flex:1.9;min-height:46px;display:flex;align-items:center;justify-content:center;background:var(--dark-1);border:1px solid var(--dark-3);color:var(--dark-fg-3);font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em">ENTER</div>
+<div style="flex:1.6;min-height:46px;display:flex;align-items:center;justify-content:center;background:var(--dark-1);border:1px solid var(--g-line-strong);color:var(--dark-fg-1);font:400 15px/1 'JetBrains Mono',monospace">⌫</div>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:8px">ENTER is accent only when the row is full — the affordance is the state, not a label change.</div>
+</div>
+<div style="padding:13px 14px">
+<sc-for list="{{ specKey }}" as="r" hint-placeholder-count="6">
+<div style="display:flex;gap:11px;padding:7px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;width:72px;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ r.k }}</span>
+<span style="flex:1;min-width:0;font:400 10px/1.5 'JetBrains Mono',monospace;color:{{ r.hue }};text-wrap:pretty">{{ r.v }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.04</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">RELIC CARD · CHIP · ROW</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--acc,var(--term-fg))">RARITY IS A HUE + A 5PX SPINE</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+<div style="padding:16px 14px;background:var(--g-chrome);border-right:1px solid var(--g-line-soft);display:flex;flex-direction:column;gap:13px">
+<sc-for list="{{ relicCards }}" as="o" hint-placeholder-count="2">
+<div style="background:{{ o.bg }};border:1px solid {{ o.bd }};box-shadow:{{ o.sh }}">
+<div style="display:flex;align-items:stretch;border-bottom:1px solid {{ o.bd }}">
+<div style="flex:none;width:5px;background:{{ o.hue }}"></div>
+<div style="flex:1;display:flex;align-items:center;gap:8px;padding:8px 10px;background:{{ o.stripBg }};min-width:0">
+<span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:{{ o.stripFg }}">{{ o.name }}</span>
+<span style="margin-left:auto;flex:none;font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ o.hue }};border:1px solid {{ o.hue }};padding:2px 4px">{{ o.rarity }}</span>
+</div>
+</div>
+<div style="display:flex;gap:9px;padding:10px">
+<span style="flex:none;width:34px;height:34px;border:1px solid var(--dark-3);display:flex;align-items:center;justify-content:center;font:400 20px/1 'VT323',monospace;color:{{ o.hue }}">{{ o.glyph }}</span>
+<div style="flex:1;min-width:0">
+<p style="margin:0;font:400 11px/1.45 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ o.desc }}</p>
+<div style="margin-top:6px;display:flex;gap:8px;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)"><span>{{ o.arch }}</span><span>{{ o.code }}</span></div>
+</div>
+</div>
+<div style="font:400 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3);padding:0 10px 8px">{{ o.stateLabel }}</div>
+</div>
+</sc-for>
+<div>
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:8px">CHIP · HUD, ALWAYS VISIBLE</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+<span style="display:flex;align-items:center;gap:4px;background:var(--g-strip);border:1px solid {{ c.bd }};color:{{ c.fg }};font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;padding:7px"><span style="font-size:11px">{{ c.glyph }}</span>{{ c.name }}</span>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="padding:13px 14px">
+<sc-for list="{{ specRelic }}" as="r" hint-placeholder-count="7">
+<div style="display:flex;gap:11px;padding:7px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="flex:none;width:72px;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ r.k }}</span>
+<span style="flex:1;min-width:0;font:400 10px/1.5 'JetBrains Mono',monospace;color:{{ r.hue }};text-wrap:pretty">{{ r.v }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.05—08</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">MAP NODE · BUTTON · STAMP · MODIFIER BANNER</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:var(--g-line-soft)">
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:12px">CMP.05 MAP NODE</div>
+<div style="display:flex;flex-wrap:wrap;gap:14px">
+<sc-for list="{{ nodes }}" as="n" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;align-items:center;gap:7px;width:62px">
+<div style="width:52px;height:52px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ n.bg }};border:1px solid {{ n.bd }};color:{{ n.fg }};box-shadow:{{ n.sh }}">
+<span style="font:400 22px/1 'VT323',monospace">{{ n.glyph }}</span>
+<span style="font:500 7px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">{{ n.type }}</span>
+<sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:-4px;border:1px solid var(--acc,var(--term-fg));animation:rg-pulse 1.1s steps(1,end) infinite"></span></sc-if>
+</div>
+<span style="font:400 8px/1.25 'JetBrains Mono',monospace;color:var(--dark-fg-2);text-align:center">{{ n.label }}</span>
+</div>
+</sc-for>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:13px">Glyph carries type, fill carries progress, pulsing outline carries availability. Three channels, no legend needed twice.</div>
+</div>
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:12px">CMP.06 BUTTON</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<button style="display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 12px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 12px;min-height:46px;box-shadow:3px 3px 0 0 var(--dark-fg-0);transition:transform 120ms linear,box-shadow 120ms linear" style-hover="transform:translate(1px,1px);box-shadow:2px 2px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>PRIMARY</span><span>→</span></button>
+<button style="background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;min-height:44px;transition:background 120ms linear,color 120ms linear" style-hover="background:var(--dark-fg-0);color:var(--dark-0)" style-active="transform:translate(1px,1px)">SECONDARY</button>
+<button style="display:flex;align-items:center;justify-content:space-between;background:var(--term-red);border:1px solid var(--g-ink);color:var(--g-ink);font:700 12px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 12px;min-height:46px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>DANGER</span><span>→</span></button>
+<button style="background:transparent;border:1px solid var(--g-line-strong);color:var(--dark-fg-3);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;min-height:44px;cursor:not-allowed">DISABLED · NO SELECTION</button>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:11px">Primary is the only accent fill on a screen. Disabled loses its stamp and its border weight, never its label.</div>
+</div>
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:12px">CMP.07 STAMP</div>
+<div style="display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+<div style="border:1px solid var(--g-ink);background:var(--acc,var(--term-fg));color:var(--g-ink);padding:11px 14px;box-shadow:6px 6px 0 0 var(--dark-fg-0);text-align:center">
+<div style="font:700 20px/1 'Space Grotesk',sans-serif;letter-spacing:0.04em;text-transform:uppercase">SOLVED</div>
+<div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em;margin-top:5px">GRAVE // 3 GUESSES // +22g</div>
+</div>
+<div style="border:1px solid var(--g-ink);background:var(--term-red);color:var(--g-ink);padding:11px 14px;box-shadow:6px 6px 0 0 var(--dark-fg-0);text-align:center">
+<div style="font:700 20px/1 'Space Grotesk',sans-serif;letter-spacing:0.04em;text-transform:uppercase">TERMINATED</div>
+<div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em;margin-top:5px">POOL 0 // WORD UNSOLVED</div>
+</div>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:12px">Slams in over 200ms, <span style="color:var(--dark-fg-1)">steps(3,end)</span> — arrives like a physical stamp, never a spring. Max one per view.</div>
+</div>
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:12px">CMP.08 MODIFIER BANNER</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<div style="display:flex;align-items:stretch;border:1px solid var(--term-amber);background:#1C1608">
+<div style="flex:none;display:flex;align-items:center;padding:0 8px;background:var(--term-amber);color:var(--g-ink);font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em">ELITE</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:7px 9px;min-width:0;flex-wrap:wrap">
+<span style="font:500 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--term-amber);border:1px solid var(--term-amber);padding:3px 5px">LIAR LETTER</span>
+<span style="font:500 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--term-amber);border:1px solid var(--term-amber);padding:3px 5px">DECAY</span>
+</div>
+</div>
+<div style="display:flex;align-items:stretch;border:1px solid var(--term-red);background:#160A08">
+<div style="flex:none;display:flex;align-items:center;padding:0 8px;background:var(--term-red);color:var(--g-ink);font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em">BOSS</div>
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:7px 9px;min-width:0">
+<span style="font:500 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--term-red);border:1px solid var(--term-red);padding:3px 5px">STACKED ×2</span>
+</div>
+</div>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:12px">Amber = the word is modified. Vermillion = the word can end the run. The banner is the only place amber appears as a fill.</div>
+</div>
+
+</div>
+</div>
+
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">CMP.09—13</span><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">LIST ROW · STAT CELL · TICKER · DRAWER · TOOLTIP</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--g-line-soft)">
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:11px">CMP.09 LIST ROW · SHOP / FORGE</div>
+<sc-for list="{{ rows }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dotted var(--dark-3);opacity:{{ s.op }}">
+<span style="flex:none;width:30px;height:30px;border:1px solid {{ s.hue }};display:flex;align-items:center;justify-content:center;font:400 18px/1 'VT323',monospace;color:{{ s.hue }}">{{ s.glyph }}</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ s.nameFg }}">{{ s.name }}</span>
+<span style="font:400 9px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ s.desc }}</span>
+</span>
+<span style="flex:none;font:400 16px/1 'VT323',monospace;color:{{ s.priceFg }}">{{ s.price }}</span>
+</div>
+</sc-for>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:11px">Price colour is the affordability channel: amber affordable, vermillion short, ink-4 sold. Row hover is a background lift, never an opacity fade.</div>
+</div>
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:11px">CMP.10 STAT CELL</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--dark-3);border:1px solid var(--dark-3)">
+<sc-for list="{{ stats }}" as="w" hint-placeholder-count="4">
+<div style="background:var(--g-panel);padding:10px;display:flex;flex-direction:column;gap:5px">
+<span style="font:400 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ w.k }}</span>
+<span style="font:400 24px/0.9 'VT323',monospace;color:{{ w.hue }}">{{ w.v }}</span>
+</div>
+</sc-for>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:11px">Hairline grid, no card gaps — the run summary should read like a printed receipt.</div>
+</div>
+
+<div style="background:var(--g-chrome);padding:14px">
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2);margin-bottom:11px">CMP.11—13 TICKER · TOOLTIP · DRAWER HEAD</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;overflow:hidden;border:1px solid var(--term-red);background:#160A08"><div style="white-space:nowrap;font:400 15px/1.7 'VT323',monospace;color:var(--term-red);padding:0 6px">TWO MOUTHS · ONE THROAT · TWO MOUTHS ·</div></div>
+<div style="border:1px solid var(--dark-fg-0);background:var(--g-chrome);box-shadow:3px 3px 0 0 var(--dark-fg-0)">
+<div style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--dark-fg-0);color:var(--dark-0)"><span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.14em">ROSETTA</span><span style="margin-left:auto;font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">BOSS</span></div>
+<div style="padding:9px 10px 10px">
+<p style="margin:0;font:400 10px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-0);text-wrap:pretty">Every word starts with one green revealed. Act pool reduced by 3.</p>
+<div style="margin-top:7px;display:flex;gap:9px;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3)"><span>RL.31</span><span>HOOK onWordStart</span></div>
+</div>
+</div>
+<div style="border:1px solid var(--dark-fg-0);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.18em">RELIC INVENTORY</span><span style="font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">4/12</span><span style="margin-left:auto;font:500 9px/1 'JetBrains Mono',monospace;border:1px solid var(--dark-fg-3);color:var(--dark-fg-1);padding:5px 7px">CLOSE ×</span></div>
+</div>
+</div>
+<div style="font:400 9px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);margin-top:11px">Tooltip is the only inverted surface in the game — white paper on charcoal, because a relic rule is a document, not chrome.</div>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§03</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">MOTION LEDGER</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">14 NAMED ANIMATIONS · 60–620MS</span>
+</div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel);overflow-x:auto">
+<div style="min-width:720px">
+<div style="display:grid;grid-template-columns:1.15fr 0.85fr 0.6fr 0.9fr 1.3fr;gap:0;background:var(--g-strip);border-bottom:1px solid var(--dark-3)">
+<sc-for list="{{ motionHead }}" as="h" hint-placeholder-count="5">
+<span style="padding:8px 11px;font:700 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.16em;color:var(--dark-fg-0)">{{ h }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ motion }}" as="m" hint-placeholder-count="14">
+<div style="display:grid;grid-template-columns:1.15fr 0.85fr 0.6fr 0.9fr 1.3fr;gap:0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="padding:9px 11px;font:500 10px/1.4 'JetBrains Mono',monospace;letter-spacing:0.06em;color:var(--dark-fg-0)">{{ m.name }}</span>
+<span style="padding:9px 11px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--term-blue)">{{ m.key }}</span>
+<span style="padding:9px 11px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--acc,var(--term-fg))">{{ m.dur }}</span>
+<span style="padding:9px 11px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-1)">{{ m.ease }}</span>
+<span style="padding:9px 11px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ m.trigger }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<p style="margin:13px 0 0;font:400 10px/1.6 'JetBrains Mono',monospace;color:var(--dark-fg-3);max-width:760px;text-wrap:pretty">No springs, no bounce, no fade-in-on-scroll, no opacity hover. Step easing is reserved for anything that should feel mechanical — reveals, drains, stamps; <span style="color:var(--dark-fg-1)">cubic-bezier(0.2, 0.8, 0.2, 1)</span> for anything that travels. Every duration is ≤620ms so a fast player is never waiting on the interface. <span style="color:var(--dark-fg-1)">prefers-reduced-motion</span> maps to the <span style="color:var(--dark-fg-1)">reducedMotion</span> prop: all durations collapse to 1ms, loops stop, state still changes.</p>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§04</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">ENGINE HOOK → UI</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">§8 EVENT BUS · WHAT EACH HOOK MUST REPAINT</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px">
+<sc-for list="{{ hooks }}" as="h" hint-placeholder-count="10">
+<div style="border:1px solid var(--dark-3);background:var(--g-panel);padding:11px 12px 12px">
+<div style="display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--dark-3);padding-bottom:7px">
+<span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.04em;color:var(--term-blue)">{{ h.hook }}</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">{{ h.cmp }}</span>
+</div>
+<p style="margin:8px 0 0;font:400 10px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ h.paint }}</p>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§05</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">DESKTOP NOTES</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">MOBILE IS THE DESIGN · DESKTOP IS THE ADAPTATION</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+<sc-for list="{{ desktop }}" as="d" hint-placeholder-count="5">
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">{{ d.k }}</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">{{ d.bp }}</span></div>
+<p style="margin:0;padding:11px;font:400 10px/1.6 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ d.v }}</p>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§06</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">OPEN QUESTIONS, ANSWERED IN DESIGN</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">BRIEF §17</span>
+</div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<sc-for list="{{ answers }}" as="a" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:0;border-bottom:1px dotted var(--dark-3)">
+<div style="padding:12px 13px;border-right:1px solid var(--g-line-soft)">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">{{ a.n }}</span>
+<p style="margin:6px 0 0;font:400 11px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-2);text-wrap:pretty">{{ a.q }}</p>
+</div>
+<div style="padding:12px 13px">
+<span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ a.hue }};border:1px solid {{ a.hue }};padding:3px 5px">{{ a.verdict }}</span>
+<p style="margin:7px 0 0;font:400 11px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ a.v }}</p>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="padding:38px 0 0">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">§07</span>
+<h2 style="margin:0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">TOKEN CONTRACT</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">NIKOLASS + THE GAME LAYER</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">INHERITED · NIKOLASS</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">DO NOT REDEFINE</span></div>
+<p style="margin:0;padding:11px 12px;font:400 10px/1.6 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">The game loads <span style="color:var(--dark-fg-0)">tokens/{fonts,colors,typography,spacing,motion,base}.css</span> and pins <span style="color:var(--dark-fg-0)">data-theme="dark"</span> on the root — permanently, not as a toggle. Everything structural comes from the system: the <span style="color:var(--dark-fg-0)">--dark-*</span> paper ramp, the <span style="color:var(--dark-fg-0)">--term-*</span> terminal palette, <span style="color:var(--dark-fg-0)">--magenta</span> and <span style="color:var(--dark-fg-0)">--kelly</span> for rarity, and the motion and spacing scales.</p>
+</div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">WHY A GAME LAYER EXISTS</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--acc,var(--term-fg))">11 TOKENS</span></div>
+<p style="margin:0;padding:11px 12px;font:400 10px/1.6 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">NIKOLASS's dark ramp has four steps — enough for a document, not for a HUD that must stack chrome over panel over strip over sunken and still separate five tile states. The <span style="color:var(--dark-fg-0)">--g-*</span> layer adds the intermediate steps the game needs and nothing else. It is additive: it never overrides a system token, so a change upstream still reaches the game.</p>
+</div>
+</div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel);margin-top:14px;overflow-x:auto">
+<div style="min-width:640px">
+<div style="display:grid;grid-template-columns:44px 1.05fr 0.62fr 2.2fr;background:var(--g-strip);border-bottom:1px solid var(--dark-3)">
+<sc-for list="{{ tokenHead }}" as="h" hint-placeholder-count="4">
+<span style="padding:8px 11px;font:700 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.16em">{{ h }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ gameLayer }}" as="g" hint-placeholder-count="11">
+<div style="display:grid;grid-template-columns:44px 1.05fr 0.62fr 2.2fr;border-bottom:1px dotted var(--g-line-soft);align-items:center">
+<span style="padding:0 0 0 11px"><span style="display:block;width:20px;height:20px;border:1px solid var(--g-line-strong);background:{{ g.hex }}"></span></span>
+<span style="padding:9px 11px;font:500 10px/1.4 'JetBrains Mono',monospace;color:var(--term-blue)">{{ g.token }}</span>
+<span style="padding:9px 11px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ g.hex }}</span>
+<span style="padding:9px 11px;font:400 10px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ g.use }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="padding:34px 0 0;display:flex;align-items:center;gap:10px;border-top:1px solid var(--dark-3);margin-top:38px">
+<span style="font:400 9px/1.5 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">ROUGLE // COMPONENT SHEET // REV.01<span style="animation:rg-caret 1s steps(1,end) infinite">█</span></span>
+<span style="margin-left:auto;font:400 10px/1 'JetBrains Mono',monospace"><a href="Rougle.dc.html">← OPEN THE PROTOTYPE</a></span>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8FF1F&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#C8FF1F&quot;,&quot;#00D5E5&quot;,&quot;#FF2E88&quot;,&quot;#E8B23A&quot;],&quot;section&quot;:&quot;Look&quot;}}">
+class Component extends DCLogic {
+  pips(n, max, hue) {
+    const out = [];
+    for (let i = 0; i < max; i++) {
+      const live = i < n;
+      out.push({ bg: live ? hue : 'transparent', bd: live ? hue : 'var(--dark-3)' });
+    }
+    return out;
+  }
+
+  renderVals() {
+    const acc = this.props.accent ?? 'var(--term-fg)';
+    return {
+      accent: acc,
+
+      palette: [
+        { role: 'GROUND', token: '--dark-0', hex: '#121212', swatch: 'var(--dark-0)', bd: 'var(--dark-3)' },
+        { role: 'PANEL', token: '--g-panel', hex: '#161616', swatch: 'var(--g-panel)', bd: 'var(--dark-3)' },
+        { role: 'RECESSED / KEY', token: '--dark-2', hex: '#232323', swatch: 'var(--dark-2)', bd: 'var(--g-line-strong)' },
+        { role: 'HAIRLINE', token: '--dark-3', hex: '#303030', swatch: 'var(--dark-3)', bd: 'var(--g-line-strong)' },
+        { role: 'INK / TEXT', token: '--dark-fg-0', hex: '#EEEEEE', swatch: 'var(--dark-fg-0)', bd: 'var(--dark-fg-0)' },
+        { role: 'SECONDARY TEXT', token: '--dark-fg-1', hex: '#CACAC8', swatch: 'var(--dark-fg-1)', bd: 'var(--dark-fg-0)' },
+        { role: 'META', token: '--dark-fg-2', hex: '#909090', swatch: 'var(--dark-fg-2)', bd: 'var(--dark-3)' },
+        { role: 'TERTIARY / DISABLED', token: '--dark-fg-3', hex: '#5C5C5A', swatch: 'var(--dark-fg-3)', bd: 'var(--dark-3)' },
+        { role: 'CORRECT · LIVE · ACCENT', token: '--term-fg', hex: '#C8FF1F', swatch: acc, bd: 'var(--g-ink)' },
+        { role: 'PRESENT · GOLD · MODIFIED', token: '--term-amber', hex: '#E8B23A', swatch: 'var(--term-amber)', bd: 'var(--g-ink)' },
+        { role: 'CRITICAL · BOSS · DEATH', token: '--term-red', hex: '#FF5D4A', swatch: 'var(--term-red)', bd: 'var(--g-ink)' },
+        { role: 'RARE · EVENT', token: '--magenta', hex: '#FF2E88', swatch: 'var(--magenta)', bd: 'var(--g-ink)' },
+        { role: 'UNCOMMON · TAGS', token: '--kelly', hex: '#3DB94A', swatch: 'var(--kelly)', bd: 'var(--g-ink)' },
+        { role: 'DATA · HOOK REFS', token: '--term-blue', hex: '#5A8FE8', swatch: 'var(--term-blue)', bd: 'var(--g-ink)' },
+        { role: 'TRUE INK · ACCENT BORDERS', token: '--g-ink', hex: '#0C0C0C', swatch: '#0C0C0C', bd: 'var(--dark-3)' }
+      ],
+
+      gameLayer: [
+        { token: '--g-chrome', hex: '#0F0F0F', use: 'Top chrome strip. The only surface darker than the panel above the ground.' },
+        { token: '--g-panel', hex: '#161616', use: 'HUD, card and footer panels. Sits one step above --dark-0.' },
+        { token: '--g-strip', hex: '#1F1F1F', use: 'Card header strips, selected rows, node fill when current.' },
+        { token: '--g-sunken', hex: '#141414', use: 'Sold shop rows, eliminated keys — anything spent or spent-out.' },
+        { token: '--g-absent', hex: '#1C1C1B', use: 'Absent tile fill. Deliberately near-invisible against the ground.' },
+        { token: '--g-absent-fg', hex: '#4A4A48', use: 'Glyph inside an absent tile or a dead key.' },
+        { token: '--g-line-soft', hex: '#262626', use: '1px dotted list hairlines and the play-column edge.' },
+        { token: '--g-line', hex: '#2A2A2A', use: 'Common-rarity card borders, glyph frames.' },
+        { token: '--g-line-strong', hex: '#3A3A38', use: 'Key borders and unselected control borders.' },
+        { token: '--g-ink', hex: '#0C0C0C', use: 'TRUE ink. Every accent-fill border. Never var(--ink-0) — that inverts to near-white under the dark theme and puts lime on paper.' },
+        { token: '--g-scrim', hex: 'rgba(10,10,10,.7)', use: 'Drawer and solve-overlay scrim.' }
+      ],
+
+      geometry: [
+        { k: 'RADIUS', v: '0 everywhere. 9999px status dots only' },
+        { k: 'BORDER', v: '1px hard. Hairlines 1px dotted var(--g-line-soft)' },
+        { k: 'SHADOW', v: '3px 3px 0 0 var(--dark-fg-0) · 6px for stamps. No blur, ever' },
+        { k: 'GRID', v: '4px baseline. Panel density 4–12px' },
+        { k: 'HIT TARGET', v: '44px floor on touch, 32px on pointer:fine' },
+        { k: 'COLUMN', v: '430px max. The grid is a mobile object' },
+        { k: 'TILE', v: 'flex:1, aspect 1:1, 62px cap, 5px gap' }
+      ],
+
+      poolSpecimens: [
+        { n: '24', hue: acc, state: 'ACT START', anim: 'none', pips: this.pips(24, 24, acc), note: 'Full act budget. Pips read as one solid bar — the shape of an untouched run.' },
+        { n: '18', hue: 'var(--dark-fg-0)', state: 'NOMINAL', anim: 'none', pips: this.pips(18, 24, acc), note: 'Number goes ink-white once spending starts; the accent stays on the pips.' },
+        { n: '3', hue: 'var(--term-red)', state: 'CRITICAL', anim: 'rg-flicker 5s steps(1,end) infinite', pips: this.pips(3, 24, 'var(--term-red)'), note: 'At ≤5 the whole meter turns vermillion and the screen takes a 5s flicker. Nothing else changes — the tension is chromatic, not modal.' }
+      ],
+      specPool: [
+        { k: 'PROPS', v: 'value:int · max:int · display:"number+pips"|"pips"|"number" · critical:bool', hue: 'var(--dark-fg-1)' },
+        { k: 'STATES', v: 'act-start · nominal · critical (≤5) · empty (0 → emergency purchase, never silent death)', hue: 'var(--dark-fg-1)' },
+        { k: 'HOOK', v: 'onPoolChange · onActStart (refill) · onActEnd (leftover → gold)', hue: 'var(--term-blue)' },
+        { k: 'MOTION', v: 'pip drain 520ms steps(4,end), red flash then hollow · number tick 120ms · "−1 GUESS" float 560ms', hue: 'var(--dark-fg-0)' },
+        { k: 'REFILL', v: 'Pips fill left→right, 20ms stagger, ~480ms total. The only animation allowed to feel generous.', hue: 'var(--dark-fg-1)' },
+        { k: 'NOTE', v: 'Never a smooth percentage bar. 24 discrete segments because the resource is discrete — a player must be able to count what is left at a glance.', hue: 'var(--dark-fg-2)' }
+      ],
+
+      tiles: [
+        { ch: '', bg: 'transparent', fg: 'var(--dark-fg-0)', bd: 'var(--dark-2)', label: 'EMPTY', lie: false, dist: false },
+        { ch: 'G', bg: 'transparent', fg: 'var(--dark-fg-0)', bd: 'var(--dark-fg-0)', label: 'TYPED', lie: false, dist: false },
+        { ch: 'R', bg: 'var(--g-absent)', fg: 'var(--dark-fg-3)', bd: 'var(--g-line-soft)', label: 'ABSENT', lie: false, dist: false },
+        { ch: 'A', bg: 'var(--term-amber)', fg: 'var(--g-ink)', bd: 'var(--g-ink)', label: 'PRESENT', lie: false, dist: false },
+        { ch: 'V', bg: acc, fg: 'var(--g-ink)', bd: 'var(--g-ink)', label: 'CORRECT', lie: false, dist: false },
+        { ch: 'E', bg: 'var(--term-amber)', fg: 'var(--g-ink)', bd: 'var(--g-ink)', label: 'RANGEFINDER', lie: false, dist: '2' },
+        { ch: 'S', bg: 'var(--dark-2)', fg: 'var(--dark-fg-0)', bd: 'var(--dark-fg-0)', label: 'UNTRUSTWORTHY', lie: true, dist: false },
+        { ch: '?', bg: 'var(--g-sunken)', fg: 'var(--g-absent-fg)', bd: 'var(--dark-2)', label: 'DEFERRED / FOG', lie: false, dist: false }
+      ],
+      specTile: [
+        { k: 'PROPS', v: 'letter:string · state:GREEN|YELLOW|GREY|UNKNOWN|HIDDEN · distance:int|null · trustworthy:bool', hue: 'var(--dark-fg-1)' },
+        { k: 'MAPS TO', v: 'FeedbackResult.tiles[n] verbatim (§5). One tile, one entry. No derived state in the view.', hue: 'var(--term-blue)' },
+        { k: 'STATES', v: 'empty · typed (white 1px, no fill) · absent · present · correct · rangefinder (present + distance) · untrustworthy · deferred', hue: 'var(--dark-fg-1)' },
+        { k: 'HOOK', v: 'onFeedbackTransform — render only the pipeline output, never re-score in the view', hue: 'var(--term-blue)' },
+        { k: 'MOTION', v: 'rg-flip 180ms steps(3,end), 55ms per-tile stagger left→right. Whole row lands in 400ms.', hue: 'var(--dark-fg-0)' },
+        { k: 'DECAY', v: 'A green reverting runs the flip backwards into TYPED, then drops the fill. The player sees the information leave.', hue: 'var(--dark-fg-1)' },
+        { k: 'NOTE', v: 'Untrustworthy is a texture, not a colour, so it composes with any state underneath. Liar Letter + Rangefinder must still be legible together.', hue: 'var(--dark-fg-2)' }
+      ],
+
+      keys: [
+        { ch: 'Q', bg: 'var(--dark-2)', fg: 'var(--dark-fg-0)', bd: 'var(--g-line-strong)', label: 'UNTRIED', dead: false },
+        { ch: 'A', bg: 'var(--term-amber)', fg: 'var(--g-ink)', bd: 'var(--g-ink)', label: 'PRESENT', dead: false },
+        { ch: 'V', bg: acc, fg: 'var(--g-ink)', bd: 'var(--g-ink)', label: 'CORRECT', dead: false },
+        { ch: 'R', bg: 'var(--g-sunken)', fg: 'var(--g-absent-fg)', bd: 'var(--dark-2)', label: 'ELIMINATED', dead: false },
+        { ch: 'T', bg: 'var(--g-sunken)', fg: 'var(--g-absent-fg)', bd: 'var(--dark-2)', label: 'SIEVE · HARD LOCK', dead: true }
+      ],
+      specKey: [
+        { k: 'PROPS', v: 'letter:string · state:untried|present|correct|eliminated · locked:bool · onTap:fn', hue: 'var(--dark-fg-1)' },
+        { k: 'STATES', v: '5. ELIMINATED still accepts input; LOCKED (Sieve) does not and takes a strike-through rule.', hue: 'var(--dark-fg-1)' },
+        { k: 'HOOK', v: 'onFeedbackTransform (recompute best-known state per letter) · Sieve listens on the same hook', hue: 'var(--term-blue)' },
+        { k: 'MOTION', v: 'press translate(1px,1px) 60ms linear. No ripple, no scale, no colour transition on tap.', hue: 'var(--dark-fg-0)' },
+        { k: 'SIZING', v: '46px tall, flex:1. ENTER flex:1.9, ⌫ flex:1.6. Middle row insets 14px, both sides.', hue: 'var(--dark-fg-1)' },
+        { k: 'NOTE', v: 'Letter state is derived from the guess history, never stored. Locked keys must be unfocusable so a physical keyboard cannot bypass Sieve.', hue: 'var(--dark-fg-2)' }
+      ],
+
+      relicCards: [
+        { code: 'RL.07', name: 'THE AUDITOR', glyph: '◈', rarity: 'RARE', hue: 'var(--magenta)', arch: 'INFORMATION', desc: 'After guess 2, name one untried letter and learn present or absent.', bg: 'var(--g-strip)', bd: 'var(--dark-fg-0)', sh: '3px 3px 0 0 var(--dark-fg-0)', stripBg: 'var(--dark-fg-0)', stripFg: 'var(--dark-0)', stateLabel: 'SELECTED — INVERTED STRIP, STAMP ON' },
+        { code: 'RL.02', name: 'SIEVE', glyph: '◇', rarity: 'COMMON', hue: 'var(--dark-fg-2)', arch: 'INFORMATION', desc: 'Grey letters are hard-disabled on the keyboard for the rest of the word.', bg: 'var(--g-panel)', bd: 'var(--dark-3)', sh: 'none', stripBg: 'var(--g-strip)', stripFg: 'var(--dark-fg-0)', stateLabel: 'UNSELECTED — DIMS TO 40% WHEN A SIBLING IS PICKED' }
+      ],
+      chips: [
+        { glyph: '◇', name: 'SIEVE', bd: 'var(--g-line-strong)', fg: 'var(--dark-fg-1)' },
+        { glyph: '▲', name: 'MOMENTUM', bd: 'var(--g-line-strong)', fg: 'var(--dark-fg-1)' },
+        { glyph: '✦', name: 'TITHE', bd: 'var(--g-line-strong)', fg: 'var(--dark-fg-1)' },
+        { glyph: '●', name: 'ROSETTA', bd: acc, fg: acc }
+      ],
+      specRelic: [
+        { k: 'PROPS', v: 'relic:{code,name,glyph,rarity,archetype,desc,hook} · selected:bool · dimmed:bool · onTap:fn', hue: 'var(--dark-fg-1)' },
+        { k: 'RARITY', v: 'COMMON var(--dark-fg-2) · UNCOMMON var(--kelly) · RARE var(--magenta) · BOSS accent. Carried by the 5px spine and the badge, never by the card fill.', hue: 'var(--dark-fg-1)' },
+        { k: 'STATES', v: 'face-down (reward draw) · offered · selected · dimmed sibling · owned chip · drawer row · tooltip', hue: 'var(--dark-fg-1)' },
+        { k: 'HOOK', v: 'Each relic declares its own hook; the card prints it. If a relic cannot name a hook, the hook list is incomplete (§8).', hue: 'var(--term-blue)' },
+        { k: 'MOTION', v: 'rg-draw 200ms cubic-bezier(0.2,0.8,0.2,1), 90ms stagger across the three offers. Select = stamp lands, siblings drop to 40%.', hue: 'var(--dark-fg-0)' },
+        { k: 'SYNERGY', v: 'The offer card prints a synergy line: accent for "+ SIEVE", vermillion for "ANTI · TITHE", amber for a flagged balance risk. Answers §15 in the UI.', hue: 'var(--dark-fg-1)' },
+        { k: 'NOTE', v: 'Chips in the HUD are the same object at 28px with description dropped — tap promotes it to the tooltip. Never two truths about one relic.', hue: 'var(--dark-fg-2)' }
+      ],
+
+      nodes: [
+        { glyph: '◇', type: 'WORD', label: 'CLEARED', bg: acc, bd: 'var(--g-ink)', fg: 'var(--g-ink)', sh: 'none', here: false },
+        { glyph: '◆', type: 'ELITE', label: 'AVAILABLE', bg: 'var(--g-strip)', bd: acc, fg: 'var(--term-amber)', sh: '3px 3px 0 0 var(--dark-fg-0)', here: true },
+        { glyph: '▲', type: 'SHOP', label: 'REACHABLE', bg: 'var(--g-panel)', bd: 'var(--g-line-strong)', fg: 'var(--dark-fg-3)', sh: 'none', here: false },
+        { glyph: '●', type: 'BOSS', label: 'LOCKED', bg: 'var(--g-panel)', bd: 'var(--g-line-strong)', fg: 'var(--dark-fg-3)', sh: 'none', here: false }
+      ],
+
+      rows: [
+        { glyph: '◈', name: 'THE AUDITOR', desc: 'Name a letter after guess 2.', price: '120g', hue: 'var(--magenta)', nameFg: 'var(--dark-fg-0)', priceFg: 'var(--term-amber)', op: '1' },
+        { glyph: '✦', name: 'LOADED DICE', desc: 'Re-roll which positions report truthfully.', price: '180g', hue: 'var(--magenta)', nameFg: 'var(--dark-fg-0)', priceFg: 'var(--term-red)', op: '.62' },
+        { glyph: '+', name: 'GUESS REFILL ×3 · SOLD', desc: 'Adds 3 to the act pool.', price: '—', hue: 'var(--dark-fg-3)', nameFg: 'var(--dark-fg-3)', priceFg: 'var(--dark-fg-3)', op: '.5' }
+      ],
+      stats: [
+        { k: 'WORDS SOLVED', v: '21', hue: acc },
+        { k: 'AVG / WORD', v: '2.9', hue: acc },
+        { k: 'GOLD BANKED', v: '410g', hue: 'var(--term-amber)' },
+        { k: 'EMERGENCY BUYS', v: '1', hue: 'var(--term-red)' }
+      ],
+
+      tokenHead: ['', 'TOKEN', 'VALUE', 'USED FOR'],
+      motionHead: ['NAME', 'KEYFRAME', 'DUR', 'EASING', 'TRIGGER'],
+      motion: [
+        { name: 'TILE REVEAL', key: 'rg-flip', dur: '180ms', ease: 'steps(3,end)', trigger: 'guess resolved · 55ms per-tile stagger' },
+        { name: 'POOL PIP DRAIN', key: 'rg-drain', dur: '520ms', ease: 'steps(4,end)', trigger: 'onPoolChange · red flash then hollow' },
+        { name: 'POOL NUMBER TICK', key: 'rg-tick', dur: '120ms', ease: 'steps(3,end)', trigger: 'onPoolChange · 4px drop and settle' },
+        { name: 'GUESS COST FLOAT', key: 'rg-cost', dur: '560ms', ease: 'cubic-bezier(.2,.8,.2,1)', trigger: 'onGuessSubmit · "−1 GUESS" rises and clears' },
+        { name: 'STAMP SLAM', key: 'rg-slam', dur: '200–260ms', ease: 'steps(3,end)', trigger: 'onWordSolved · onWordFailed · boss enter' },
+        { name: 'SOLVE SCAN SWEEP', key: 'rg-sweep', dur: '620ms ×2', ease: 'steps(10,end)', trigger: 'onWordSolved · runs under the stamp' },
+        { name: 'RELIC CARD DRAW', key: 'rg-draw', dur: '200ms', ease: 'cubic-bezier(.2,.8,.2,1)', trigger: 'reward mount · 90ms stagger ×3' },
+        { name: 'DRAWER RISE', key: 'rg-rise', dur: '180ms', ease: 'cubic-bezier(.2,.8,.2,1)', trigger: 'relic drawer open' },
+        { name: 'LOW POOL TENSION', key: 'rg-flicker', dur: '5s loop', ease: 'steps(1,end)', trigger: 'pool ≤ 5 · screen-wide, 2 frames of dip' },
+        { name: 'AVAILABLE PULSE', key: 'rg-pulse', dur: '1.1s loop', ease: 'steps(1,end)', trigger: 'reachable map node · live status dot' },
+        { name: 'CORRUPTED SCAN', key: 'rg-scan', dur: '1.9s loop', ease: 'linear', trigger: 'tile.trustworthy === false' },
+        { name: 'TERMINAL CARET', key: 'rg-caret', dur: '1s loop', ease: 'steps(1,end)', trigger: 'title and footer terminal strips' },
+        { name: 'BOSS TICKER', key: 'rg-march', dur: '14s loop', ease: 'linear', trigger: 'boss intro · duplicated content, −50% travel' },
+        { name: 'PRESS', key: '(transform)', dur: '60ms', ease: 'linear', trigger: 'any tap · translate(1px,1px), stamp cancels' }
+      ],
+
+      hooks: [
+        { hook: 'onGuessSubmit', cmp: 'CMP.01 · 03', paint: 'Pool number ticks, one pip drains, "−1 GUESS" floats. Tithe adds +5g on the same frame — gold counter must not animate separately or the two reads compete.' },
+        { hook: 'onFeedbackTransform', cmp: 'CMP.02 · 03', paint: 'The only hook allowed to set tile state. Renders the final FeedbackResult after all transforms — including corrupted tiles. Keyboard letter states recompute from the same payload.' },
+        { hook: 'onWordSolved', cmp: 'CMP.07', paint: 'Scan sweep, then SOLVED stamp with word, guess count and gold. Refund relics (Momentum) print a line under the stamp before the reward CTA appears.' },
+        { hook: 'onWordFailed', cmp: 'S.11', paint: 'Pool 0 with the word unsolved. Route to the emergency purchase first if gold allows; the death screen is the fallback, never the surprise.' },
+        { hook: 'onPoolChange', cmp: 'CMP.01', paint: 'Pips and number. Crossing 5 downward switches the meter to vermillion and starts the screen flicker; crossing upward clears both immediately.' },
+        { hook: 'onGoldChange', cmp: 'CMP.09', paint: 'Gold counter, and every shop row re-evaluates affordability — price colour is the only thing that changes, rows never reorder.' },
+        { hook: 'onWordStart', cmp: 'CMP.08 · 02', paint: 'Modifier banner mounts before the grid. Rosetta pre-reveals a green here, so the grid must accept pre-set tiles at mount, not only after a guess.' },
+        { hook: 'onActStart', cmp: 'CMP.01', paint: 'Pool refill: pips fill left→right, 20ms stagger. Act title card, then the map.' },
+        { hook: 'onActEnd', cmp: 'CMP.10', paint: 'Leftover guesses count down while gold counts up, 40ms per step — the conversion should be legible as a trade, not a total.' },
+        { hook: 'onRunStart', cmp: 'S.01 → S.03', paint: 'Seed stamped into the top strip and held there for the whole run. It is the run identity and appears on death and victory unchanged.' }
+      ],
+
+      desktop: [
+        { k: 'COLUMN', bp: 'ALL', v: 'The play column stays 430px and centres. Never stretch the grid or the keyboard — a 900px tile row destroys the row-scan read the whole puzzle depends on.' },
+        { k: 'SIDE RAILS', bp: '≥1100px', v: 'The space either side earns content the mobile HUD hides: left rail = full relic list expanded (no drawer), right rail = the act map as a persistent minimap. Both are read-only mirrors; every action still lives in the column.' },
+        { k: 'INPUT', bp: 'pointer:fine', v: 'Physical keyboard becomes primary — A–Z, Enter, Backspace. The on-screen keyboard stays visible as the state display (it is the eliminated-letter memory) but drops to 34px rows.' },
+        { k: 'HOVER', bp: 'pointer:fine', v: 'Hover states exist only here: 1px translate on buttons, background lift on rows, cobalt title shift on cards. Press states are shared with touch. No opacity fades in either mode.' },
+        { k: 'TOUCH FLOOR', bp: '≤1099px', v: '44px minimum on every interactive element, 46px on keys. Thumb reach: the keyboard and every primary CTA sit in the bottom third; the HUD is read-only and lives up top.' }
+      ],
+
+      answers: [
+        { n: 'Q1', q: 'Should the pool be a number, a bar, or both?', verdict: 'BOTH', hue: acc, v: 'Number for the exact value a player budgets against, 24 pips for the shape of the loss. The pip row is what makes a 3-guess word feel expensive.' },
+        { n: 'Q2', q: 'Should failing a word end the run immediately, or cost something severe?', verdict: 'IMMEDIATE, WITH OUTS', hue: 'var(--term-amber)', v: 'Keep immediate death — it is the whole bet. The design softens the edge with the escalating emergency purchase and Ouroboros surfaced on the death screen, so the player always sees the out they did or did not buy.' },
+        { n: 'Q3', q: 'Do relics have upgrade tiers, or is the Forge a gold sink?', verdict: 'ONE TIER', hue: acc, v: 'The Forge shows a single MK.II upgrade per relic plus the gold→guess converter. One tier is enough to make routing to a Forge a decision; two would need a second art state per relic.' },
+        { n: 'Q4', q: 'Is there run-persistent meta-progression?', verdict: 'NOT DESIGNED', hue: 'var(--dark-fg-3)', v: 'Out of scope here. The victory screen leaves a full-width strip under the stat grid for an unlock row when you want it — designing it now would imply an account system the brief excludes.' },
+        { n: 'Q5', q: 'How is Mirror scored when the two solutions share letters?', verdict: 'BLOCKED ON RULES', hue: 'var(--term-red)', v: 'Not a design question yet. The Twins screen renders two result rows per guess, so whatever rule you pick has a home — but the rule has to be decided before that screen can be finished.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

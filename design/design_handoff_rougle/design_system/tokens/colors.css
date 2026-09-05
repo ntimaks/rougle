@@ -1,0 +1,113 @@
+/* NIKOLASS — COLOR
+   Monochromatic paper + ink, one acid accent. Color is information,
+   not decoration. One accent per page, two on rare occasions. */
+:root {
+  /* PAPER / SURFACES — true neutral, near-zero cast */
+  --paper-0: #EEEEEE;   /* deepest paper, body bg */
+  --paper-1: #E4E4E3;   /* card / panel */
+  --paper-2: #D8D8D6;   /* recessed panel */
+  --paper-3: #C2C2C0;   /* border / divider on paper */
+
+  /* INK — true neutral grays */
+  --ink-0:   #0C0C0C;   /* primary ink */
+  --ink-1:   #1C1C1B;   /* near-black */
+  --ink-2:   #303030;   /* heavy gray */
+  --ink-3:   #5A5A58;   /* secondary text */
+  --ink-4:   #8A8A88;   /* tertiary / metadata */
+  --ink-5:   #B4B4B2;   /* hairline / disabled */
+
+  /* ACCENTS — 4 core hues pulled from the poster series.
+       lime (default) · cobalt (link/data) · vermillion (featured) · kelly (support)
+     Each has a -deep variant for hover/press. */
+  --lime:        #D4E635;
+  --lime-deep:   #B8C920;
+  --cobalt:      #1F47E6;
+  --cobalt-deep: #1632A8;
+  --vermillion:      #FF4FA8;
+  --vermillion-deep: #D62E85;
+  --kelly:       #3DB94A;
+  --kelly-deep:  #2A8A35;
+  --pink:        var(--vermillion);
+  --pink-deep:   var(--vermillion-deep);
+  --acid:        var(--lime);      /* legacy alias, still the default accent */
+  --acid-deep:   var(--lime-deep);
+
+  /* EXTENDED ACCENTS — semantic-adjacent, used sparingly.
+       magenta → editorial/featured · cyan → link/data
+       amber   → warning/pending    · orange → archive/locked */
+  --magenta:      #FF2E88;
+  --magenta-deep: #C81E66;
+  --magenta-glow: #FFB8D4;
+  --cyan:         #00D5E5;
+  --cyan-deep:    #009BA8;
+  --cyan-glow:    #B8F0F5;
+  --amber:        #FFB800;
+  --amber-deep:   #C88E00;
+  --amber-glow:   #FFE6A6;
+  --orange:       #FF5C1F;
+  --orange-deep:  #C8400F;
+  --orange-glow:  #FFC2A6;
+
+  /* TERMINAL — confined to code blocks, CLI strips and status bars */
+  --term-bg:     #0A0E0A;
+  --term-fg:     #C8FF1F;
+  --term-dim:    #6F8A30;
+  --term-red:    #FF5D4A;
+  --term-amber:  #E8B23A;
+  --term-blue:   #5A8FE8;
+
+  /* DARK PAPER — deep neutral charcoal, never pitch black */
+  --dark-0: #121212;
+  --dark-1: #1A1A1A;
+  --dark-2: #232323;
+  --dark-3: #303030;
+  --dark-fg-0: #EEEEEE;
+  --dark-fg-1: #CACAC8;
+  --dark-fg-2: #909090;
+  --dark-fg-3: #5C5C5A;
+
+  /* SEMANTIC */
+  --bg:          var(--paper-0);
+  --bg-panel:    var(--paper-1);
+  --bg-recessed: var(--paper-2);
+  --bg-inverse:  var(--ink-0);
+
+  --fg:          var(--ink-0);
+  --fg-1:        var(--ink-2);
+  --fg-2:        var(--ink-3);
+  --fg-muted:    var(--ink-4);
+  --fg-disabled: var(--ink-5);
+  --fg-on-dark:  var(--paper-0);
+
+  --border:      var(--ink-0);   /* yes: hard black 1px borders */
+  --border-soft: var(--paper-3);
+  --border-hair: var(--ink-5);
+
+  --accent:       var(--acid);
+  --accent-hover: var(--acid-deep);
+  --link:         var(--ink-0);
+  --link-visited: var(--ink-3);
+  --danger:       var(--term-red);
+  --warning:      var(--term-amber);
+  --success:      var(--acid-deep);
+}
+
+/* DARK MODE — opt in with [data-theme="dark"] on <html> or any ancestor. */
+[data-theme="dark"] {
+  --paper-0: var(--dark-0);
+  --paper-1: var(--dark-1);
+  --paper-2: var(--dark-2);
+  --paper-3: var(--dark-3);
+  --ink-0:   var(--dark-fg-0);
+  --ink-1:   var(--dark-fg-1);
+  --ink-2:   var(--dark-fg-1);
+  --ink-3:   var(--dark-fg-2);
+  --ink-4:   var(--dark-fg-3);
+  --ink-5:   #3A4148;
+  --border:      var(--dark-fg-0);
+  --border-soft: var(--dark-3);
+  --bg-inverse:  var(--dark-fg-0);
+  --fg-on-dark:  var(--dark-0);
+  --sh-stamp:    3px 3px 0 0 var(--dark-fg-0);
+  --sh-stamp-lg: 6px 6px 0 0 var(--dark-fg-0);
+}

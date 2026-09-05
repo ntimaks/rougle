@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="design_system/tokens/fonts.css">
+<link rel="stylesheet" href="design_system/tokens/colors.css">
+<link rel="stylesheet" href="design_system/tokens/typography.css">
+<link rel="stylesheet" href="design_system/tokens/spacing.css">
+<link rel="stylesheet" href="design_system/tokens/motion.css">
+<link rel="stylesheet" href="design_system/tokens/base.css">
+<script src="design_system/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=VT323&family=Space+Grotesk:wght@400;500;700&display=swap">
+<style>
+:root{
+  --g-chrome:#0F0F0F;      /* top chrome strip */
+  --g-panel:#161616;       /* panel above ground */
+  --g-strip:#1F1F1F;       /* card header strip, selected row */
+  --g-sunken:#141414;      /* dead key, sold row */
+  --g-absent:#1C1C1B;      /* absent tile fill */
+  --g-absent-fg:#4A4A48;   /* absent tile / dead key glyph */
+  --g-line-soft:#262626;   /* dotted hairline */
+  --g-line:#2A2A2A;        /* card border, common rarity */
+  --g-line-strong:#3A3A38; /* key border, unselected control */
+  --g-ink:#0C0C0C;         /* TRUE ink — accent-fill borders. never var(--ink-0) */
+  --g-scrim:rgba(10,10,10,.7);
+}
+html,body{margin:0;padding:0;background:var(--term-bg);color:var(--dark-fg-0);font-family:'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button{font-family:inherit;cursor:pointer;border-radius:0}
+::selection{background:var(--term-fg);color:var(--g-ink)}
+a{color:var(--term-blue);text-decoration:underline;text-underline-offset:3px}
+a:hover{background:var(--term-fg);color:var(--g-ink);text-decoration:none}
+@keyframes rg-flip{0%{transform:scaleY(1)}34%{transform:scaleY(.04)}35%{transform:scaleY(.04)}100%{transform:scaleY(1)}}
+@keyframes rg-drain{0%{background:var(--term-red);border-color:var(--term-red)}60%{background:var(--term-red);border-color:var(--term-red)}100%{background:transparent;border-color:var(--dark-3)}}
+@keyframes rg-tick{0%{transform:translateY(0)}40%{transform:translateY(4px)}100%{transform:translateY(0)}}
+@keyframes rg-cost{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-16px)}}
+@keyframes rg-slam{0%{opacity:0;transform:translate(8px,8px)}50%{opacity:1;transform:translate(3px,3px)}100%{opacity:1;transform:translate(0,0)}}
+@keyframes rg-draw{0%{opacity:0;transform:translateY(18px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes rg-flicker{0%,92%,100%{opacity:1}93%,95%{opacity:.45}94%{opacity:1}}
+@keyframes rg-scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+@keyframes rg-caret{50%{opacity:0}}
+@keyframes rg-pulse{0%,55%{opacity:1}56%,100%{opacity:.2}}
+@keyframes rg-sweep{0%{transform:translateY(-110%)}100%{transform:translateY(320%)}}
+@keyframes rg-march{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes rg-rise{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+<div data-theme="dark" style="--acc:{{ accent }};--d1:{{ durFast }};--d2:{{ durBase }};min-height:100vh;background:var(--term-bg);display:flex;justify-content:center;align-items:stretch">
+<div style="width:100%;max-width:430px;min-height:100vh;background:var(--dark-0);border-left:1px solid var(--g-line-soft);border-right:1px solid var(--g-line-soft);display:flex;flex-direction:column;position:relative;overflow:hidden">
+
+<div style="display:flex;align-items:stretch;height:32px;border-bottom:1px solid var(--dark-3);background:var(--g-chrome);flex:none;position:relative;z-index:6">
+<div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:0 12px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.2em">ROUGLE</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em;color:var(--dark-fg-3);text-transform:uppercase">{{ topMeta }}</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">{{ seed }}</span>
+</div>
+<sc-if value="{{ showIndex }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ nav.index }}" style="flex:none;padding:0 11px;background:transparent;border:0;border-left:1px solid var(--dark-3);color:var(--dark-fg-2);font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;transition:background 120ms linear,color 120ms linear" style-hover="background:var(--dark-fg-0);color:var(--dark-0)" style-active="background:var(--dark-fg-1);color:var(--dark-0)">IDX</button>
+</sc-if>
+</div>
+
+<sc-if value="{{ hud }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;border-bottom:1px solid var(--dark-3);background:var(--g-panel);padding:10px 12px 8px;position:relative;z-index:5">
+<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:7px">
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">GUESS POOL</span>
+<sc-if value="{{ showNum }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:baseline;gap:6px">
+<span style="font:400 40px/0.8 'VT323',monospace;color:{{ poolHue }};animation:rg-tick var(--d1,120ms) steps(3,end)" key="{{ tickKey }}">{{ pool }}</span>
+<span style="font:400 11px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">/{{ poolMax }}</span>
+</div>
+</sc-if>
+</div>
+<div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">GOLD</span>
+<span style="font:400 22px/0.85 'VT323',monospace;color:var(--term-amber)">{{ gold }}g</span>
+</div>
+<button onClick="{{ nav.drawer }}" style="align-self:flex-end;display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);padding:0 9px;min-height:44px" style-hover="background:var(--dark-fg-0);color:var(--dark-0)" style-active="transform:translate(1px,1px)"><span style="display:flex;flex-direction:column;align-items:center;font:400 8px/1.05 'JetBrains Mono',monospace;white-space:pre"><span>,---.</span><span>|:::|</span><span>'---'</span></span><span style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em">RELICS</span><span style="font:400 12px/1 'VT323',monospace;letter-spacing:0.06em">{{ relicCount }}/{{ relicCap }}</span></span></button>
+</div>
+<sc-if value="{{ showPips }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:2px;align-items:stretch;height:11px">
+<sc-for list="{{ pips }}" as="p" hint-placeholder-count="24">
+<div style="flex:1;border:1px solid {{ p.bd }};background:{{ p.bg }};animation:{{ p.anim }}"></div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTitle }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="01 TITLE" style="flex:1;display:flex;flex-direction:column;padding:0;position:relative">
+<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(238,238,238,.028) 0 1px,transparent 1px 4px);pointer-events:none"></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:28px 20px;position:relative">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+<span style="width:7px;height:7px;border-radius:9999px;background:var(--acc,var(--term-fg));animation:rg-pulse 1.4s steps(1,end) infinite"></span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">BUILD 0.1.0 // PROTOTYPE</span>
+</div>
+<h1 style="margin:0;font:700 68px/0.88 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase;color:var(--dark-fg-0)">ROUGLE</h1>
+<div style="height:1px;background:var(--dark-fg-0);margin:16px 0 14px"></div>
+<p style="margin:0 0 4px;font:400 13px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">A word-deduction roguelike. Eighteen words, one shared pool of guesses, three acts.</p>
+<p style="margin:0;font:400 13px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3)">Overspend on one word and you starve the next.</p>
+<div style="margin:22px 0 0;border:1px solid var(--dark-3);background:var(--term-bg);padding:11px 12px">
+<div style="font:400 15px/1.5 'VT323',monospace;color:var(--acc,var(--term-fg))">&gt; POOL DOES NOT REFILL BETWEEN WORDS.</div>
+<div style="font:400 15px/1.5 'VT323',monospace;color:var(--acc,var(--term-fg))">&gt; ZERO WITH A WORD UNSOLVED ENDS THE RUN.<span style="animation:rg-caret 1s steps(1,end) infinite">█</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:24px">
+<button onClick="{{ nav.character }}" style="display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 14px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:52px;box-shadow:3px 3px 0 0 var(--dark-fg-0);transition:transform var(--d1,120ms) linear,box-shadow var(--d1,120ms) linear" style-hover="transform:translate(1px,1px);box-shadow:2px 2px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>BEGIN RUN</span><span>→</span></button>
+<button onClick="{{ nav.map }}" style="display:flex;align-items:center;justify-content:space-between;background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-1);font:500 12px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;padding:0 14px;min-height:48px;transition:border-color var(--d1,120ms) linear,color var(--d1,120ms) linear" style-hover="border-color:var(--dark-fg-0);color:var(--dark-fg-0)" style-active="transform:translate(1px,1px)"><span>CONTINUE RUN</span><span style="color:var(--dark-fg-3)">[ACT 1 // NODE 04]</span></button>
+</div>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:9px 20px 12px;display:flex;align-items:center;gap:8px">
+<span style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.16em;color:var(--dark-fg-3)">SEED</span>
+<span style="font:400 10px/1 'JetBrains Mono',monospace;color:var(--term-blue)">0x8F2A1C</span>
+<span style="margin-left:auto;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.16em;color:var(--dark-fg-3)">[LOG] daily not in v1</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isChar }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="02 CHARACTER SELECT" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;padding:16px 16px 12px;border-bottom:1px solid var(--dark-3)">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">STEP 01 / 01</span>
+<h2 style="margin:6px 0 0;font:700 26px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">PICK A HAND</h2>
+<p style="margin:6px 0 0;font:400 11px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3)">Loadout sets the act pool and one innate rule. It cannot be changed mid-run.</p>
+</div>
+<div style="flex:1;overflow-y:auto;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ chars }}" as="c" hint-placeholder-count="3">
+<button onClick="{{ c.onTap }}" style="display:block;width:100%;text-align:left;padding:0;background:{{ c.bg }};border:1px solid {{ c.bd }};color:var(--dark-fg-0);box-shadow:{{ c.sh }};animation:rg-draw var(--d2,180ms) cubic-bezier(0.2,0.8,0.2,1) both;animation-delay:{{ c.delay }};transition:transform var(--d1,120ms) linear,box-shadow var(--d1,120ms) linear" style-active="transform:translate(2px,2px);box-shadow:0 0 0 0 var(--dark-fg-0)">
+<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:{{ c.stripBg }};border-bottom:1px solid {{ c.bd }}">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.16em;color:{{ c.stripFg }}">{{ c.name }}</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ c.stripFg }};opacity:.7">{{ c.code }}</span>
+</div>
+<div style="display:flex;gap:10px;padding:11px 10px 12px">
+<div style="flex:none;width:54px;height:66px;border:1px solid var(--dark-3);background:var(--g-chrome);display:flex;align-items:center;justify-content:center;position:relative">
+<span style="font:400 30px/1 'VT323',monospace;color:{{ c.hue }}">{{ c.glyph }}</span>
+<span style="position:absolute;bottom:-1px;left:-1px;font:400 7px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3);background:var(--g-chrome);border:1px solid var(--dark-3);padding:2px 3px">{{ c.fig }}</span>
+</div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;gap:5px;flex-wrap:wrap">
+<span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;border:1px solid {{ c.hue }};color:{{ c.hue }};padding:3px 5px">{{ c.mod }}</span>
+<span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;border:1px solid var(--dark-fg-3);color:var(--dark-fg-2);padding:3px 5px">{{ c.arch }}</span>
+</div>
+<p style="margin:0;font:400 11px/1.45 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ c.innate }}</p>
+</div>
+</div>
+</button>
+</sc-for>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:12px 16px;background:var(--g-panel);display:flex;gap:10px;align-items:center">
+<button onClick="{{ nav.title }}" style="flex:none;background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-2);font:500 11px/1 'JetBrains Mono',monospace;padding:0 12px;min-height:46px" style-hover="border-color:var(--dark-fg-0);color:var(--dark-fg-0)" style-active="transform:translate(1px,1px)">←</button>
+<button onClick="{{ nav.map }}" style="flex:1;display:flex;align-items:center;justify-content:space-between;background:{{ startBg }};border:1px solid {{ startBd }};color:{{ startFg }};font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:46px;box-shadow:{{ startSh }};transition:transform var(--d1,120ms) linear,box-shadow var(--d1,120ms) linear" style-active="transform:translate(2px,2px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>{{ startLabel }}</span><span>→</span></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSolve }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="04 WORD SOLVE" style="flex:1;display:flex;flex-direction:column;overflow:hidden;animation:{{ tenseAnim }}">
+<sc-if value="{{ hasMods }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;display:flex;align-items:stretch;border-bottom:1px solid var(--term-amber);background:#1C1608;overflow:hidden">
+<div style="flex:none;display:flex;align-items:center;padding:0 8px;background:var(--term-amber);color:var(--g-ink);font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em">ELITE</div>
+<div style="flex:1;display:flex;align-items:center;gap:8px;padding:7px 9px;min-width:0">
+<sc-for list="{{ mods }}" as="m" hint-placeholder-count="2">
+<span style="flex:none;font:500 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--term-amber);border:1px solid var(--term-amber);padding:3px 5px">{{ m.label }}</span>
+</sc-for>
+<span style="font:400 9px/1.3 'JetBrains Mono',monospace;color:#8A7434;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ modNote }}</span>
+</div>
+</div>
+</sc-if>
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--g-line-soft)">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.18em;color:var(--dark-fg-2)">{{ wordLabel }}</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">{{ spentLabel }}</span>
+<sc-if value="{{ tense }}" hint-placeholder-val="{{ false }}">
+<span style="margin-left:auto;display:flex;align-items:center;gap:5px;font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--term-red)"><span style="width:6px;height:6px;background:var(--term-red);animation:rg-pulse .7s steps(1,end) infinite"></span>POOL CRITICAL</span>
+</sc-if>
+</div>
+
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:14px 16px;min-height:0;position:relative">
+<sc-for list="{{ grid }}" as="row" hint-placeholder-count="5">
+<div style="display:flex;gap:5px;opacity:{{ row.op }}">
+<sc-for list="{{ row.tiles }}" as="t">
+<div style="flex:1;aspect-ratio:1;max-height:62px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font:700 24px/1 'JetBrains Mono',monospace;animation:{{ t.anim }};animation-delay:{{ t.delay }}">
+{{ t.ch }}
+<sc-if value="{{ t.lie }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(238,238,238,.55) 0 1px,transparent 1px 3px);pointer-events:none"></div>
+<div style="position:absolute;left:0;right:0;height:6px;background:rgba(238,238,238,.22);animation:rg-scan 1.9s linear infinite;pointer-events:none"></div>
+</sc-if>
+<sc-if value="{{ t.dist }}" hint-placeholder-val="{{ false }}">
+<span style="position:absolute;top:1px;right:2px;font:400 9px/1 'JetBrains Mono',monospace;color:var(--g-ink);opacity:.7">{{ t.dist }}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{ costFlash }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:6px;right:18px;font:700 15px/1 'JetBrains Mono',monospace;color:var(--term-red);animation:rg-cost 560ms cubic-bezier(0.2,0.8,0.2,1) both;pointer-events:none" key="{{ tickKey }}">−1 GUESS</div>
+</sc-if>
+<sc-if value="{{ solved }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,10,10,.72);pointer-events:none">
+<div style="position:absolute;left:0;right:0;height:2px;background:var(--acc,var(--term-fg));opacity:.8;animation:rg-sweep 620ms steps(10,end) 2"></div>
+<div style="border:1px solid var(--g-ink);background:var(--acc,var(--term-fg));color:var(--g-ink);padding:12px 16px;box-shadow:6px 6px 0 0 var(--dark-fg-0);animation:rg-slam 200ms steps(3,end) both;text-align:center">
+<div style="font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:0.04em;text-transform:uppercase">SOLVED</div>
+<div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:0.16em;margin-top:6px">{{ solveMeta }}</div>
+</div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ solved }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;padding:12px 16px 14px;border-top:1px solid var(--dark-3);background:var(--g-panel);display:flex;flex-direction:column;gap:9px">
+<div style="display:flex;align-items:center;gap:8px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)"><span style="color:var(--acc,var(--term-fg))">◇</span>FLYWHEEL TRIGGERED · +1 GUESS REFUNDED</div>
+<button onClick="{{ nav.reward }}" style="display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:50px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>CLAIM REWARD</span><span>→</span></button>
+</div>
+</sc-if>
+
+<sc-if value="{{ playing }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;padding:8px 8px 12px;border-top:1px solid var(--dark-3);background:var(--g-panel);display:flex;flex-direction:column;gap:5px">
+<sc-for list="{{ kbRows }}" as="kr" hint-placeholder-count="3">
+<div style="display:flex;gap:4px;justify-content:center;padding:0 {{ kr.pad }}">
+<sc-for list="{{ kr.keys }}" as="k">
+<button onClick="{{ k.onTap }}" style="flex:{{ k.flex }};min-width:0;min-height:46px;display:flex;align-items:center;justify-content:center;position:relative;background:{{ k.bg }};border:1px solid {{ k.bd }};color:{{ k.fg }};font:{{ k.font }};letter-spacing:{{ k.tr }};padding:0 2px;transition:transform 60ms linear" style-active="transform:translate(1px,1px)">{{ k.ch }}<sc-if value="{{ k.dead }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:2px;right:2px;height:1px;background:var(--dark-fg-3)"></span></sc-if></button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReward }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="05 RELIC REWARD" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;padding:14px 16px 11px;border-bottom:1px solid var(--dark-3)">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">NODE 04 CLEARED</span>
+<span style="margin-left:auto;font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--term-amber);border:1px solid var(--term-amber);padding:3px 5px">+22g</span>
+</div>
+<h2 style="margin:7px 0 0;font:700 24px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">TAKE ONE RELIC</h2>
+</div>
+<div style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ offers }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onTap }}" style="display:block;width:100%;text-align:left;padding:0;background:{{ o.cardBg }};border:1px solid {{ o.cardBd }};color:var(--dark-fg-0);box-shadow:{{ o.sh }};opacity:{{ o.op }};animation:rg-draw 200ms cubic-bezier(0.2,0.8,0.2,1) both;animation-delay:{{ o.delay }};transition:transform var(--d1,120ms) linear,box-shadow var(--d1,120ms) linear,opacity var(--d1,120ms) linear" style-active="transform:translate(2px,2px);box-shadow:0 0 0 0 var(--dark-fg-0)">
+<div style="display:flex;align-items:stretch;border-bottom:1px solid {{ o.hdrBd }}">
+<div style="flex:none;width:{{ o.spineW }};background:{{ o.spine }}"></div>
+<div style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 10px;background:{{ o.stripBg }};min-width:0">
+<span style="font:700 12px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ o.stripFg }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.name }}</span>
+<span style="margin-left:auto;flex:none;font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ o.stripFg }};border:1px solid {{ o.stripFg }};padding:3px 4px">{{ o.rarity }}</span>
+</div>
+</div>
+<div style="display:flex;gap:10px;padding:11px 10px 12px">
+<span style="flex:none;width:44px;height:44px;border:1px solid {{ o.iconBd }};background:{{ o.iconBg }};display:flex;flex-direction:column;align-items:center;justify-content:center;color:{{ o.hue }}">
+<sc-for list="{{ o.art }}" as="ln" hint-placeholder-count="3"><span style="font:400 12px/1.05 'JetBrains Mono',monospace;white-space:pre">{{ ln }}</span></sc-for>
+</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">
+<p style="margin:0;font:400 11px/1.45 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ o.desc }}</p>
+<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+<span style="font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ o.hue }};border:1px solid {{ o.hue }};padding:3px 4px">{{ o.clsTag }}</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ o.synHue }}">{{ o.syn }}</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3)">{{ o.code }}</span>
+</div>
+</div>
+</div>
+<sc-if value="{{ o.flavor }}" hint-placeholder-val="{{ false }}">
+<div style="padding:6px 10px 8px;border-top:1px dotted var(--g-line);font:400 14px/1.15 'VT323',monospace;color:var(--dark-fg-3)">{{ o.flavor }}</div>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:11px 16px 14px;background:var(--g-panel);display:flex;gap:9px">
+<button onClick="{{ nav.map }}" style="flex:none;background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-2);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;padding:0 12px;min-height:48px" style-hover="border-color:var(--dark-fg-0);color:var(--dark-fg-0)" style-active="transform:translate(1px,1px)">SKIP</button>
+<button onClick="{{ nav.map }}" style="flex:1;display:flex;align-items:center;justify-content:space-between;background:{{ takeBg }};border:1px solid {{ takeBd }};color:{{ takeFg }};font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:48px;box-shadow:{{ takeSh }}" style-active="transform:translate(2px,2px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>{{ takeLabel }}</span><span>→</span></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="03 ACT MAP" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;display:flex;align-items:center;gap:9px;padding:12px 16px 10px;border-bottom:1px solid var(--dark-3)">
+<h2 style="margin:0;font:700 20px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">ACT I · THE ATRIUM</h2>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">6 NODES + BOSS</span>
+</div>
+<div style="flex:1;overflow-y:auto;padding:14px 16px 18px;display:flex;flex-direction:column-reverse;gap:0">
+<sc-for list="{{ mapRows }}" as="mr" hint-placeholder-count="7">
+<div style="display:flex;flex-direction:column;align-items:stretch">
+<div style="display:flex;justify-content:center;gap:26px;align-items:center">
+<sc-for list="{{ mr.nodes }}" as="n">
+<button onClick="{{ n.onTap }}" style="flex:none;width:{{ n.size }};height:{{ n.size }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ n.bg }};border:1px solid {{ n.bd }};color:{{ n.fg }};box-shadow:{{ n.sh }};position:relative;transition:transform var(--d1,120ms) linear,box-shadow var(--d1,120ms) linear" style-active="transform:translate(2px,2px);box-shadow:0 0 0 0 var(--dark-fg-0)">
+<span style="font:400 {{ n.gs }} 'VT323',monospace;line-height:1">{{ n.glyph }}</span>
+<span style="font:500 7px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">{{ n.type }}</span>
+<sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}">
+<span style="position:absolute;inset:-4px;border:1px solid var(--acc,var(--term-fg));animation:rg-pulse 1.1s steps(1,end) infinite"></span>
+</sc-if>
+<sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+<span style="position:absolute;top:-7px;right:-7px;font:500 7px/1 'JetBrains Mono',monospace;letter-spacing:0.06em;background:var(--term-amber);color:var(--g-ink);border:1px solid var(--g-ink);padding:2px 3px">{{ n.badge }}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<div style="display:flex;justify-content:center;align-items:center;height:22px;font:400 12px/1 'JetBrains Mono',monospace;color:{{ mr.linkHue }};letter-spacing:0.3em">{{ mr.link }}</div>
+</div>
+</sc-for>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);background:var(--g-panel);padding:10px 16px 13px">
+<div style="display:flex;flex-wrap:wrap;gap:9px;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3)">
+<span style="color:var(--dark-fg-1)">◇ WORD</span><span style="color:var(--term-amber)">◆ ELITE</span><span style="color:var(--term-blue)">▲ SHOP</span><span style="color:var(--dark-fg-1)">▼ FORGE</span><span style="color:var(--magenta)">✦ EVENT</span><span style="color:var(--term-red)">● BOSS</span>
+</div>
+<div style="margin-top:8px;font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">Tap an available node to route. <span style="color:var(--acc,var(--term-fg))">CARTOGRAPHER</span> reveals modifiers before you commit.</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isShop }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="06 SHOP" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;padding:13px 16px 11px;border-bottom:1px solid var(--dark-3);display:flex;align-items:flex-end;gap:9px">
+<div>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">NODE 05 // SHOP</span>
+<h2 style="margin:6px 0 0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">ÉTALAGE</h2>
+</div>
+<span style="margin-left:auto;font:400 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3);text-align:right">STOCK REROLLS<br>ONCE PER ACT</span>
+</div>
+<div style="flex:1;overflow-y:auto;padding:0">
+<sc-for list="{{ shopItems }}" as="s" hint-placeholder-count="5">
+<button onClick="{{ s.onTap }}" style="display:flex;width:100%;text-align:left;align-items:center;gap:10px;padding:11px 16px;background:{{ s.bg }};border:0;border-bottom:1px dotted var(--dark-3);color:var(--dark-fg-0);opacity:{{ s.op }};transition:background var(--d1,120ms) linear" style-hover="background:#1E1E1E" style-active="transform:translate(1px,1px)">
+<span style="flex:none;width:36px;height:36px;border:1px solid {{ s.hue }};display:flex;flex-direction:column;align-items:center;justify-content:center;color:{{ s.hue }}"><sc-for list="{{ s.art }}" as="ln" hint-placeholder-count="3"><span style="font:400 9px/1.06 'JetBrains Mono',monospace;white-space:pre">{{ ln }}</span></sc-for></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+<span style="display:flex;align-items:baseline;gap:6px"><span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ s.nameFg }}">{{ s.name }}</span><span style="font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:{{ s.hue }}">{{ s.rarity }}</span></span>
+<span style="font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ s.desc }}</span>
+</span>
+<span style="flex:none;font:400 17px/1 'VT323',monospace;color:{{ s.priceFg }};min-width:44px;text-align:right">{{ s.price }}</span>
+</button>
+</sc-for>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);background:var(--g-panel);padding:11px 16px 14px;display:flex;gap:9px;align-items:center">
+<span style="font:400 10px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-3)">Offers bias toward <span style="color:var(--dark-fg-1)">INFORMATION</span> — your held archetype.</span>
+<button onClick="{{ nav.map }}" style="margin-left:auto;flex:none;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;padding:0 14px;min-height:46px" style-hover="background:var(--dark-fg-0);color:var(--dark-0)" style-active="transform:translate(1px,1px)">LEAVE →</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isForge }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="07 FORGE" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;padding:13px 16px 11px;border-bottom:1px solid var(--dark-3)">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">NODE 06 // FORGE</span>
+<h2 style="margin:6px 0 0;font:700 22px/1 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">ONE OPERATION</h2>
+</div>
+<div style="flex:1;overflow-y:auto;padding:13px 16px;display:flex;flex-direction:column;gap:13px">
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">A · UPGRADE RELIC</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">FREE</span></div>
+<div style="padding:5px 0">
+<sc-for list="{{ forgeList }}" as="f" hint-placeholder-count="3">
+<button onClick="{{ f.onTap }}" style="display:flex;width:100%;text-align:left;align-items:center;gap:9px;padding:9px 10px;background:{{ f.bg }};border:0;border-bottom:1px dotted var(--g-line-soft);color:var(--dark-fg-0)" style-active="transform:translate(1px,1px)">
+<span style="flex:none;width:30px;height:30px;border:1px solid var(--g-line);display:flex;flex-direction:column;align-items:center;justify-content:center;color:{{ f.hue }}"><sc-for list="{{ f.art }}" as="ln" hint-placeholder-count="3"><span style="font:400 9px/1.06 'JetBrains Mono',monospace;white-space:pre">{{ ln }}</span></sc-for></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">{{ f.name }}</span>
+<span style="font:400 9px/1.4 'JetBrains Mono',monospace;color:var(--dark-fg-2)">{{ f.up }}</span>
+</span>
+<span style="flex:none;font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ f.tickFg }};background:{{ f.tickBg }};border:1px solid {{ f.tickBd }};padding:3px 5px">{{ f.tick }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">B · CONVERT GOLD → GUESSES</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">20g EACH</span></div>
+<div style="padding:12px 10px">
+<div style="display:flex;align-items:center;gap:12px">
+<button onClick="{{ forgeDown }}" style="flex:none;width:44px;min-height:44px;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:700 16px/1 'JetBrains Mono',monospace" style-active="transform:translate(1px,1px)">−</button>
+<div style="flex:1;text-align:center">
+<div style="font:400 34px/0.9 'VT323',monospace;color:var(--acc,var(--term-fg))">+{{ forgeQty }}</div>
+<div style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3);margin-top:3px">GUESSES · {{ forgeCost }}g</div>
+</div>
+<button onClick="{{ forgeUp }}" style="flex:none;width:44px;min-height:44px;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:700 16px/1 'JetBrains Mono',monospace" style-active="transform:translate(1px,1px)">+</button>
+</div>
+<div style="display:flex;gap:2px;margin-top:11px;height:9px">
+<sc-for list="{{ forgePips }}" as="fp" hint-placeholder-count="8">
+<div style="flex:1;border:1px solid {{ fp.bd }};background:{{ fp.bg }}"></div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);background:var(--g-panel);padding:11px 16px 14px;display:flex;gap:9px">
+<button onClick="{{ nav.map }}" style="flex:none;background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-2);font:500 11px/1 'JetBrains Mono',monospace;padding:0 12px;min-height:46px" style-active="transform:translate(1px,1px)">SKIP</button>
+<button onClick="{{ nav.map }}" style="flex:1;display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:46px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>COMMIT</span><span>→</span></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEvent }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="08 EVENT" style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative">
+<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(135deg,rgba(255,46,136,.05) 0 2px,transparent 2px 7px);pointer-events:none"></div>
+<div style="flex:1;overflow-y:auto;padding:16px;position:relative">
+<div style="border:1px solid var(--magenta);background:#161014;box-shadow:6px 6px 0 0 var(--magenta);animation:rg-slam 240ms steps(4,end) both">
+<div style="display:flex;align-items:center;gap:7px;padding:8px 11px;background:var(--magenta);color:var(--g-ink)"><span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.18em">EVENT</span><span style="margin-left:auto;font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">EV.01</span></div>
+<div style="padding:15px 13px 16px">
+<h2 style="margin:0;font:700 30px/0.95 'Space Grotesk',sans-serif;letter-spacing:-0.02em;text-transform:uppercase">THE WAGER</h2>
+<p style="margin:11px 0 0;font:400 12px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">A ledger is pushed across the table. The next word is already chosen. Sign, and it must fall in two guesses.</p>
+<div style="height:1px;background:var(--dark-3);margin:14px 0"></div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ eventOpts }}" as="e" hint-placeholder-count="3">
+<button onClick="{{ e.onTap }}" style="display:flex;width:100%;text-align:left;align-items:center;gap:10px;background:{{ e.bg }};border:1px solid {{ e.bd }};color:var(--dark-fg-0);padding:11px 11px;min-height:52px;transition:background var(--d1,120ms) linear" style-hover="background:#1F1A1D" style-active="transform:translate(1px,1px)">
+<span style="flex:none;font:700 11px/1 'JetBrains Mono',monospace;color:{{ e.hue }}">{{ e.key }}</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+<span style="font:500 11px/1.3 'JetBrains Mono',monospace;letter-spacing:0.04em">{{ e.label }}</span>
+<span style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.06em;color:{{ e.hue }}">{{ e.stake }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBoss }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="09 BOSS INTRO" style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--term-bg);position:relative">
+<div style="flex:none;display:flex;overflow:hidden;border-bottom:1px solid var(--term-red);background:#160A08">
+<div style="flex:none;display:flex;white-space:nowrap;animation:rg-march 14s linear infinite;font:400 16px/1.7 'VT323',monospace;color:var(--term-red)">{{ bossTicker }}{{ bossTicker }}</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:20px 18px;position:relative">
+<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(255,93,74,.06) 0 1px,transparent 1px 5px);pointer-events:none"></div>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--term-red);position:relative">ACT {{ bossAct }} · FINAL NODE</span>
+<h1 style="margin:9px 0 0;font:700 {{ bossSize }} 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase;color:var(--dark-fg-0);position:relative;animation:rg-slam 260ms steps(4,end) both">{{ bossName }}</h1>
+<div style="height:1px;background:var(--term-red);margin:14px 0;position:relative"></div>
+<p style="margin:0;font:400 13px/1.55 'JetBrains Mono',monospace;color:var(--dark-fg-1);position:relative;text-wrap:pretty">{{ bossRule }}</p>
+<div style="margin-top:16px;display:flex;flex-direction:column;gap:7px;position:relative">
+<sc-for list="{{ bossFacts }}" as="bf" hint-placeholder-count="3">
+<div style="display:flex;align-items:baseline;gap:8px;border-bottom:1px dotted var(--dark-3);padding-bottom:5px">
+<span style="font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:0.16em;color:var(--dark-fg-3)">{{ bf.k }}</span>
+<span style="margin-left:auto;font:500 11px/1.3 'JetBrains Mono',monospace;color:{{ bf.hue }};text-align:right">{{ bf.v }}</span>
+</div>
+</sc-for>
+</div>
+<div style="margin-top:16px;display:flex;gap:6px;position:relative">
+<sc-for list="{{ bossTabs }}" as="bt" hint-placeholder-count="3">
+<button onClick="{{ bt.onTap }}" style="flex:1;background:{{ bt.bg }};border:1px solid {{ bt.bd }};color:{{ bt.fg }};font:500 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.1em;padding:8px 4px;min-height:42px" style-active="transform:translate(1px,1px)">{{ bt.label }}</button>
+</sc-for>
+</div>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:12px 18px 15px;background:#120E0D">
+<button onClick="{{ nav.solve }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:var(--term-red);border:1px solid var(--g-ink);color:var(--g-ink);font:700 14px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:52px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>ENGAGE</span><span>→</span></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDeath }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="11 DEATH" style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--term-bg)">
+<div style="flex:1;overflow-y:auto;padding:22px 18px;display:flex;flex-direction:column">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--term-red);animation:rg-flicker 4s steps(1,end) infinite">POOL 0 // WORD UNSOLVED</span>
+<h1 style="margin:10px 0 0;font:700 42px/0.9 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase;color:var(--term-red);animation:rg-slam 220ms steps(3,end) both">RUN<br>TERMINATED</h1>
+<div style="height:1px;background:var(--dark-3);margin:16px 0 14px"></div>
+<div style="border:1px solid var(--dark-3);background:var(--g-panel)">
+<div style="display:flex;align-items:center;padding:7px 10px;background:var(--g-strip);border-bottom:1px solid var(--dark-3)"><span style="font:700 9px/1 'JetBrains Mono',monospace;letter-spacing:0.16em">RUN LOG</span><span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">0x8F2A1C</span></div>
+<div style="padding:4px 10px 8px">
+<sc-for list="{{ deathStats }}" as="d" hint-placeholder-count="6">
+<div style="display:flex;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px dotted var(--g-line-soft)">
+<span style="font:400 9px/1.3 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ d.k }}</span>
+<span style="margin-left:auto;font:500 12px/1 'JetBrains Mono',monospace;color:{{ d.hue }}">{{ d.v }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="margin-top:14px;border:1px solid var(--term-fg);background:#12160A;padding:11px 12px">
+<div style="display:flex;align-items:center;gap:7px"><span style="font:400 16px/1 'VT323',monospace;color:var(--acc,var(--term-fg))">●</span><span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--acc,var(--term-fg))">OUROBOROS AVAILABLE</span></div>
+<p style="margin:7px 0 0;font:400 10px/1.45 'JetBrains Mono',monospace;color:var(--dark-fg-1)">Restart Act I with relics intact. Once per run — this is the once.</p>
+</div>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:12px 18px 15px;background:var(--dark-0);display:flex;flex-direction:column;gap:9px">
+<button onClick="{{ nav.map }}" style="display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:50px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>SPEND OUROBOROS</span><span>↺</span></button>
+<button onClick="{{ nav.title }}" style="background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-2);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;min-height:46px" style-hover="border-color:var(--dark-fg-0);color:var(--dark-fg-0)" style-active="transform:translate(1px,1px)">ABANDON · NEW RUN</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWin }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="12 VICTORY" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;padding:20px 18px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--acc,var(--term-fg))">ACT III BOSS CLEARED</span>
+<h1 style="margin:10px 0 0;font:700 46px/0.88 'Space Grotesk',sans-serif;letter-spacing:-0.03em;text-transform:uppercase;animation:rg-slam 220ms steps(3,end) both">RUN<br><span style="color:var(--acc,var(--term-fg))">BANKED</span></h1>
+<div style="height:1px;background:var(--dark-fg-0);margin:16px 0 0"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--dark-3);border:1px solid var(--dark-3);border-top:0">
+<sc-for list="{{ winStats }}" as="w" hint-placeholder-count="6">
+<div style="background:var(--g-panel);padding:11px 11px 12px;display:flex;flex-direction:column;gap:5px">
+<span style="font:400 9px/1.2 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-2)">{{ w.k }}</span>
+<span style="font:400 26px/0.9 'VT323',monospace;color:{{ w.hue }}">{{ w.v }}</span>
+</div>
+</sc-for>
+</div>
+<div style="margin-top:16px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">FINAL BUILD · 7 RELICS</span>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
+<sc-for list="{{ winRelics }}" as="wr" hint-placeholder-count="7">
+<span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;border:1px solid {{ wr.hue }};color:{{ wr.hue }};padding:6px 7px">{{ wr.name }}</span>
+</sc-for>
+</div>
+</div>
+<p style="margin:18px 0 0;font:400 11px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);text-wrap:pretty">Seed 0x8F2A1C is shareable — the same map, words and relic offers, for anyone who wants to try your route.</p>
+</div>
+<div style="flex:none;border-top:1px solid var(--dark-3);padding:12px 18px 15px;background:var(--g-panel);display:flex;gap:9px">
+<button onClick="{{ nav.title }}" style="flex:none;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;padding:0 13px;min-height:48px" style-hover="background:var(--dark-fg-0);color:var(--dark-0)" style-active="transform:translate(1px,1px)">COPY SEED</button>
+<button onClick="{{ nav.character }}" style="flex:1;display:flex;align-items:center;justify-content:space-between;background:var(--acc,var(--term-fg));border:1px solid var(--g-ink);color:var(--g-ink);font:700 13px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;padding:0 14px;min-height:48px;box-shadow:3px 3px 0 0 var(--dark-fg-0)" style-active="transform:translate(3px,3px);box-shadow:0 0 0 0 var(--dark-fg-0)"><span>NEW RUN</span><span>→</span></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ drawer }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end">
+<button onClick="{{ nav.closeDrawer }}" style="position:absolute;inset:0;background:var(--g-scrim);border:0;padding:0"></button>
+<div style="position:relative;background:var(--g-panel);border-top:1px solid var(--dark-fg-0);max-height:76%;display:flex;flex-direction:column;animation:rg-rise var(--d2,180ms) cubic-bezier(0.2,0.8,0.2,1) both">
+<div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--dark-3);background:var(--g-strip)">
+<span style="font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:0.18em">RELIC INVENTORY</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;color:var(--dark-fg-3)">{{ relicCount }}/{{ relicCap }}</span>
+<button onClick="{{ nav.closeDrawer }}" style="margin-left:auto;background:transparent;border:1px solid var(--dark-fg-3);color:var(--dark-fg-1);font:500 10px/1 'JetBrains Mono',monospace;padding:7px 9px;min-height:32px" style-hover="border-color:var(--dark-fg-0);color:var(--dark-fg-0)">CLOSE ×</button>
+</div>
+<div style="flex:1;overflow-y:auto;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ held }}" as="h" hint-placeholder-count="4">
+<div style="background:{{ h.cardBg }};border:1px solid {{ h.cardBd }};box-shadow:{{ h.sh }}">
+<div style="display:flex;align-items:stretch;border-bottom:1px solid {{ h.hdrBd }}">
+<div style="flex:none;width:{{ h.spineW }};background:{{ h.spine }}"></div>
+<div style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 10px;background:{{ h.stripBg }};min-width:0">
+<span style="font:700 12px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:{{ h.stripFg }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.name }}</span>
+<span style="margin-left:auto;flex:none;font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ h.stripFg }};border:1px solid {{ h.stripFg }};padding:3px 4px">{{ h.rarity }}</span>
+</div>
+</div>
+<div style="display:flex;gap:10px;padding:11px 10px 12px">
+<span style="flex:none;width:44px;height:44px;border:1px solid {{ h.iconBd }};background:{{ h.iconBg }};display:flex;flex-direction:column;align-items:center;justify-content:center;color:{{ h.hue }}">
+<sc-for list="{{ h.art }}" as="ln" hint-placeholder-count="3"><span style="font:400 12px/1.05 'JetBrains Mono',monospace;white-space:pre">{{ ln }}</span></sc-for>
+</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">
+<p style="margin:0;font:400 11px/1.45 'JetBrains Mono',monospace;color:var(--dark-fg-1);text-wrap:pretty">{{ h.desc }}</p>
+<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+<span style="font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:{{ h.hue }};border:1px solid {{ h.hue }};padding:3px 4px">{{ h.clsTag }}</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3)">HOOK {{ h.hook }}</span>
+<span style="margin-left:auto;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;color:var(--dark-fg-3)">{{ h.code }}</span>
+</div>
+</div>
+</div>
+<sc-if value="{{ h.flavor }}" hint-placeholder-val="{{ false }}">
+<div style="padding:6px 10px 8px;border-top:1px dotted var(--g-line);font:400 14px/1.15 'VT323',monospace;color:var(--dark-fg-3)">{{ h.flavor }}</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ index }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:30;background:var(--term-bg);display:flex;flex-direction:column">
+<div style="flex:none;display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--dark-fg-0)">
+<span style="font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:0.18em">SCREEN INDEX</span>
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.14em;color:var(--dark-fg-3)">[DEV] NOT SHIPPED</span>
+<button onClick="{{ nav.index }}" style="margin-left:auto;background:transparent;border:1px solid var(--dark-fg-0);color:var(--dark-fg-0);font:500 10px/1 'JetBrains Mono',monospace;padding:8px 10px;min-height:34px" style-hover="background:var(--dark-fg-0);color:var(--dark-0)">×</button>
+</div>
+<div style="flex:1;overflow-y:auto;padding:0">
+<sc-for list="{{ screens }}" as="s" hint-placeholder-count="12">
+<button onClick="{{ s.onTap }}" style="display:flex;width:100%;text-align:left;align-items:center;gap:10px;padding:12px 14px;background:{{ s.bg }};border:0;border-bottom:1px dotted var(--g-line-soft);color:{{ s.fg }};min-height:48px" style-hover="background:var(--dark-1)" style-active="transform:translate(1px,1px)">
+<span style="flex:none;font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;color:var(--dark-fg-3)">{{ s.code }}</span>
+<span style="flex:1;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:0.1em">{{ s.label }}</span>
+<span style="flex:none;font:400 9px/1 'JetBrains Mono',monospace;color:{{ s.tagFg }}">{{ s.tag }}</span>
+</button>
+</sc-for>
+<div style="padding:13px 14px 18px">
+<span style="font:400 9px/1 'JetBrains Mono',monospace;letter-spacing:0.2em;color:var(--dark-fg-2)">SOLVE SCREEN STATES</span>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
+<sc-for list="{{ variants }}" as="v" hint-placeholder-count="4">
+<button onClick="{{ v.onTap }}" style="flex:none;background:{{ v.bg }};border:1px solid {{ v.bd }};color:{{ v.fg }};font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:0.1em;padding:10px 10px;min-height:40px" style-active="transform:translate(1px,1px)">{{ v.label }}</button>
+</sc-for>
+</div>
+<p style="margin:14px 0 0;font:400 10px/1.5 'JetBrains Mono',monospace;color:var(--dark-fg-3);text-wrap:pretty">Component sheet, states and timings: <a href="Rougle Components.dc.html">Rougle Components</a></p>
+</div>
+</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C8FF1F&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#C8FF1F&quot;,&quot;#00D5E5&quot;,&quot;#FF2E88&quot;,&quot;#E8B23A&quot;],&quot;section&quot;:&quot;Look&quot;},&quot;poolDisplay&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;number + pips&quot;,&quot;options&quot;:[&quot;number + pips&quot;,&quot;pips&quot;,&quot;number&quot;],&quot;tsType&quot;:&quot;'number + pips'|'pips'|'number'&quot;,&quot;section&quot;:&quot;HUD&quot;},&quot;showIndex&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'title', variant: 'normal', guess: 'GRA', rows: 'seed',
+    pool: 18, gold: 145, tick: 0, cost: false, solved: false,
+    char: null, taken: null, drawer: false, index: false,
+    boss: 'twins', forgeQty: 2, bought: []
+  };
+
+  SOL = 'GRAVE';
+  KB = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  PRIOR = [
+    { w: 'ROUND', s: ['Y', 'X', 'X', 'X', 'X'] },
+    { w: 'SLATE', s: ['X', 'X', 'G', 'X', 'G'] }
+  ];
+
+  CLS = {
+    INFO: { tag: 'INFORMATION', hue: 'var(--term-blue)' },
+    TEMPO: { tag: 'TEMPO', hue: 'var(--acc,var(--term-fg))' },
+    GREED: { tag: 'ECONOMY', hue: 'var(--term-amber)' },
+    RISK: { tag: 'RISK', hue: 'var(--term-red)' }
+  };
+
+  LIB = {
+    sieve: { code: 'RL.02', name: 'THE SIEVE', cls: 'INFO', rarity: 'COMMON', hook: 'onFeedbackTransform',
+      art: ['\\===/', ' \\_/ ', '  .  '],
+      desc: 'Grey letters fall out of the keyboard and stay out for the rest of the word.' },
+    flywheel: { code: 'RL.11', name: 'FLYWHEEL', cls: 'TEMPO', rarity: 'COMMON', hook: 'onWordSolved',
+      art: [' _^_ ', '<(o)>', " '-' "],
+      desc: 'Solve in three or fewer and one guess spins straight back into the pool.' },
+    tincup: { code: 'RL.23', name: 'THE TIN CUP', cls: 'GREED', rarity: 'UNCOMMON', hook: 'onGuessSubmit',
+      art: ['\\ $ /', ' \\./ ', ' /_\\ '],
+      desc: 'Every guess you spend rattles 5g loose. Flailing pays — slowly.' },
+    moth: { code: 'RL.19', name: 'THE MOTH', cls: 'RISK', rarity: 'UNCOMMON', hook: 'onWordStart',
+      art: ['\\\\ //', '(o.o)', ' /|\\ '], flavor: 'It eats the alphabet, not the word.',
+      desc: 'At every word start it eats one letter off your keyboard — chosen at random — and hands you a guess for it.' },
+    lantern: { code: 'RL.26', name: 'THE LANTERN', cls: 'INFO', rarity: 'RARE', hook: 'onGuessSubmit',
+      art: [' .^. ', '[(*)]', " '-' "], flavor: 'It only lights the way once you are lost.',
+      desc: 'After two failed guesses on a word, the first letter is lit for free.' },
+    anvil: { code: 'RL.09', name: 'THE ANVIL', cls: 'TEMPO', rarity: 'UNCOMMON', hook: 'onNodeEnter',
+      art: [' __  ', '[==]_', ' /\\  '],
+      desc: 'Forge nodes give you two operations instead of one. Heavy to carry: −1 starting guess each act.' },
+    rosetta: { code: 'RL.31', name: 'ROSETTA SLAB', cls: 'INFO', rarity: 'BOSS', hook: 'onWordStart',
+      art: [',---.', '|=-=|', '|___|'], flavor: 'Older than the language it breaks.',
+      desc: 'Every word opens with one green already carved. In exchange the act pool is cut by three.' },
+    auditor: { code: 'RL.07', name: 'THE AUDITOR', cls: 'INFO', rarity: 'RARE', hook: 'onGuessSubmit',
+      art: [' [#] ', ' |_| ', '====='], flavor: 'Never wrong. Never free.',
+      desc: 'Name any untried letter and he stamps it PRESENT or ABSENT. He charges 5g a stamp.',
+      syn: '+ THE SIEVE', synHue: 'var(--term-fg)' },
+    rangefinder: { code: 'RL.04', name: 'RANGEFINDER', cls: 'INFO', rarity: 'RARE', hook: 'onFeedbackTransform',
+      art: [' _|_ ', '-(o)-', " '|' "], flavor: 'Distance, not identity.',
+      desc: 'Yellows report how many places off they sit — and stop telling you which letter they are.',
+      syn: 'ANTI · THE SIEVE', synHue: 'var(--term-red)' },
+    guillotine: { code: 'RL.14', name: 'THE GUILLOTINE', cls: 'RISK', rarity: 'UNCOMMON', hook: 'onWordSolved',
+      art: ['|===|', '|\\  |', '|_\\_|'], flavor: 'Fast, or shorter.',
+      desc: 'Two guesses or fewer: +40g. Five or more: it takes 20g and one letter off your keyboard.',
+      syn: 'ANTI · TIN CUP', synHue: 'var(--term-red)' },
+    lexicon: { code: 'RL.01', name: 'LEXICON', cls: 'INFO', rarity: 'COMMON', hook: 'onWordStart',
+      art: [' ___ ', '[:::]', " '-' "],
+      desc: 'Your first guess of each word also reports how many vowels the answer holds.' },
+    decanter: { code: 'CN.03', name: 'THE DECANTER', cls: 'TEMPO', rarity: 'CONSUMABLE', hook: 'onUse',
+      art: [' |_| ', '/ ~ \\', '\\___/'],
+      desc: 'Pours 3 guesses into the act pool. Does not raise the cap.' },
+    key: { code: 'CN.05', name: 'SKELETON KEY', cls: 'TEMPO', rarity: 'CONSUMABLE', hook: 'onUse',
+      art: [' (o) ', '  |  ', '  L_ '],
+      desc: 'Turns one green on the next word you enter.' },
+    coin: { code: 'RL.28', name: 'SHAVED COIN', cls: 'RISK', rarity: 'RARE', hook: 'onFeedbackTransform',
+      art: [' ,-. ', '( * )', " '-' "], flavor: 'Heads it tells you. Tails it does not.',
+      desc: 'Once per word, re-roll which positions report truthfully. You do not get to see the roll.' }
+  };
+
+  HELD = ['sieve', 'flywheel', 'tincup', 'moth', 'lantern', 'anvil', 'rosetta'].map((k) => this.LIB[k]);
+  OFFERS = ['auditor', 'rangefinder', 'guillotine'].map((k) => this.LIB[k]);
+
+  relicSkin(r, sel) {
+    const hue = r.rarity === 'BOSS' ? 'var(--acc,var(--term-fg))' : this.CLS[r.cls].hue;
+    const filled = r.rarity === 'RARE' || r.rarity === 'BOSS';
+    return {
+      hue, clsTag: this.CLS[r.cls].tag, cardBg: 'var(--g-sunken)',
+      cardBd: filled ? hue : (sel ? 'var(--dark-fg-0)' : (r.rarity === 'UNCOMMON' ? 'var(--g-line-strong)' : 'var(--g-line)')),
+      hdrBd: filled ? 'var(--g-ink)' : (sel ? 'var(--dark-fg-0)' : 'var(--g-line)'),
+      spine: filled ? 'var(--g-ink)' : (r.rarity === 'UNCOMMON' ? hue : 'var(--dark-3)'),
+      spineW: filled ? '7px' : '4px',
+      stripBg: filled ? hue : (sel ? 'var(--dark-fg-0)' : '#1C1C1C'),
+      stripFg: filled ? 'var(--g-ink)' : (sel ? 'var(--dark-0)' : 'var(--dark-fg-0)'),
+      iconBd: filled ? hue : 'var(--g-line)',
+      iconBg: r.rarity === 'BOSS' ? 'repeating-linear-gradient(135deg,rgba(238,238,238,.07) 0 2px,transparent 2px 6px)' : '#101010',
+      sh: sel ? '3px 3px 0 0 var(--dark-fg-0)' : (filled ? '2px 2px 0 0 var(--g-ink)' : 'none')
+    };
+  }
+
+  CHARS = [
+    { code: 'CH.01', name: 'THE LINGUIST', glyph: '◇', fig: 'FIG.01', hue: 'var(--term-fg)', mod: 'POOL +2 / ACT', arch: 'INFORMATION', innate: 'Sees the solution vowel count on every word, before the first guess.' },
+    { code: 'CH.02', name: 'THE GAMBLER', glyph: '✦', fig: 'FIG.02', hue: 'var(--magenta)', mod: 'POOL −6 / ACT', arch: 'SPEED · GAMBLER', innate: 'Solving in three or fewer refunds two guesses. Starves without pace.' },
+    { code: 'CH.03', name: 'THE CRYPTOGRAPHER', glyph: '◈', fig: 'FIG.03', hue: 'var(--term-blue)', mod: 'POOL −4 / ACT', arch: 'INFORMATION', innate: 'May spend a guess to reveal one letter outright, any time, any word.' }
+  ];
+
+  BOSSES = {
+    twins: { act: 'I', name: 'THE TWINS', size: '44px/0.9', rule: 'Two solutions. One pool. Every guess is scored against both at once, and both results are shown.', ticker: 'TWO MOUTHS · ONE THROAT · ', facts: [{ k: 'SOLUTIONS', v: '2 SIMULTANEOUS', hue: 'var(--term-red)' }, { k: 'POOL DRAW', v: '1 PER GUESS', hue: 'var(--dark-fg-0)' }, { k: 'DROP', v: 'BOSS RELIC · GUARANTEED', hue: 'var(--term-fg)' }] },
+    cipher: { act: 'II', name: 'THE CIPHER', size: '44px/0.9', rule: 'No feedback until three guesses are committed. All three resolve at once. Plan the tree, then read it.', ticker: 'COMMIT THREE · READ ONCE · ', facts: [{ k: 'FEEDBACK', v: 'DEFERRED ×3', hue: 'var(--term-red)' }, { k: 'CORRUPTION', v: 'NONE — JUST BLIND', hue: 'var(--dark-fg-0)' }, { k: 'DROP', v: 'BOSS RELIC · GUARANTEED', hue: 'var(--term-fg)' }] },
+    gauntlet: { act: 'III', name: 'THE GAUNTLET', size: '38px/0.92', rule: 'Five words. Fourteen guesses. No shop, no forge, no reward between them. Attrition against whatever you built.', ticker: 'FIVE WORDS · NO REST · ', facts: [{ k: 'WORDS', v: '5 CONSECUTIVE', hue: 'var(--term-red)' }, { k: 'POOL', v: '14 — FIXED', hue: 'var(--term-red)' }, { k: 'INTERRUPTS', v: 'NONE', hue: 'var(--dark-fg-0)' }] }
+  };
+
+  SCREENS = [
+    ['S.01', 'RUN START / TITLE', 'title', 'ENTRY'],
+    ['S.02', 'CHARACTER SELECT', 'character', 'ENTRY'],
+    ['S.03', 'ACT MAP', 'map', 'HUB'],
+    ['S.04', 'WORD SOLVE', 'solve', 'CORE'],
+    ['S.05', 'RELIC REWARD', 'reward', 'CORE'],
+    ['S.06', 'SHOP', 'shop', 'NODE'],
+    ['S.07', 'FORGE', 'forge', 'NODE'],
+    ['S.08', 'EVENT', 'event', 'NODE'],
+    ['S.09', 'BOSS INTRO', 'boss', 'NODE'],
+    ['S.11', 'DEATH', 'death', 'EXIT'],
+    ['S.12', 'VICTORY', 'win', 'EXIT']
+  ];
+
+  // Demo-only scorer. Ships as the base scorer of the transform pipeline (§5).
+  score(guess, sol) {
+    const g = guess.split(''), s = sol.split(''), out = g.map(() => 'X'), left = {};
+    g.forEach((c, i) => { if (c === s[i]) out[i] = 'G'; else left[s[i]] = (left[s[i]] || 0) + 1; });
+    g.forEach((c, i) => { if (out[i] !== 'G' && left[c] > 0) { out[i] = 'Y'; left[c]--; } });
+    return out;
+  }
+
+  go = (screen) => () => this.setState({ screen, index: false, drawer: false });
+
+  type = (ch) => () => {
+    if (this.state.solved) return;
+    const len = this.state.variant === 'long' ? 6 : 5;
+    if (this.state.guess.length < len) this.setState({ guess: this.state.guess + ch });
+  };
+
+  back = () => this.setState({ guess: this.state.guess.slice(0, -1) });
+
+  submit = () => {
+    const { guess, pool, rows, variant } = this.state;
+    const len = variant === 'long' ? 6 : 5;
+    if (guess.length < len || this.state.solved) return;
+    const prior = rows === 'seed' ? this.PRIOR.slice() : rows.slice();
+    prior.push({ w: guess, s: this.score(guess, this.SOL), fresh: true });
+    const win = guess === this.SOL;
+    this.setState({
+      rows: prior, guess: '', pool: Math.max(0, pool - 1), gold: this.state.gold + 5,
+      tick: this.state.tick + 1, cost: true, solved: win
+    });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ cost: false }), 640);
+  };
+
+  setVariant = (v) => () => {
+    const base = { variant: v, index: false, screen: 'solve', guess: '', rows: 'seed', solved: false, cost: false };
+    if (v === 'tense') this.setState({ ...base, variant: 'normal', pool: 3 });
+    else if (v === 'solved') this.setState({ ...base, variant: 'normal', pool: 17, rows: this.PRIOR.concat([{ w: 'GRAVE', s: ['G', 'G', 'G', 'G', 'G'], fresh: true }]), solved: true });
+    else this.setState({ ...base, pool: v === 'elite' ? 9 : 18 });
+  };
+
+  componentWillUnmount() { clearTimeout(this._ct); }
+
+  tileSkin(st, i, fresh, lie) {
+    const acc = 'var(--acc,var(--term-fg))';
+    let bg = 'transparent', fg = 'var(--dark-fg-0)', bd = 'var(--dark-3)';
+    if (st === 'G') { bg = acc; fg = 'var(--g-ink)'; bd = 'var(--g-ink)'; }
+    else if (st === 'Y') { bg = 'var(--term-amber)'; fg = 'var(--g-ink)'; bd = 'var(--g-ink)'; }
+    else if (st === 'X') { bg = 'var(--g-absent)'; fg = 'var(--dark-fg-3)'; bd = 'var(--g-line-soft)'; }
+    if (lie) { bg = 'var(--dark-2)'; fg = 'var(--dark-fg-0)'; bd = 'var(--dark-fg-0)'; }
+    return { bg, fg, bd, anim: fresh ? 'rg-flip var(--d2,180ms) steps(3,end) both' : 'none', delay: fresh ? (i * 55) + 'ms' : '0ms' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const acc = this.props.accent ?? 'var(--term-fg)';
+    const pd = this.props.poolDisplay ?? 'number + pips';
+    const rm = this.props.reducedMotion ?? false;
+    const elite = s.variant === 'elite';
+    const len = s.variant === 'long' ? 6 : 5;
+    const lieAt = elite ? 3 : -1;
+    const poolMax = 24;
+    const tense = s.pool <= 5;
+    const rows = s.rows === 'seed' ? this.PRIOR : s.rows;
+    const inRun = ['solve', 'reward', 'map', 'shop', 'forge', 'event'].indexOf(s.screen) >= 0;
+
+    const pips = [];
+    for (let i = 0; i < poolMax; i++) {
+      const live = i < s.pool;
+      pips.push({
+        bg: live ? (tense ? 'var(--term-red)' : 'var(--acc,var(--term-fg))') : 'transparent',
+        bd: live ? (tense ? 'var(--term-red)' : 'var(--acc,var(--term-fg))') : 'var(--dark-3)',
+        anim: (!rm && i === s.pool && s.cost) ? 'rg-drain 520ms steps(4,end) both' : 'none'
+      });
+    }
+
+    const grid = [];
+    rows.forEach((r) => {
+      grid.push({
+        op: '1',
+        tiles: r.w.split('').map((ch, i) => {
+          const lie = i === lieAt && r === rows[rows.length - 1];
+          const sk = this.tileSkin(r.s[i], i, r.fresh && !rm, lie);
+          return { ch, ...sk, lie, dist: (r.s[i] === 'Y' && !lie) ? '2' : false };
+        })
+      });
+    });
+    if (!s.solved) {
+      const cur = [];
+      for (let i = 0; i < len; i++) {
+        const ch = s.guess[i] || '';
+        cur.push({ ch, bg: 'transparent', fg: 'var(--dark-fg-0)', bd: ch ? 'var(--dark-fg-0)' : 'var(--g-line-strong)', anim: 'none', delay: '0ms', lie: false, dist: false });
+      }
+      grid.push({ op: '1', tiles: cur });
+      const ghost = [];
+      for (let i = 0; i < len; i++) ghost.push({ ch: '', bg: 'transparent', fg: 'var(--dark-fg-0)', bd: 'var(--dark-2)', anim: 'none', delay: '0ms', lie: false, dist: false });
+      grid.push({ op: '.55', tiles: ghost });
+      grid.push({ op: '.25', tiles: ghost });
+    }
+
+    const best = {};
+    const rank = { G: 3, Y: 2, X: 1 };
+    rows.forEach((r) => r.w.split('').forEach((ch, i) => {
+      if (!best[ch] || rank[r.s[i]] > rank[best[ch]]) best[ch] = r.s[i];
+    }));
+
+    const kbRows = this.KB.map((row, ri) => {
+      const keys = row.split('').map((ch) => {
+        const st = best[ch];
+        const dead = st === 'X';
+        let bg = 'var(--dark-2)', fg = 'var(--dark-fg-0)', bd = 'var(--g-line-strong)';
+        if (st === 'G') { bg = 'var(--acc,var(--term-fg))'; fg = 'var(--g-ink)'; bd = 'var(--g-ink)'; }
+        else if (st === 'Y') { bg = 'var(--term-amber)'; fg = 'var(--g-ink)'; bd = 'var(--g-ink)'; }
+        else if (dead) { bg = 'var(--g-sunken)'; fg = 'var(--g-absent-fg)'; bd = 'var(--dark-2)'; }
+        return { ch, dead, bg, fg, bd, flex: '1', font: "700 14px/1 'JetBrains Mono',monospace", tr: '0.02em', onTap: dead ? () => {} : this.type(ch) };
+      });
+      if (ri === 2) {
+        keys.unshift({ ch: 'ENTER', dead: false, bg: s.guess.length === len ? 'var(--acc,var(--term-fg))' : 'var(--dark-1)', fg: s.guess.length === len ? 'var(--g-ink)' : 'var(--dark-fg-3)', bd: s.guess.length === len ? 'var(--g-ink)' : 'var(--dark-3)', flex: '1.9', font: "700 9px/1 'JetBrains Mono',monospace", tr: '0.12em', onTap: this.submit });
+        keys.push({ ch: '⌫', dead: false, bg: 'var(--dark-1)', fg: 'var(--dark-fg-1)', bd: 'var(--g-line-strong)', flex: '1.6', font: "400 15px/1 'JetBrains Mono',monospace", tr: '0', onTap: this.back });
+      }
+      return { keys, pad: ri === 1 ? '14px' : '0px' };
+    });
+
+    const mapDefs = [
+      [['boss', '●', 'BOSS', 68, false, false]],
+      [['forge', '▼', 'FORGE', 54, false, false], ['event', '✦', 'EVENT', 54, false, false]],
+      [['shop', '▲', 'SHOP', 54, false, false], ['elite', '◆', 'ELITE', 54, false, 'STACK']],
+      [['word', '◇', 'WORD', 54, false, false], ['elite', '◆', 'ELITE', 54, false, 'FOG']],
+      [['word', '◇', 'WORD', 54, true, false], ['shop', '▲', 'SHOP', 54, false, false]],
+      [['word', '◇', 'WORD', 50, 'done', false], ['event', '✦', 'EVENT', 50, false, false]],
+      [['word', '◇', 'WORD', 50, 'done', false]]
+    ];
+    const hues = { word: 'var(--dark-fg-1)', elite: 'var(--term-amber)', shop: 'var(--term-blue)', forge: 'var(--dark-fg-1)', event: 'var(--magenta)', boss: 'var(--term-red)' };
+    const targets = { word: 'solve', elite: 'solve', shop: 'shop', forge: 'forge', event: 'event', boss: 'boss' };
+    const mapRows = mapDefs.map((row, ri) => ({
+      link: ri === mapDefs.length - 1 ? '' : (row.length > 1 ? '\\  /' : '|'),
+      linkHue: ri >= 4 ? 'var(--acc,var(--term-fg))' : 'var(--g-line-strong)',
+      nodes: row.map((n) => {
+        const done = n[4] === 'done';
+        const here = n[4] === true;
+        return {
+          glyph: n[1], type: n[2], size: n[3] + 'px', gs: (n[3] > 60 ? '30px' : '22px'),
+          bg: done ? 'var(--acc,var(--term-fg))' : (here ? 'var(--g-strip)' : 'var(--g-panel)'),
+          bd: done ? 'var(--g-ink)' : (here ? 'var(--acc,var(--term-fg))' : 'var(--g-line-strong)'),
+          fg: done ? 'var(--g-ink)' : (here ? hues[n[0]] : 'var(--dark-fg-3)'),
+          sh: here ? '3px 3px 0 0 var(--dark-fg-0)' : 'none',
+          here, badge: n[5], onTap: this.go(targets[n[0]])
+        };
+      })
+    }));
+
+    const shopRaw = [
+      { ...this.LIB.auditor, price: '120g', ok: true },
+      { ...this.LIB.lexicon, price: '55g', ok: true },
+      { ...this.LIB.decanter, price: '60g', ok: true },
+      { ...this.LIB.key, price: '35g', ok: true },
+      { ...this.LIB.coin, price: '180g', ok: false }
+    ];
+    const shopItems = shopRaw.map((it) => {
+      const afford = it.ok && s.gold >= parseInt(it.price, 10);
+      const owned = s.bought.indexOf(it.name) >= 0;
+      return {
+        art: it.art, name: owned ? it.name + ' · SOLD' : it.name, rarity: it.rarity, hue: this.CLS[it.cls].hue, desc: it.desc,
+        price: owned ? '—' : it.price,
+        priceFg: owned ? 'var(--dark-fg-3)' : (afford ? 'var(--term-amber)' : 'var(--term-red)'),
+        nameFg: owned ? 'var(--dark-fg-3)' : 'var(--dark-fg-0)',
+        bg: owned ? 'var(--g-sunken)' : 'transparent',
+        op: owned ? '.5' : (afford ? '1' : '.62'),
+        onTap: () => { if (afford && !owned) this.setState({ bought: s.bought.concat([it.name]), gold: s.gold - parseInt(it.price, 10) }); }
+      };
+    });
+
+    const forgeList = this.HELD.slice(0, 3).map((r, i) => ({
+      art: r.art, name: r.name, hue: this.CLS[r.cls].hue,
+      up: ['Greys lock out for the whole act, not just the word.', 'Refunds two guesses instead of one.', '+8g a guess, up from 5g.'][i],
+      tick: s.forgePick === i ? 'SELECTED' : 'FORGE',
+      tickFg: s.forgePick === i ? 'var(--g-ink)' : 'var(--dark-fg-2)',
+      tickBg: s.forgePick === i ? 'var(--acc,var(--term-fg))' : 'transparent',
+      tickBd: s.forgePick === i ? 'var(--g-ink)' : 'var(--g-line-strong)',
+      bg: s.forgePick === i ? 'var(--g-strip)' : 'transparent',
+      onTap: () => this.setState({ forgePick: i })
+    }));
+    const forgePips = [];
+    for (let i = 0; i < 8; i++) forgePips.push({ bg: i < s.forgeQty ? 'var(--acc,var(--term-fg))' : 'transparent', bd: i < s.forgeQty ? 'var(--acc,var(--term-fg))' : 'var(--dark-3)' });
+
+    const b = this.BOSSES[s.boss];
+    const bossTabs = [['twins', 'ACT I · TWINS'], ['cipher', 'ACT II · CIPHER'], ['gauntlet', 'ACT III · GAUNTLET']].map((t) => ({
+      label: t[1],
+      bg: s.boss === t[0] ? 'var(--term-red)' : 'transparent',
+      bd: s.boss === t[0] ? 'var(--g-ink)' : 'var(--g-line-strong)',
+      fg: s.boss === t[0] ? 'var(--g-ink)' : 'var(--dark-fg-2)',
+      onTap: () => this.setState({ boss: t[0] })
+    }));
+
+    return {
+      accent: acc, durFast: rm ? '1ms' : '120ms', durBase: rm ? '1ms' : '180ms',
+      topMeta: inRun ? 'ACT I // NODE 04 OF 07' : 'NO ACTIVE RUN', seed: '0x8F2A1C',
+      hud: inRun, showNum: pd !== 'pips', showPips: pd !== 'number',
+      pool: s.pool, poolMax, poolHue: tense ? 'var(--term-red)' : 'var(--dark-fg-0)', gold: s.gold, tickKey: 't' + s.tick,
+      pips, relicCount: this.HELD.length, relicCap: 12,
+
+      isTitle: s.screen === 'title', isChar: s.screen === 'character', isSolve: s.screen === 'solve',
+      isReward: s.screen === 'reward', isMap: s.screen === 'map', isShop: s.screen === 'shop',
+      isForge: s.screen === 'forge', isEvent: s.screen === 'event', isBoss: s.screen === 'boss',
+      isDeath: s.screen === 'death', isWin: s.screen === 'win',
+
+      chars: this.CHARS.map((c, i) => ({
+        ...c, delay: (i * 70) + 'ms',
+        bg: s.char === i ? 'var(--g-strip)' : 'var(--g-panel)',
+        bd: s.char === i ? 'var(--dark-fg-0)' : 'var(--dark-3)',
+        sh: s.char === i ? '3px 3px 0 0 var(--dark-fg-0)' : 'none',
+        stripBg: s.char === i ? 'var(--dark-fg-0)' : 'var(--g-strip)',
+        stripFg: s.char === i ? 'var(--dark-0)' : 'var(--dark-fg-1)',
+        onTap: () => this.setState({ char: i })
+      })),
+      startLabel: s.char === null ? 'PICK A HAND' : 'ENTER ACT I',
+      startBg: s.char === null ? 'transparent' : 'var(--acc,var(--term-fg))',
+      startBd: s.char === null ? 'var(--g-line-strong)' : 'var(--g-ink)',
+      startFg: s.char === null ? 'var(--dark-fg-3)' : 'var(--g-ink)',
+      startSh: s.char === null ? 'none' : '3px 3px 0 0 var(--dark-fg-0)',
+
+      hasMods: elite, mods: elite ? [{ label: 'LIAR LETTER' }, { label: 'DECAY' }] : [],
+      modNote: 'POS 4 LIES · GREENS DECAY IN 1',
+      wordLabel: 'WORD 04 OF 07', spentLabel: '// SPENT ' + (rows.length) + ' THIS WORD',
+      tense, tenseAnim: (tense && !rm) ? 'rg-flicker 5s steps(1,end) infinite' : 'none',
+      grid, kbRows, playing: !s.solved, solved: s.solved, cost: s.cost, costFlash: s.cost && !rm,
+      solveMeta: 'GRAVE // ' + rows.length + ' GUESSES // +22g',
+
+      offers: this.OFFERS.map((o, i) => ({
+        ...o, ...this.relicSkin(o, s.taken === i), delay: (i * 90) + 'ms',
+        op: (s.taken === null || s.taken === i) ? '1' : '.4',
+        onTap: () => this.setState({ taken: i })
+      })),
+      takeLabel: s.taken === null ? 'SELECT ONE' : 'TAKE ' + this.OFFERS[s.taken].name,
+      takeBg: s.taken === null ? 'transparent' : 'var(--acc,var(--term-fg))',
+      takeBd: s.taken === null ? 'var(--g-line-strong)' : 'var(--g-ink)',
+      takeFg: s.taken === null ? 'var(--dark-fg-3)' : 'var(--g-ink)',
+      takeSh: s.taken === null ? 'none' : '3px 3px 0 0 var(--dark-fg-0)',
+
+      mapRows, shopItems, forgeList, forgePips, forgeQty: s.forgeQty, forgeCost: s.forgeQty * 20,
+      forgeUp: () => this.setState({ forgeQty: Math.min(8, s.forgeQty + 1) }),
+      forgeDown: () => this.setState({ forgeQty: Math.max(0, s.forgeQty - 1) }),
+
+      eventOpts: [
+        { key: 'A', label: 'SIGN THE LEDGER', stake: 'SOLVE IN 2 → +60g · FAIL → LOSE A RANDOM RELIC', hue: 'var(--magenta)', bg: 'transparent', bd: 'var(--magenta)', onTap: this.go('solve') },
+        { key: 'B', label: 'PAY THE CLERK 40g', stake: 'SEE THE FIRST LETTER OF EVERY REMAINING WORD', hue: 'var(--term-amber)', bg: 'transparent', bd: 'var(--g-line-strong)', onTap: this.go('map') },
+        { key: 'C', label: 'WALK AWAY', stake: 'NOTHING GAINED. NOTHING SPENT.', hue: 'var(--dark-fg-2)', bg: 'transparent', bd: 'var(--g-line-strong)', onTap: this.go('map') }
+      ],
+
+      bossName: b.name, bossAct: b.act, bossRule: b.rule, bossSize: b.size, bossFacts: b.facts,
+      bossTicker: b.ticker, bossTabs,
+
+      deathStats: [
+        { k: 'DIED ON', v: 'ACT II · NODE 05', hue: 'var(--term-red)' },
+        { k: 'CAUSE', v: 'POOL EXHAUSTED', hue: 'var(--term-red)' },
+        { k: 'WORDS SOLVED', v: '11', hue: 'var(--dark-fg-0)' },
+        { k: 'AVG GUESSES / WORD', v: '3.6', hue: 'var(--term-amber)' },
+        { k: 'RELICS HELD', v: '4', hue: 'var(--dark-fg-0)' },
+        { k: 'GOLD UNSPENT', v: '145g', hue: 'var(--term-amber)' }
+      ],
+      winStats: [
+        { k: 'WORDS SOLVED', v: '21', hue: 'var(--acc,var(--term-fg))' },
+        { k: 'AVG / WORD', v: '2.9', hue: 'var(--acc,var(--term-fg))' },
+        { k: 'BEST SOLVE', v: '2', hue: 'var(--dark-fg-0)' },
+        { k: 'GOLD BANKED', v: '410g', hue: 'var(--term-amber)' },
+        { k: 'EMERGENCY BUYS', v: '1', hue: 'var(--term-red)' },
+        { k: 'RUN TIME', v: '24:18', hue: 'var(--dark-fg-0)' }
+      ],
+      winRelics: ['sieve', 'flywheel', 'tincup', 'auditor', 'rosetta', 'moth', 'guillotine'].map((k) => ({
+        name: this.LIB[k].name,
+        hue: this.LIB[k].rarity === 'BOSS' ? 'var(--acc,var(--term-fg))' : this.CLS[this.LIB[k].cls].hue
+      })),
+
+      drawer: s.drawer, held: this.HELD.map((r) => ({ ...r, ...this.relicSkin(r, false) })),
+
+      showIndex: (this.props.showIndex ?? true) && !s.index,
+      index: s.index,
+      screens: this.SCREENS.map((sc) => ({
+        code: sc[0], label: sc[1], tag: sc[3],
+        bg: s.screen === sc[2] ? 'var(--g-strip)' : 'transparent',
+        fg: s.screen === sc[2] ? 'var(--dark-fg-0)' : 'var(--dark-fg-1)',
+        tagFg: sc[3] === 'CORE' ? 'var(--acc,var(--term-fg))' : 'var(--dark-fg-3)',
+        onTap: this.go(sc[2])
+      })),
+      variants: [['normal', 'NORMAL'], ['elite', 'ELITE · CORRUPTED'], ['tense', 'POOL CRITICAL'], ['solved', 'SOLVED']].map((v) => ({
+        label: v[1],
+        bg: (s.variant === v[0] || (v[0] === 'solved' && s.solved)) ? 'var(--dark-fg-0)' : 'transparent',
+        fg: (s.variant === v[0] || (v[0] === 'solved' && s.solved)) ? 'var(--dark-0)' : 'var(--dark-fg-1)',
+        bd: 'var(--g-line-strong)',
+        onTap: this.setVariant(v[0])
+      })),
+
+      nav: {
+        title: this.go('title'), character: this.go('character'), map: this.go('map'),
+        solve: this.go('solve'), reward: this.go('reward'),
+        drawer: () => this.setState({ drawer: true }),
+        closeDrawer: () => this.setState({ drawer: false }),
+        index: () => this.setState({ index: !s.index })
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+/* NIKOLASS — MOTION
+   Fast, no flair. Step-based for retro feel. Never a spring,
+   never a fade-in-on-scroll. */
+:root {
+  --dur-instant: 60ms;  /* @kind other */
+  --dur-fast:    120ms; /* @kind other */
+  --dur-base:    180ms; /* @kind other */
+  --dur-slow:    320ms; /* @kind other */
+
+  --ease-linear: linear; /* @kind other */
+  --ease-step:   steps(6, end); /* @kind other */
+  --ease-out:    cubic-bezier(0.2, 0.8, 0.2, 1); /* @kind other */
+}
+
+@keyframes nk-caret-blink { 50% { opacity: 0; } }
+@keyframes nk-pulse-dot   { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.25; } }
+@keyframes nk-scan-sweep  { 0% { top: -3px; } 100% { top: calc(100% + 3px); } }
+@keyframes nk-flicker     { 0%, 92%, 100% { opacity: 1; } 93%, 95% { opacity: 0.4; } 94% { opacity: 1; } }
+@keyframes nk-ticker      { from { transform: translateX(0); } to { transform: translateX(-50%); } }
