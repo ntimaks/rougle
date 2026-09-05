@@ -1,0 +1,379 @@
+{
+  "$schema_version": "1.0",
+  "_notes": {
+    "authority": "Normative for relic names, codes, rarity, archetype, hooks and rules. Governed by MECHANICS.md.",
+    "codes": "Codes are OPAQUE string primary keys. They are not sequential and do not sort by archetype. Sort by archetype/rarity fields. Codes already rendered in the design files are preserved exactly.",
+    "rule_vs_flavor": "`rule` is normative and implementable. `flavor` is display copy and carries no mechanical meaning.",
+    "caps": "See MECHANICS.md §2.4 (refund floor) and §6.3 (information cap). Both are enforced in the engine, not per relic."
+  },
+
+  "archetypes": {
+    "INFO": { "label": "INFORMATION", "summary": "Maximise data extracted per guess." },
+    "TEMPO": { "label": "TEMPO", "summary": "Rewarded for solving in three or fewer." },
+    "RISK": { "label": "RISK", "summary": "High variance. Wagers and corrupted information." },
+    "GREED": { "label": "GREED", "summary": "Converts play patterns into gold." },
+    "ROUTE": { "label": "ROUTING", "summary": "Changes how the map is navigated rather than how a word is solved." }
+  },
+
+  "rarities": ["COMMON", "UNCOMMON", "RARE", "BOSS", "CONSUMABLE"],
+
+  "relics": [
+    {
+      "code": "RL.01",
+      "name": "LEXICON",
+      "archetype": "INFO",
+      "rarity": "COMMON",
+      "hook": "onWordStart",
+      "rule": "Your first guess of each word also reports how many vowels the answer holds.",
+      "pre_guess_reveal": true
+    },
+    {
+      "code": "RL.02",
+      "name": "THE SIEVE",
+      "archetype": "INFO",
+      "rarity": "COMMON",
+      "hook": "onFeedbackTransform",
+      "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word. Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
+      "pre_guess_reveal": false,
+      "anti_synergy": ["RL.04"],
+      "anti_synergy_reason": "Rangefinder withholds letter identity, so there is nothing for the Sieve to eliminate."
+    },
+    {
+      "code": "RL.03",
+      "name": "PALIMPSEST",
+      "archetype": "INFO",
+      "rarity": "UNCOMMON",
+      "hook": "onWordStart",
+      "rule": "At word start, learn one letter this solution shares with the previous solution. If they share none, learn that instead.",
+      "pre_guess_reveal": true
+    },
+    {
+      "code": "RL.04",
+      "name": "RANGEFINDER",
+      "archetype": "INFO",
+      "rarity": "RARE",
+      "hook": "onFeedbackTransform",
+      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is. Sets Tile.letter to null and Tile.distance to an integer.",
+      "flavor": "Distance, not identity.",
+      "pre_guess_reveal": false,
+      "transform_order": 3,
+      "anti_synergy": ["RL.02"],
+      "engine_note": "For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
+    },
+    {
+      "code": "RL.05",
+      "name": "THE CONCORDANCE",
+      "archetype": "INFO",
+      "rarity": "COMMON",
+      "hook": "onWordStart",
+      "rule": "Your first guess of each word also reports whether the answer repeats any letter.",
+      "pre_guess_reveal": true
+    },
+    {
+      "code": "RL.06",
+      "name": "CARTOGRAPHER",
+      "archetype": "ROUTE",
+      "rarity": "UNCOMMON",
+      "hook": "onActStart",
+      "rule": "See the modifiers on every node in the act before choosing a path.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.07",
+      "name": "THE AUDITOR",
+      "archetype": "INFO",
+      "rarity": "RARE",
+      "hook": "onGuessSubmit",
+      "rule": "Once per word, at any time, name one untried letter and pay 5g. He stamps it PRESENT or ABSENT. If you cannot pay, he does not answer.",
+      "flavor": "Never wrong. Never free.",
+      "pre_guess_reveal": false,
+      "synergy": ["RL.02"],
+      "ruling": "R-001"
+    },
+    {
+      "code": "RL.09",
+      "name": "THE ANVIL",
+      "archetype": "ROUTE",
+      "rarity": "UNCOMMON",
+      "hook": "onNodeEnter",
+      "rule": "Forge nodes give you two operations instead of one. Act pool reduced by 1.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.10",
+      "name": "THE METRONOME",
+      "archetype": "TEMPO",
+      "rarity": "COMMON",
+      "hook": "onWordSolved",
+      "rule": "Solve in exactly three and gain 10g.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.11",
+      "name": "FLYWHEEL",
+      "archetype": "TEMPO",
+      "rarity": "COMMON",
+      "hook": "onWordSolved",
+      "rule": "Solve in three or fewer and one guess spins straight back into the pool.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": 1, "trigger": "solve_lte_3" }
+    },
+    {
+      "code": "RL.12",
+      "name": "HOT STREAK",
+      "archetype": "TEMPO",
+      "rarity": "UNCOMMON",
+      "hook": "onWordSolved",
+      "rule": "Three consecutive solves in three or fewer, and the next word opens with one green revealed. The counter resets on any solve of four or more.",
+      "pre_guess_reveal": true
+    },
+    {
+      "code": "RL.13",
+      "name": "OPENING GAMBIT",
+      "archetype": "TEMPO",
+      "rarity": "UNCOMMON",
+      "hook": "onGuessSubmit",
+      "rule": "Your first guess of a word is refunded if it contains four or more unique letters not yet used this word.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": 1, "trigger": "first_guess_4_unique" },
+      "engine_note": "Implemented as a refund, never as a skipped decrement. The pool must visibly tick down and back up. See MECHANICS.md §2.4 Rule C."
+    },
+    {
+      "code": "RL.14",
+      "name": "THE GUILLOTINE",
+      "archetype": "RISK",
+      "rarity": "UNCOMMON",
+      "hook": "onWordSolved",
+      "rule": "Solve in two or fewer: gain 40g. Solve in five or more: lose 20g.",
+      "flavor": "Fast, or shorter.",
+      "pre_guess_reveal": false,
+      "anti_synergy": ["RL.23"],
+      "ruling": "R-004"
+    },
+    {
+      "code": "RL.15",
+      "name": "BLOODHOUND",
+      "archetype": "ROUTE",
+      "rarity": "UNCOMMON",
+      "hook": "onNodeEnter",
+      "rule": "Elite nodes refund 2 guesses on clear, and award no gold.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.16",
+      "name": "THE PILGRIM",
+      "archetype": "ROUTE",
+      "rarity": "RARE",
+      "hook": "onNodeEnter",
+      "rule": "Passing a shop node without buying anything grants 30g on leaving.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.18",
+      "name": "THE WISHBONE",
+      "archetype": "RISK",
+      "rarity": "COMMON",
+      "hook": "onGuessSubmit",
+      "rule": "Each guess has a 50% chance of being refunded.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": 1, "trigger": "coinflip_0.5" }
+    },
+    {
+      "code": "RL.19",
+      "name": "THE MOTH",
+      "archetype": "RISK",
+      "rarity": "UNCOMMON",
+      "hook": "onWordStart",
+      "rule": "At every word start it eats one letter off your keyboard and hands you a guess for it. It never eats a letter present in the solution.",
+      "flavor": "It eats the alphabet, not the word.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": 1, "trigger": "word_start" },
+      "ruling": "R-003",
+      "engine_note": "Uses the shared eligibleLettersForRemoval(solution) helper. Unit-test that the eaten letter is never in the solution."
+    },
+    {
+      "code": "RL.20",
+      "name": "BLINDFOLD",
+      "archetype": "RISK",
+      "rarity": "UNCOMMON",
+      "hook": "onGuessSubmit",
+      "rule": "Choose to take no feedback on a guess. If that guess was within one letter of the solution, gain 3 guesses. Otherwise nothing.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.21",
+      "name": "ALL IN",
+      "archetype": "RISK",
+      "rarity": "RARE",
+      "hook": "onWordStart",
+      "rule": "Before a word, wager any number of guesses. Solve within that count and gain the same number back. Fail and lose all of them.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": "wager", "trigger": "solve_within_wager" },
+      "balance_flag": "Pairs degenerately with any relic that removes uncertainty about your own solve count. Watch RL.04 and RL.07 co-occurrence in simulation."
+    },
+    {
+      "code": "RL.22",
+      "name": "POLYGLOT",
+      "archetype": "ROUTE",
+      "rarity": "BOSS",
+      "hook": "onWordSolved",
+      "rule": "Six- and seven-letter words award double gold and roll relic offers one rarity tier higher.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.23",
+      "name": "THE TIN CUP",
+      "archetype": "GREED",
+      "rarity": "UNCOMMON",
+      "hook": "onGuessSubmit",
+      "rule": "Every guess you spend rattles 5g loose.",
+      "flavor": "Flailing pays. Slowly.",
+      "pre_guess_reveal": false,
+      "anti_synergy": ["RL.14", "RL.11"],
+      "engine_note": "The +5g must land on the same frame as the pool decrement, or the two counters compete for attention."
+    },
+    {
+      "code": "RL.24",
+      "name": "THE LEDGER",
+      "archetype": "GREED",
+      "rarity": "COMMON",
+      "hook": "onActEnd",
+      "rule": "Leftover guesses convert at 15g each instead of 10g.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.25",
+      "name": "INSURANCE",
+      "archetype": "GREED",
+      "rarity": "UNCOMMON",
+      "hook": "onPoolChange",
+      "rule": "The first emergency guess of each act is free.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.26",
+      "name": "THE LANTERN",
+      "archetype": "INFO",
+      "rarity": "RARE",
+      "hook": "onGuessSubmit",
+      "rule": "After two failed guesses on a word, the first letter is lit for free.",
+      "flavor": "It only lights the way once you are lost.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.27",
+      "name": "THE VAULT",
+      "archetype": "GREED",
+      "rarity": "RARE",
+      "hook": "onActEnd",
+      "rule": "Up to 10 leftover guesses carry into the next act instead of converting to gold. Does not raise the act cap.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "RL.28",
+      "name": "SHAVED COIN",
+      "archetype": "RISK",
+      "rarity": "RARE",
+      "hook": "onFeedbackTransform",
+      "rule": "Once per word, re-roll which positions report truthfully. You do not get to see the roll.",
+      "flavor": "Heads it tells you. Tails it does not.",
+      "pre_guess_reveal": false,
+      "transform_order": 1
+    },
+    {
+      "code": "RL.29",
+      "name": "THE MASK",
+      "archetype": "INFO",
+      "rarity": "BOSS",
+      "hook": "onFeedbackTransform",
+      "rule": "Fully immune to the Liar Letter modifier. Corruption transforms are skipped entirely.",
+      "pre_guess_reveal": false,
+      "transform_order": 2
+    },
+    {
+      "code": "RL.30",
+      "name": "OUROBOROS",
+      "archetype": "ROUTE",
+      "rarity": "BOSS",
+      "hook": "onWordFailed",
+      "rule": "On death, restart the current act with your relics intact. Once per run, then it is spent.",
+      "pre_guess_reveal": false,
+      "balance_flag": "Removes the downside of any wager. Watch co-occurrence with RL.20 and RL.21 in simulation."
+    },
+    {
+      "code": "RL.31",
+      "name": "ROSETTA SLAB",
+      "archetype": "INFO",
+      "rarity": "BOSS",
+      "hook": "onWordStart",
+      "rule": "Every word opens with one green already carved. In exchange the act pool is cut by three.",
+      "flavor": "Older than the language it breaks.",
+      "pre_guess_reveal": true,
+      "transform_order": 4
+    }
+  ],
+
+  "consumables": [
+    {
+      "code": "CN.01",
+      "name": "THE SPYGLASS",
+      "rarity": "CONSUMABLE",
+      "hook": "onUse",
+      "rule": "Reveals the vowel count and repeat flag of the current word.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "CN.02",
+      "name": "THE POULTICE",
+      "rarity": "CONSUMABLE",
+      "hook": "onUse",
+      "rule": "Clears every modifier from the current word.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "CN.03",
+      "name": "THE DECANTER",
+      "rarity": "CONSUMABLE",
+      "hook": "onUse",
+      "rule": "Pours 3 guesses into the act pool. Does not raise the cap.",
+      "pre_guess_reveal": false
+    },
+    {
+      "code": "CN.05",
+      "name": "SKELETON KEY",
+      "rarity": "CONSUMABLE",
+      "hook": "onUse",
+      "rule": "Turns one green on the next word you enter.",
+      "pre_guess_reveal": true
+    }
+  ],
+
+  "characters": [
+    {
+      "code": "CH.01",
+      "name": "THE LINGUIST",
+      "archetype": "INFO",
+      "pool_modifier": 2,
+      "innate": "Sees the solution vowel count on every word, before the first guess.",
+      "pre_guess_reveal": true
+    },
+    {
+      "code": "CH.02",
+      "name": "THE GAMBLER",
+      "archetype": "RISK",
+      "pool_modifier": -6,
+      "innate": "Solving in three or fewer refunds two guesses.",
+      "pre_guess_reveal": false,
+      "refund": { "amount": 2, "trigger": "solve_lte_3" },
+      "engine_note": "Under the highest-refund-only rule, this does not stack with RL.11 Flywheel. A Gambler holding Flywheel who solves in three gets 2, not 3."
+    },
+    {
+      "code": "CH.03",
+      "name": "THE CRYPTOGRAPHER",
+      "archetype": "INFO",
+      "pool_modifier": -4,
+      "innate": "May spend a guess to reveal one letter outright, at any time, on any word.",
+      "pre_guess_reveal": false
+    }
+  ]
+}
