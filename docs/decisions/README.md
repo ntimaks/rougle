@@ -15,3 +15,4 @@ same PR updates the brief and adds a record here.
 | [0007](ADR-0007-solver-calibration.md) | The 3.9 human baseline is not reachable by a pure entropy solver on the curated list; the handicap is two-stage | Accepted |
 | [0008](ADR-0008-activations.md) | Activations are `onUse` plus a declared block; the engine owns timing, cap and cost | Accepted — MECHANICS R-015 |
 | [0009](ADR-0009-boss-order.md) | The Cipher opens the run; the Twins becomes the Act II wall | Accepted — MECHANICS R-019 |
+| [0010](ADR-0010-act-end-receipt.md) | The act end is a phase holding a receipt, not an atomic transition | Accepted |
