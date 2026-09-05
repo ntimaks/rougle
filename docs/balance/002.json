@@ -1,0 +1,97 @@
+{
+  "runs": 1000,
+  "solver": {
+    "suboptimality": 1,
+    "memoryDecay": 0,
+    "vocabularyGap": 0.0938,
+    "searchWidth": 200
+  },
+  "winRate": 0.503,
+  "deathsByAct": [
+    56,
+    358,
+    83
+  ],
+  "deathsByCause": {
+    "POOL_EXHAUSTED": 418,
+    "EMERGENCY_UNAFFORDABLE": 67,
+    "GAUNTLET": 12
+  },
+  "wordLuckDeathRate": 0.1227364185110664,
+  "meanGuessesPerWord": 3.8765221106601153,
+  "meanGuessesPerWordByAct": [
+    4.280453257790368,
+    3.962376691901812,
+    3.3766343315056937
+  ],
+  "meanCleanFiveLetter": 3.85440198050441,
+  "meanBossGuesses": [
+    6.703389830508475,
+    6.124573378839591,
+    3.1692067213755375
+  ],
+  "medianWordsReached": 19,
+  "meanEmergencyPurchases": 1.498,
+  "medianEmergencyPurchases": 1,
+  "meanFinalGold": 555.747,
+  "relicPickRate": {
+    "RL.26": 0.771,
+    "RL.07": 0.69,
+    "RL.04": 0.677,
+    "RL.29": 0.666,
+    "RL.01": 0.664,
+    "RL.03": 0.663,
+    "RL.05": 0.655,
+    "RL.02": 0.619,
+    "RL.19": 0.587,
+    "RL.20": 0.583,
+    "RL.14": 0.582,
+    "RL.21": 0.581,
+    "RL.18": 0.544,
+    "RL.13": 0.528,
+    "RL.12": 0.523,
+    "RL.11": 0.522,
+    "RL.10": 0.519,
+    "RL.24": 0.455,
+    "RL.06": 0.449,
+    "RL.23": 0.449,
+    "RL.28": 0.26
+  },
+  "coOccurrence": [
+    {
+      "pair": "RL.21+RL.04",
+      "runs": 396,
+      "winRate": 0.7727272727272727,
+      "deltaPP": 26.97272727272727
+    },
+    {
+      "pair": "RL.21+RL.07",
+      "runs": 399,
+      "winRate": 0.7468671679197995,
+      "deltaPP": 24.386716791979946
+    },
+    {
+      "pair": "RL.30+RL.20",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    },
+    {
+      "pair": "RL.30+RL.21",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    }
+  ],
+  "unimplemented": [
+    "RL.09",
+    "RL.15",
+    "RL.16",
+    "RL.22",
+    "RL.25",
+    "RL.27",
+    "RL.30",
+    "RL.31"
+  ],
+  "elapsedMs": 13455
+}

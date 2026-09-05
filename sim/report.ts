@@ -1,4 +1,4 @@
-import { CONFIG, PENDING_IMPLEMENTATION, REGISTRY } from '../lib/engine';
+import { BOSSES, CONFIG, PENDING_IMPLEMENTATION, REGISTRY } from '../lib/engine';
 import { DECAY_CAVEAT, type SolverConfig } from './solver';
 import type { RunResult } from './runner';
 
@@ -167,14 +167,22 @@ export function formatReport(report: Report): string {
   });
   push();
   push('Bosses (B-06 — what a boss actually costs, in guesses)');
-  const BOSS_NAMES = ['THE TWINS (Mirror, 2 solutions)', 'THE CIPHER (deferral 3)', 'THE GAUNTLET (5 words, own pool 14)'];
   report.meanBossGuesses.forEach((v, i) => {
-    push(`  act ${i + 1} ${BOSS_NAMES[i]!.padEnd(38)} ${v ? v.toFixed(2) : '—'}`);
+    // Read from the registry: the act order changed once already (R-019) and a
+    // hardcoded label would have gone on quietly reporting the wrong boss.
+    const boss = BOSSES[i as 0 | 1 | 2];
+    const shape =
+      boss.ownPool !== null
+        ? `${boss.words} words, own pool ${boss.ownPool}`
+        : boss.deferralDepth > 0
+          ? `deferral ${boss.deferralDepth}`
+          : boss.modifiers.join(' ').toLowerCase() || 'plain';
+    push(`  act ${i + 1} ${`${boss.name} (${shape})`.padEnd(38)} ${v ? v.toFixed(2) : '—'}`);
   });
   push(
     '  §2.2 counts the Twins as 2 word-equivalents (7.3 guesses). §13 I-10 expects it to',
   );
-  push('  cost less than that because information is shared. Compare against the figure above.');
+  push('  cost less because information is shared — and the measurement agrees.');
   push();
   push('Deaths');
   push(`  by act    I ${report.deathsByAct[0]}  II ${report.deathsByAct[1]}  III ${report.deathsByAct[2]}`);
@@ -212,5 +220,12 @@ export function formatReport(report: Report): string {
     '  · Shops, forges, events and branching routes are Phase 3. Runs here are linear,',
   );
   push('    so gold sinks and route choice are both missing from the economy.');
+  push(
+    '  · The solver does not fire player activations (R-015). It holds RL.07, RL.20,',
+  );
+  push(
+    '    RL.21, RL.28 and CH.03 without using them, so their pick rates and their',
+  );
+  push('    contribution to the win rate are understated.');
   return lines.join('\n');
 }

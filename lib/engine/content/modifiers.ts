@@ -24,7 +24,7 @@ export const MODIFIERS: readonly ModifierDef[] = Object.freeze([
   { id: 'LONG_WORD', fromAct: 1, label: 'LONG WORD' },
   { id: 'DECAY', fromAct: 1, label: 'DECAY' },
   { id: 'FOG', fromAct: 1, label: 'FOG' },
-  { id: 'MIRROR', fromAct: 1, label: 'MIRROR' },
+  { id: 'MIRROR', fromAct: 2, label: 'MIRROR' },
   { id: 'LIAR_LETTER', fromAct: 2, actIIIOnly: true, label: 'LIAR LETTER' },
   { id: 'LONGER_WORD', fromAct: 2, actIIIOnly: true, label: 'LONGER WORD' },
 ]);
