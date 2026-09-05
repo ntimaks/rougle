@@ -1,0 +1,13 @@
+{
+  "target": 3.9,
+  "measured": 3.893,
+  "wordsPerProbe": 400,
+  "note": "suboptimality saturated at ~3.76 and could not reach 3.9 alone, so the remainder is carried by vocabularyGap. Worth knowing why: §8.1 curation removes the ambiguity clusters that produce the long human solves the 3.9 figure was measured against, so Rougle words are genuinely easier than Wordle words and the MECHANICS.md §2.2 budgets derived from 3.9 are correspondingly more generous than intended. See docs/decisions/ADR-0007.",
+  "howToUse": "The harness reads this file, so every sweep runs at the calibrated handicap. Also sweep at suboptimality 0 for the ceiling, and balance to the band between the two (MECHANICS.md §10.2).",
+  "solver": {
+    "suboptimality": 1,
+    "memoryDecay": 0,
+    "vocabularyGap": 0.0938,
+    "searchWidth": 200
+  }
+}
