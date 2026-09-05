@@ -196,6 +196,7 @@ export function initialState(seed: string, characterCode: CharacterCode): GameSt
     pendingOffer: null,
     actStartSnapshot: null,
     ouroborosSpent: false,
+    actReceipt: null,
     usedSolutions: [],
     counters: {},
     stats: emptyStats(),
@@ -652,6 +653,10 @@ function acceptOffer(s: GameState, code: string, cfg: Readonly<GameConfig>): Red
 // ------------------------------------------------------------- progression
 
 function advance(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): ReduceResult {
+  if (s.phase === 'ACT_END') {
+    const next = beginNextAct(s, cfg);
+    return { state: next.state, events: [...events, ...next.events] };
+  }
   if (s.pendingOffer) return { state: { ...s, phase: 'REWARD' }, events };
 
   const current = s.map.currentId ? s.map.nodes[s.map.currentId] : null;
@@ -665,8 +670,11 @@ function advance(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): 
 
 function endAct(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): ReduceResult {
   const leftover = s.pool;
+  const goldBefore = s.gold;
   let next = s;
 
+  // Hooks first, so RL.24 The Ledger's top-up is part of the same conversion
+  // rather than a second, separate gold event the player has to reconcile.
   const hooked = applyEffects(
     next,
     resolveHook(next, 'onActEnd', { actIndex: next.actIndex, leftover }, cfg),
@@ -675,11 +683,25 @@ function endAct(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): R
   next = hooked.state;
   const out = [...events, ...hooked.events];
 
-  const gold = leftover * cfg.goldPerLeftoverGuess;
-  const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: 'leftover guesses' }], cfg);
+  const base = leftover * cfg.goldPerLeftoverGuess;
+  const golded = applyEffects(next, [{ kind: 'GOLD', delta: base, reason: 'leftover guesses' }], cfg);
   next = golded.state;
   out.push(...golded.events);
-  out.push({ type: 'ACT_ENDED', actIndex: next.actIndex, leftover, goldGained: gold });
+
+  // The leftover guesses are SPENT by the conversion, so the pool empties. The
+  // next act refills it anyway, but the receipt is shown in between — and a HUD
+  // still reading 19 while the receipt says they all became gold is the kind of
+  // contradiction a player notices immediately.
+  const drained = addPool(next, -leftover, 'converted to gold');
+  next = drained.state;
+  out.push(...drained.events);
+
+  // What the conversion was actually worth, base plus any relic top-up. The
+  // receipt shows the rate, so a Ledger holder can see the 15g they were
+  // promised rather than the 10g the config names.
+  const goldGained = next.gold - goldBefore;
+  const rate = leftover > 0 ? goldGained / leftover : cfg.goldPerLeftoverGuess;
+  out.push({ type: 'ACT_ENDED', actIndex: next.actIndex, leftover, goldGained });
 
   if (next.actIndex === 2) {
     return {
@@ -688,8 +710,23 @@ function endAct(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): R
     };
   }
 
-  const started = startAct(next, (next.actIndex + 1) as 0 | 1 | 2, cfg);
-  return { state: started.state, events: [...out, ...started.events] };
+  // Stop at the receipt. The conversion is the moment a player learns what
+  // hoarding was worth, and running straight on to the next act's map hides it.
+  // ADVANCE from here starts the next act.
+  return {
+    state: {
+      ...next,
+      phase: 'ACT_END',
+      actReceipt: { actIndex: next.actIndex, leftover, goldGained, rate },
+    },
+    events: out,
+  };
+}
+
+/** ADVANCE out of the act-end receipt. */
+function beginNextAct(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  const started = startAct({ ...s, actReceipt: null }, (s.actIndex + 1) as 0 | 1 | 2, cfg);
+  return { state: started.state, events: started.events };
 }
 
 // ------------------------------------------------------- emergency and death

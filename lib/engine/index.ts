@@ -17,7 +17,8 @@ export { serialize, deserialize, migrate, SaveError } from './core/serialize';
 export { draw, drawInt, drawPick, drawShuffle, drawWeighted, formatSeed, hash32, isValidSeed, DOMAIN, SEED_LENGTH } from './core/rng';
 export { spendGuess, grantableRefund, highestRefund, currentPool } from './core/pool';
 export { resolveHook, resolveUse, holdersInOrder } from './core/hooks';
-export { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './core/letters';
+export { ALPHABET, eligibleLettersForRemoval, hammingDistance, isLetterAvailable } from './core/letters';
+export { checkActivation, usesThisWord, isBlindfolded } from './core/activation';
 
 // Types
 export type { Action, EngineError, EngineErrorCode, GameEvent, ReduceResult } from './core/actions';
