@@ -2,7 +2,7 @@
   "name": "rougle",
   "version": "0.1.0",
   "private": true,
-  "description": "Rougle \u2014 a roguelike Wordle. Engine is framework-agnostic; see docs/technical-brief.md.",
+  "description": "Rougle — a roguelike Wordle. Engine is framework-agnostic; see docs/technical-brief.md.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
