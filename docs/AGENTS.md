@@ -31,7 +31,7 @@ Breaking any of these breaks the ability to balance the game, which is the whole
 
 4. **`lib/engine/core/pool.ts` is the only module that changes `state.pool`.** MECHANICS.md §2.4's refund floor is implemented there, once, not in individual relics. Refunds are `REFUND` effects, never `POOL` effects — a `POOL` delta bypasses the floor.
 
-5. **`relics.json` is never transcribed into TypeScript.** It is loaded and validated. One implementation module per code, keyed by code. Eight validation tests in technical brief §6 keep the data and the code from drifting.
+5. **`relics.json` is never transcribed into TypeScript.** It is loaded and validated. One implementation module per code, keyed by code. Eight validation tests in technical brief §6 keep the data and the code from drifting. A code you are not building yet goes in `PENDING_IMPLEMENTATION` with a reason naming a §13 item or a phase — a code with neither an implementation nor an entry fails CI (ADR-0002).
 
 6. **Relics are data + hooks + effects.** Never a special case in the reducer. If a relic will not fit, the `HookName` or `Effect` enum is incomplete — extend it and say so.
 
@@ -51,6 +51,16 @@ Breaking any of these breaks the ability to balance the game, which is the whole
 - Determinism test: same seed + same action list → byte-identical serialized state. Exists by end of Phase 1, never skipped.
 - Invariant test: after Sieve, Locked Key and The Moth have all applied, every solution letter is still typable.
 - Never test React components for game logic. If a component test asserts a rule, the rule is in the wrong place.
+
+## 3a. Running it
+
+`npm install --legacy-peer-deps`. npm 10's peer resolver crashes on vitest 4's
+peer set; the flag is the workaround, not a statement about the dependency tree.
+
+`npm test` runs with the dev server stopped, by design. `npm run sim -- --runs
+1000` takes about twenty seconds and prints the §10.3 report; it is also the CI
+canary for the engine boundary, because it runs under plain `tsx` with no Next
+build.
 
 ## 4. Working method
 

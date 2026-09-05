@@ -22,7 +22,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 of this document lists fourteen engineering problems found while reading the specs.** Nine of them need a rules or design decision before the affected ticket can be built. Read §13 before starting Phase 1.
+**§13 of this document lists twenty engineering problems.** Fourteen were found while reading the specs; six more (I-15 … I-20) were found while building Phase 1 and are recorded in `docs/decisions/ADR-0006`. Nine of the original fourteen need a rules or design decision before the affected ticket can be built. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -826,3 +826,21 @@ Found while reading MECHANICS.md v1.0, `relics.json` and the design bundle. Nine
 **I-13 · Pool meter elasticity** (§12 open Q1). Engineering answer: `max` is already a prop and CMP.01 takes `value:int · max:int`, so rendering 17, 19 or 22 pips is free. The open question is only whether 17 pips *read* the same as 24. Not blocking; decide on the built component, not in the abstract.
 
 **I-14 · `relics.json` codes RL.08 and RL.17 are absent.** Consistent with R-011 (codes are opaque, gaps are fine). Noted only so nobody "fixes" it. The registry validator asserts nothing about contiguity.
+
+### Found while building — Phase 1
+
+Full argument for each in `docs/decisions/ADR-0006`. Three were fixed in code
+because a run cannot proceed without a fix; the fix is stated so a ruling can
+overturn it.
+
+**I-15 · `RL.27` The Vault cannot be implemented as written.** The pool refills to `poolMax` at act start and `pool` never exceeds `poolMax`, so a carry has nowhere to go and a RARE relic does nothing. Needs a ruling on whether the carry raises that act's cap. Blocking C-05; `refillPool` deliberately takes no carry parameter.
+
+**I-16 · Rule A truncation kills `RL.13` and `RL.19`.** Applied at the moment a refund fires, the floor truncates any refund on guess 1 to nothing — so Opening Gambit, whose whole rule is "your first guess is refunded", never refunds, and The Moth eats a letter for free. Rule A is stated per word, not per guess. → *Implemented provisionally:* the shortfall is queued on `WordState.pendingRefunds` and retried on later guesses of the same word. ADR-0005.
+
+**I-17 · Silent Start has no slot in §4.4, and its rule is ambiguous.** It alters feedback, so it is a transform, but the six-step chain has no place for it; and "returns GREY only; no yellows" does not say whether greens survive. → *Implemented as* declared step 0 (`suppression`), yellows→grey, greens kept.
+
+**I-18 · Three ways for The Sieve to lock a letter the solution needs.** R-003 protects The Moth and the Locked Key modifier but not `RL.02`, and a GREY can appear on a solution letter through Liar Letter corruption, Silent Start suppression, or a decayed GREEN in the duplicate-letter case. Each produces an unwinnable word; all three were reproduced by the harness. → *Fixed in code* — proven-grey requires an honest, untainted observation and reads the undecayed projection — but the general principle belongs in MECHANICS.md §11 next to R-003.
+
+**I-19 · Under Mirror, which solution does a pre-guess reveal describe?** Lexicon reports "how many vowels the answer holds" and the Twins has two answers. Applying solution A's reveal to solution B eliminates the real answer on turn one; this presented as an unbeatable Act I boss. → *Implemented as* "solution A only", in the engine and in the solver's model. Not blocking, but it changes what the Twins costs.
+
+**I-20 · Character innates are missing from §6.3's affected list.** `relics.json` marks `CH.01` The Linguist `pre_guess_reveal: true`, but §6.3's prose lists only relics. A Linguist holding Lexicon and Palimpsest is already at the cap. → *Implemented per the data*, which is normative; the prose list is what needs updating.
