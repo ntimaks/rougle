@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-seven engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, one (I-25) from measuring R-025, one (I-26) from playtesting the result and one (I-27) from a sweep that turned out to be measuring the bot. **Twenty-three are now ruled** — see MECHANICS.md §11 R-014 … R-035 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-eight engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, one (I-25) from measuring R-025, one (I-26) from playtesting the result one (I-27) from a sweep that turned out to be measuring the bot and one (I-28) from a flag that was accepted and ignored. **Twenty-five are now ruled** — see MECHANICS.md §11 R-014 … R-036 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -858,7 +858,7 @@ overturn it.
 
 **I-18 · RULED (R-014).** Generalised from R-003: no mechanic may remove a letter the current solution needs, by any route. A lock derived from feedback must rest on an honest, uncorrupted, unsuppressed observation.
 
-**I-19 · IMPLEMENTED, not ruled.** Pre-guess reveals describe solution A under Mirror, in the engine and in the solver's model.
+**I-19 · RULED for preset tiles, implemented-only for the rest.** R-036 puts the solution a preset describes on the preset itself (`solutionIndex`), so a §2.5 reveal is solution A's, is labelled `A`, and can never be shown against B. The remaining `revealed` fields — vowel count, repeat flag, named letters — are still "solution A only" by implementation rather than by rule.
 
 **I-23 · Forge upgrades did not exist.** The design showed per-relic upgrade text for three relics and `relics.json` had no field for it, so a Forge node had nothing to offer and R-08 could not be built.
 → **Ruled (R-021).** MECHANICS.md §6.7. Every relic carries exactly one `MK.II`, in `relics.json` under `upgrade`, on one of five recorded axes. Consumables are not upgradeable.
@@ -868,6 +868,8 @@ overturn it.
 **I-26 · A held row and an all-absent row look nearly identical.** Found while verifying R-034 in a browser. `DEFERRED` is `bg-sunken` (#141414) with a #4A4A48 glyph and `ABSENT` is `bg-absent` (#1C1C1B) with `text-fg3`; at tile size the two are a shade apart, so a row the engine is withholding reads as a row that came back with nothing in it. That is the R-029 failure in visual form — a withholding presenting as a claim — and R-034's badge marks the row without fixing the tile. → **Not ruled.** It needs a CMP.02 decision, because the obvious separators are taken: dashed borders belong to `DECAYED` (§13 I-01) and horizontal scanlines to untrustworthy. Not blocking; the badge carries the meaning for now.
 
 **I-27 · RESOLVED. The solver modelled a rule the engine no longer had.** R-029 changed Silent Start's suppression from `GREY` to `UNKNOWN`, and the solver's consistency check had one reading of `UNKNOWN` — a Decay-faded `GREEN`. So on the first guess of every Silent Start word it required that position to be green, eliminated the true answer, and burned the pool failing to solve a word it had already ruled out. Every sweep between R-029 and balance snapshot 004 reported it as the GAME getting harder: 43.7% → 21.7% win rate, 9.8% → 44.7% Act I deaths, all of it the bot. → **Fixed**: on a Silent Start row `UNKNOWN` means the true state is `YELLOW` (the strongest constraint on the row) and `GREY` is an ordinary grey, since suppression no longer lies. The standing rule this leaves: **a rules change that alters which feedback states the engine can emit is not done until the solver models it** — otherwise the next sweep describes the bot while appearing to describe the game.
+
+**I-28 · RESOLVED. `--no-reveals` was accepted and ignored.** `RunOptions.noReveals` existed and `runner` honoured it, but `parseArgs` never read the flag and `sweep` typed its options as `{ noRelics?: boolean }`, so every "with reveals vs without" comparison anyone ran was the same sweep twice — including the 58.5%/32.8% figures the report prints as a caveat on its own win rate. → **Fixed**: the flag is parsed and `sweep` takes `RunOptions`. It is what made R-036's cost measurable at all.
 
 **I-24 · Events did not exist.** v0 named them only in the node-weight table; the design contained one. A node type with a single piece of content repeats inside one run, which the draw rule forbids.
 → **Ruled (R-022).** MECHANICS.md §6.8 and `events.json`. Twelve events, drawn without replacement, `acts` gating eligibility and `requires` gating individual options.

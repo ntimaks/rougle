@@ -1,7 +1,7 @@
 import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CONFIG, type CharacterCode } from '../lib/engine';
-import { playRun, sweepSeed, type RunResult } from './runner';
+import { playRun, sweepSeed, type RunOptions, type RunResult } from './runner';
 import { buildReport, formatReport } from './report';
 import { DEFAULT_SOLVER, type SolverConfig } from './solver';
 
@@ -13,6 +13,7 @@ import { DEFAULT_SOLVER, type SolverConfig } from './solver';
  *
  *   npm run sim -- --runs 1000
  *   npm run sim -- --runs 1000 --character CH.02 --snapshot 001
+ *   npm run sim -- --runs 1000 --no-relics --no-reveals
  *
  * This is also the CI canary for the engine boundary (ticket S-05). It runs
  * under plain `tsx` with no Next build; if it fails on module resolution,
@@ -26,6 +27,12 @@ interface Args {
   label: string;
   snapshot: string | null;
   noRelics: boolean;
+  /**
+   * Turn off the §2.5 reveal policy. `runner` has always honoured this, but no
+   * flag reached it, so `--no-reveals` was silently ignored and every "with vs
+   * without reveals" comparison anyone ran was the same sweep twice.
+   */
+  noReveals: boolean;
   quiet: boolean;
 }
 
@@ -40,6 +47,7 @@ function parseArgs(argv: readonly string[]): Args {
     label: get('--label') ?? 'sweep',
     snapshot: get('--snapshot') ?? null,
     noRelics: argv.includes('--no-relics'),
+    noReveals: argv.includes('--no-reveals'),
     quiet: argv.includes('--quiet'),
   };
 }
@@ -60,7 +68,7 @@ export function sweep(
   character: CharacterCode,
   solver: SolverConfig,
   label: string,
-  options: { noRelics?: boolean } = {},
+  options: RunOptions = {},
 ): RunResult[] {
   const out: RunResult[] = [];
   for (let i = 0; i < runs; i++) {
@@ -76,6 +84,7 @@ function main(): void {
   const started = Date.now();
   const results = sweep(args.runs, args.character, solver, args.label, {
     noRelics: args.noRelics,
+    noReveals: args.noReveals,
   });
   const elapsed = Date.now() - started;
 

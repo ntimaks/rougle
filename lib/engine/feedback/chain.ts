@@ -150,24 +150,39 @@ export function legalDistances(index: number, length: number): number[] {
 }
 
 /**
- * Step 4 — Injection (RL.31 Rosetta, RL.12 Hot Streak, CN.05 Skeleton Key).
- * Pre-set greens are applied to every row, including rows scored before the
- * tile was granted, because the player knows the letter from then on.
+ * Step 4 — Injection (§2.5 bought reveals, RL.31 Rosetta, RL.12 Hot Streak,
+ * CN.05 Skeleton Key).
+ *
+ * R-036. This used to STAMP a green over every row at that index, on the
+ * reasoning that the player knows the letter from then on. They do — but a row
+ * is the record of what a guess scored, and overwriting it destroyed the very
+ * thing the row was keeping:
+ *
+ * - A YELLOW at that position became a GREEN showing a letter never typed
+ *   there, so `TRAIN` rendered as `NRAIN` and the yellow T was simply gone.
+ * - The Rangefinder distance on that tile was nulled, which is the whole of
+ *   what RL.04 is bought for. Reported from playtest: "very annoying if I have
+ *   Rangefinder."
+ * - Under Mirror it was worse than lossy, it was false. The preset is drawn
+ *   from `solutions[0]`, so solution B's row was stamped with solution A's
+ *   letter — a green claim about a word that does not contain it, against
+ *   §7.2's "two fully independent results, no merging, no reconciliation".
+ *
+ * So the row is left alone. What the player knows is carried in `meta` and
+ * rendered as its own thing, because known-about-the-answer and
+ * scored-against-a-guess are different claims and only one of them belongs in
+ * a row. Rows scored under a preset are unaffected either way: the guess
+ * genuinely containing that letter there scores GREEN on its own.
  */
 function injection(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
-  if (ctx.word.presetTiles.length === 0) return fb;
+  // Only the facts true of THIS row's solution. Under a single-solution word
+  // that is all of them.
+  const mine = ctx.word.presetTiles.filter((p) => p.solutionIndex === ctx.solutionIndex);
+  if (mine.length === 0) return fb;
   const out = cloneFeedback(fb);
-  for (const preset of ctx.word.presetTiles) {
-    const tile = out.tiles[preset.index];
-    if (!tile) continue;
-    tile.state = 'GREEN';
-    tile.letter = preset.letter;
-    tile.distance = null;
-    tile.trustworthy = true;
-  }
   out.meta = {
     ...out.meta,
-    revealedLetters: ctx.word.presetTiles.map((p) => ({ index: p.index, letter: p.letter })),
+    revealedLetters: mine.map((p) => ({ index: p.index, letter: p.letter })),
   };
   return out;
 }

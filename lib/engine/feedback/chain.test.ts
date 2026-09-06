@@ -135,11 +135,53 @@ describe('step 3 — distance (Rangefinder)', () => {
 });
 
 describe('step 4 — injection', () => {
-  it('applies pre-set greens to every row', () => {
-    const w = word({ presetTiles: [{ index: 0, letter: 'C' }] });
-    const out = runChain({ state: state(), word: w, turn: 0, solutionIndex: 0 }, scoreBase('SLATE', 'CRANE'));
-    expect(out.tiles[0]!.state).toBe('GREEN');
-    expect(out.tiles[0]!.letter).toBe('C');
+  /*
+   * R-036. This step used to stamp a green over the row at the preset's index.
+   * It now reports what the player knows in `meta` and leaves the row to say
+   * what the guess actually scored.
+   */
+  it('carries what the player knows without touching the row', () => {
+    const w = word({ presetTiles: [{ index: 0, letter: 'C', solutionIndex: 0 }] });
+    const ctx = { state: state(), word: w, turn: 0, solutionIndex: 0 };
+    const raw = scoreBase('SLATE', 'CRANE');
+    const out = runChain(ctx, raw);
+    expect(renderStates(out)).toBe(renderStates(raw));
+    expect(out.tiles[0]!.letter).toBe('S');
+    expect(out.meta.revealedLetters).toEqual([{ index: 0, letter: 'C' }]);
+  });
+
+  it('never overwrites a YELLOW, which is what the row was keeping', () => {
+    const w = word({ presetTiles: [{ index: 0, letter: 'N', solutionIndex: 0 }] });
+    const scored = runChain(
+      { state: state(), word: w, turn: 0, solutionIndex: 0 },
+      scoreBase('TRAIN', 'NASTY'),
+    );
+    expect(scored.tiles[0]!.state).toBe('YELLOW');
+    expect(scored.tiles[0]!.letter).toBe('T');
+  });
+
+  it('leaves the Rangefinder distance alone', () => {
+    const w = word({ presetTiles: [{ index: 0, letter: 'N', solutionIndex: 0 }] });
+    const out = runChain(
+      { state: state({ relics: [relic('RL.04')] }), word: w, turn: 0, solutionIndex: 0 },
+      annotateDistances(scoreBase('TRAIN', 'NASTY'), 'NASTY'),
+    );
+    expect(out.tiles[0]!.distance).not.toBeNull();
+  });
+
+  // §7.2: two fully independent results, no merging. A fact about solution A is
+  // not a fact about solution B, and stamping it there was a green claim about a
+  // word that does not contain the letter.
+  it('never applies solution A\'s reveal to solution B under Mirror', () => {
+    const w = word({
+      solutions: ['NASTY', 'BLOND'],
+      solved: [false, false],
+      modifiers: ['MIRROR'],
+      presetTiles: [{ index: 0, letter: 'N', solutionIndex: 0 }],
+    });
+    const b = runChain({ state: state(), word: w, turn: 0, solutionIndex: 1 }, scoreBase('NASTY', 'BLOND'));
+    expect(b.tiles[0]!.state).not.toBe('GREEN');
+    expect(b.meta.revealedLetters).toEqual([]);
   });
 });
 
@@ -165,7 +207,7 @@ describe('E-02 — stored feedback is the truth', () => {
     const raw = scoreBase('SLATE', 'CRANE');
     const before = renderStates(raw);
     runChain(
-      { state: state({ relics: [relic('RL.04')] }), word: word({ presetTiles: [{ index: 0, letter: 'C' }] }), turn: 0, solutionIndex: 0 },
+      { state: state({ relics: [relic('RL.04')] }), word: word({ presetTiles: [{ index: 0, letter: 'C', solutionIndex: 0 }] }), turn: 0, solutionIndex: 0 },
       raw,
     );
     expect(renderStates(raw)).toBe(before);

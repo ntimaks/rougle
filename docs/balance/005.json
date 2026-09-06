@@ -1,0 +1,102 @@
+{
+  "runs": 1000,
+  "solver": {
+    "suboptimality": 1,
+    "memoryDecay": 0,
+    "vocabularyGap": 0.0938,
+    "searchWidth": 200
+  },
+  "winRate": 0.765,
+  "deathsByAct": [
+    19,
+    15,
+    201
+  ],
+  "deathsByCause": {
+    "EMERGENCY_UNAFFORDABLE": 33,
+    "GAUNTLET": 189,
+    "POOL_EXHAUSTED": 13
+  },
+  "wordLuckDeathRate": 0.7446808510638298,
+  "meanGuessesPerWord": 3.582605830999835,
+  "meanGuessesPerWordByAct": [
+    3.8294153104279687,
+    3.784165302782324,
+    3.317441303306181
+  ],
+  "meanCleanFiveLetter": 3.5839380150043043,
+  "meanBossGuesses": [
+    5.224260958205912,
+    5.0476190476190474,
+    3.2881506090808417
+  ],
+  "medianWordsReached": 19,
+  "meanEmergencyPurchases": 0.135,
+  "medianEmergencyPurchases": 0,
+  "meanFinalGold": 507.199,
+  "meanRevealsBought": 2.274,
+  "meanGoldSpent": 507.456,
+  "deathsHoldingGold": 0.9106382978723404,
+  "relicPickRate": {
+    "RL.01": 0.488,
+    "RL.02": 0.488,
+    "RL.05": 0.486,
+    "RL.29": 0.482,
+    "RL.17": 0.45,
+    "RL.18": 0.426,
+    "RL.24": 0.422,
+    "RL.03": 0.403,
+    "RL.11": 0.39,
+    "RL.08": 0.385,
+    "RL.19": 0.384,
+    "RL.10": 0.379,
+    "RL.25": 0.376,
+    "RL.07": 0.372,
+    "RL.14": 0.367,
+    "RL.23": 0.359,
+    "RL.06": 0.356,
+    "RL.20": 0.351,
+    "RL.13": 0.348,
+    "RL.09": 0.345,
+    "RL.04": 0.343,
+    "RL.12": 0.325,
+    "RL.15": 0.325,
+    "RL.26": 0.325,
+    "RL.27": 0.299,
+    "RL.21": 0.297,
+    "RL.16": 0.278,
+    "RL.28": 0.116
+  },
+  "coOccurrence": [
+    {
+      "pair": "RL.21+RL.04",
+      "runs": 86,
+      "winRate": 0.8837209302325582,
+      "deltaPP": 11.872093023255815
+    },
+    {
+      "pair": "RL.21+RL.07",
+      "runs": 98,
+      "winRate": 0.8571428571428571,
+      "deltaPP": 9.214285714285708
+    },
+    {
+      "pair": "RL.30+RL.20",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    },
+    {
+      "pair": "RL.30+RL.21",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    }
+  ],
+  "unimplemented": [
+    "RL.22",
+    "RL.30",
+    "RL.31"
+  ],
+  "elapsedMs": 20296
+}

@@ -1533,8 +1533,14 @@ function applyEffect(
       if (index === null) return { state: s, events: [] };
       const letter = effect.letter ?? s.word.solutions[0]![index]!;
       if (s.word.presetTiles.some((p) => p.index === index)) return { state: s, events: [] };
+      // Solution 0. Under Mirror that means a reveal buys a letter of ONE twin,
+      // which is a live economic question (§13 I-28) but not a licence to claim
+      // the letter of the other — that was the R-036 bug.
       return {
-        state: withWord(s, (w) => ({ ...w, presetTiles: [...w.presetTiles, { index, letter }] })),
+        state: withWord(s, (w) => ({
+          ...w,
+          presetTiles: [...w.presetTiles, { index, letter, solutionIndex: 0 }],
+        })),
         events: [{ type: 'TILE_PRESET', index }],
       };
     }

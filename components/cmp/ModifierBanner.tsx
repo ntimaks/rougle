@@ -76,7 +76,12 @@ export function ModifierBanner({
           // the modifier the least readable text on the screen.
           style={{ color: 'color-mix(in srgb, var(--term-amber) 80%, var(--term-fg))' }}
         >
-          {[note, ...modifiers.map((id) => NOTES[id])].filter(Boolean).join(' · ')}
+          {/*
+            Deduped: at the Twins the boss rule and the MIRROR modifier's note
+            are the same sentence, so the strip read "TWO SOLUTIONS · ONE POOL ·
+            TWO SOLUTIONS · ONE POOL". A rule stated twice reads as two rules.
+          */}
+          {[...new Set([note, ...modifiers.map((id) => NOTES[id])].filter(Boolean))].join(' · ')}
         </span>
       </div>
     </div>

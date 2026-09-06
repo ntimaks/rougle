@@ -80,8 +80,15 @@ export interface WordState {
   length: 5 | 6 | 7;
   modifiers: ModifierId[];
   history: GuessRecord[];
-  /** Rosetta / Hot Streak / Skeleton Key. Applied at onWordStart (MECHANICS §4.5). */
-  presetTiles: Array<{ index: number; letter: string }>;
+  /**
+   * Letters KNOWN about a solution: §2.5 bought reveals, and Rosetta / Hot
+   * Streak / Skeleton Key applied at onWordStart (MECHANICS §4.5).
+   *
+   * `solutionIndex` is which solution the letter is true of. It exists because
+   * §7.2 makes the two Mirror results fully independent, and a fact drawn from
+   * solution A is not a fact about solution B (R-036).
+   */
+  presetTiles: Array<{ index: number; letter: string; solutionIndex: number }>;
   /**
    * Locked Key + The Moth. Never a solution letter (R-003). Source-tagged so
    * CN.02 The Poultice can clear the modifier's lock without clearing the
@@ -288,7 +295,7 @@ export interface GameState {
   outcome: { result: 'WIN' | 'DEATH'; cause: DeathCause | null } | null;
 }
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function emptyStats(): RunStats {
   return {
