@@ -46,9 +46,7 @@
         "rule": "Greys lock out for the whole act, not just the word."
       },
       "engine_note": "Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
-      "pre_guess_reveal": false,
-      "anti_synergy": ["RL.04"],
-      "anti_synergy_reason": "Rangefinder withholds letter identity, so there is nothing for the Sieve to eliminate."
+      "pre_guess_reveal": false
     },
     {
       "code": "RL.03",
@@ -70,17 +68,17 @@
       "archetype": "INFO",
       "rarity": "RARE",
       "hook": "onFeedbackTransform",
-      "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is.",
+      "rule": "Yellow tiles also report how many positions off the letter sits.",
       "upgrade": {
         "name": "RANGEFINDER MK.II",
         "axis": "magnitude",
         "rule": "Yellows report direction as well as distance. Two places left reads differently from two places right."
       },
-      "flavor": "Distance, not identity.",
+      "flavor": "It measures. It does not judge.",
       "pre_guess_reveal": false,
       "transform_order": 3,
-      "anti_synergy": ["RL.02"],
-      "engine_note": "Sets Tile.letter to null and Tile.distance to an integer. For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
+      "ruling": "R-027",
+      "engine_note": "Sets Tile.distance to an integer; the letter is unchanged (R-027). For a tile where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §4.4."
     },
     {
       "code": "RL.05",

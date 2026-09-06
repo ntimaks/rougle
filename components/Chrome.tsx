@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CONFIG, activeReveals, currentPool, type GameState } from '@/lib/engine';
 import { PoolMeter } from './cmp/PoolMeter';
 import { RelicChip } from './cmp/RelicChip';
 import { RelicDrawer } from './cmp/RelicDrawer';
 import { useGame } from '@/lib/store/useGame';
+import { relicFires } from '@/lib/store/relicFire';
 
 /**
  * The persistent chrome and HUD. Read-only, and it lives up top: every primary
@@ -15,6 +16,14 @@ import { useGame } from '@/lib/store/useGame';
  * victory. It is the run's identity (MECHANICS.md §9).
  */
 export function Chrome({ state, batchId }: { state: GameState; batchId: number }) {
+  const events = useGame((s) => s.events);
+  // One entry per relic that fired in the last dispatch. Relics were "very low
+  // feedback" in playtest: the only evidence Tin Cup paid you was a gold
+  // counter that was moving anyway.
+  const fired = useMemo(
+    () => new Map(relicFires(events).map((f) => [f.code, f.label])),
+    [events],
+  );
   const skip = useGame((s) => s.skipAnimations);
   const setSkip = useGame((s) => s.setSkipAnimations);
   const inGauntlet = state.word?.poolSource === 'GAUNTLET';
@@ -71,6 +80,8 @@ export function Chrome({ state, batchId }: { state: GameState; batchId: number }
                 key={r.instanceId}
                 code={r.code}
                 suppressed={suppressed.has(r.instanceId)}
+                fired={fired.get(r.code) ?? null}
+                batchId={batchId}
                 onTap={() => setDrawerOpen(true)}
               />
             ))}

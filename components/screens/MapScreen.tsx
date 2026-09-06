@@ -1,16 +1,19 @@
 'use client';
 
-import { BOSSES, MODIFIERS, type GameState } from '@/lib/engine';
-import { Button } from '@/components/cmp/Button';
+import { BOSSES, MODIFIERS, type GameState, type MapNode } from '@/lib/engine';
 import { useGame } from '@/lib/store/useGame';
 
 /**
- * S.03 — the act map, in its Phase 2 shape: a linear act, so this is a route
- * you read rather than one you choose.
+ * S.03 — the act map. R-01/R-03.
  *
- * The branching DAG is R-01 in Phase 3. Building the chooser before the
- * generator exists would mean a screen that offers a choice the engine cannot
- * honour, so this shows the act ahead and moves you along it.
+ * The act branches now, so this is a route you CHOOSE rather than one you read.
+ * Every row of the DAG is drawn; the row you are standing in front of is
+ * selectable and the rest are context, because "the player picks the path, not
+ * just the next step" only means anything if the rest of the path is visible
+ * while picking.
+ *
+ * Modifiers stay hidden on unreached nodes unless RL.06 Cartographer is held —
+ * that relic buys exactly this, and showing them for free would spend it.
  */
 const KIND_GLYPH: Record<string, string> = {
   WORD: '◇',
@@ -21,11 +24,28 @@ const KIND_GLYPH: Record<string, string> = {
   BOSS: '●',
 };
 
+const KIND_HUE: Record<string, string> = {
+  WORD: 'text-fg1',
+  ELITE: 'text-amber',
+  SHOP: 'text-blue',
+  FORGE: 'text-fg2',
+  EVENT: 'text-magenta',
+  BOSS: 'text-red',
+};
+
+/** What the node costs or offers, in the fewest words that are still true. */
+function subtitleFor(node: MapNode, revealed: boolean): string | null {
+  if (node.kind === 'SHOP') return 'BUY';
+  if (node.kind === 'FORGE') return 'UPGRADE · OR BUY GUESSES';
+  if (node.kind === 'EVENT') return 'A CHOICE';
+  if (!revealed || node.modifiers.length === 0) return null;
+  return node.modifiers.map((m) => MODIFIERS.find((d) => d.id === m)?.label ?? m).join(' · ');
+}
+
 export function MapScreen({ state }: { state: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
-  const next = state.map.available[0];
-  const rows = state.map.rows.flat();
-  const currentIndex = rows.findIndex((id) => id === next);
+  const choices = new Set(state.map.available);
+  const currentRow = state.map.rows.findIndex((row) => row.some((id) => choices.has(id)));
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -34,57 +54,67 @@ export function MapScreen({ state }: { state: GameState }) {
           ACT {['I', 'II', 'III'][state.actIndex]} · {BOSSES[state.actIndex].name} AHEAD
         </span>
         <h2 className="mt-[7px] font-display text-[24px] font-bold uppercase leading-none tracking-[-0.02em]">
-          The road
+          {choices.size > 1 ? 'Choose a way' : 'The road'}
         </h2>
       </div>
 
-      <ol className="flex flex-1 flex-col gap-[6px] overflow-y-auto px-4 py-3">
-        {rows.map((id, i) => {
-          const node = state.map.nodes[id]!;
-          const here = i === currentIndex;
-          const done = i < currentIndex;
+      <div className="flex flex-1 flex-col gap-[10px] overflow-y-auto px-4 py-3">
+        {state.map.rows.map((row, rowIndex) => {
+          const isChoice = rowIndex === currentRow;
+          const passed = currentRow === -1 ? true : rowIndex < currentRow;
           return (
-            <li
-              key={id}
-              aria-current={here ? 'step' : undefined}
-              className={`flex items-center gap-[10px] border px-[10px] py-[9px] ${
-                here
-                  ? 'border-accent bg-strip shadow-[3px_3px_0_0_var(--dark-fg-0)]'
-                  : done
-                    ? 'border-dark2 bg-sunken'
-                    : 'border-line-strong bg-panel'
-              }`}
-            >
-              <span
-                className={`font-mono text-[15px] ${here ? 'text-accent' : done ? 'text-absent-fg' : 'text-fg3'}`}
-                aria-hidden
-              >
-                {KIND_GLYPH[node.kind] ?? '◇'}
+            <div key={rowIndex} className="flex flex-col gap-[4px]">
+              <span className="font-mono text-[8px] leading-none tracking-[0.2em] text-fg3">
+                {row[0] === state.map.bossId ? 'BOSS' : `ROW ${rowIndex + 1}`}
               </span>
-              <span
-                className={`font-mono text-[11px] leading-none tracking-[0.14em] ${
-                  done ? 'text-absent-fg line-through' : 'text-fg0'
-                }`}
-              >
-                {node.kind}
-              </span>
-              {/* RL.06 Cartographer buys exactly this: the modifiers, in advance. */}
-              {(state.map.modifiersRevealed || here || done) && node.modifiers.length > 0 && (
-                <span className="ml-auto truncate font-mono text-[9px] leading-none tracking-[0.1em] text-amber">
-                  {node.modifiers
-                    .map((m) => MODIFIERS.find((d) => d.id === m)?.label ?? m)
-                    .join(' · ')}
+              <div className="flex gap-[5px]">
+                {row.map((id) => {
+                  const node = state.map.nodes[id]!;
+                  const selectable = choices.has(id);
+                  // Cartographer, or a node already behind you.
+                  const revealed = state.map.modifiersRevealed || node.visited || passed;
+                  const subtitle = subtitleFor(node, revealed);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={!selectable}
+                      onClick={() => dispatch({ type: 'SELECT_NODE', nodeId: id })}
+                      aria-label={`${node.kind}${subtitle ? `, ${subtitle}` : ''}`}
+                      className={`flex min-h-[52px] flex-1 flex-col items-center justify-center gap-[3px] border px-1 py-2 transition-[transform,box-shadow] duration-[120ms] ease-linear ${
+                        selectable
+                          ? 'border-fg0 shadow-[3px_3px_0_0_var(--line-strong)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none'
+                          : node.visited
+                            ? 'border-dark2 opacity-40'
+                            : 'cursor-default border-dark3 opacity-70'
+                      }`}
+                    >
+                      <span
+                        className={`text-[15px] leading-none ${selectable || node.visited ? KIND_HUE[node.kind] : 'text-fg3'}`}
+                        aria-hidden
+                      >
+                        {node.visited ? '·' : KIND_GLYPH[node.kind]}
+                      </span>
+                      <span className="font-mono text-[8px] leading-none tracking-[0.12em] text-fg2">
+                        {node.kind}
+                      </span>
+                      {subtitle && (
+                        <span className="max-w-full truncate font-mono text-[7px] leading-none tracking-[0.1em] text-amber">
+                          {subtitle}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {isChoice && (
+                <span className="font-mono text-[8px] leading-none tracking-[0.14em] text-accent">
+                  ↑ {choices.size > 1 ? 'PICK ONE' : 'GO'}
                 </span>
               )}
-            </li>
+            </div>
           );
         })}
-      </ol>
-
-      <div className="flex-none border-t border-dark3 bg-panel px-4 pb-[14px] pt-3">
-        <Button primary arrow onClick={() => next && dispatch({ type: 'SELECT_NODE', nodeId: next })}>
-          {state.map.nodes[next ?? '']?.kind === 'BOSS' ? 'FACE IT' : 'ADVANCE'}
-        </Button>
       </div>
     </div>
   );

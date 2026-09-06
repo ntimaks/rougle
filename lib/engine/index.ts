@@ -17,6 +17,8 @@ export { serialize, deserialize, migrate, SaveError } from './core/serialize';
 export { draw, drawInt, drawPick, drawShuffle, drawWeighted, formatSeed, hash32, isValidSeed, DOMAIN, SEED_LENGTH } from './core/rng';
 export { spendGuess, grantableRefund, highestRefund, currentPool } from './core/pool';
 export { resolveHook, resolveUse, holdersInOrder } from './core/hooks';
+export { FORGE_GOLD_PER_GUESS, shopPrice, forgeOperations, optionAvailable } from './core/nodes';
+export { EVENTS, EVENT_DEFS, eventsForAct, type EventDef, type EventOption } from './content/events';
 export { ALPHABET, eligibleLettersForRemoval, hammingDistance, isLetterAvailable } from './core/letters';
 export { checkActivation, usesThisWord, isBlindfolded } from './core/activation';
 
