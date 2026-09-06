@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-four engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, and two (I-23, I-24) from the content the specs never contained. **Fifteen are now ruled** — see MECHANICS.md §11 R-014 … R-026 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-five engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, and one (I-25) from measuring R-025. **Seventeen are now ruled** — see MECHANICS.md §11 R-014 … R-028 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -852,7 +852,7 @@ overturn it.
 
 **I-16 · RULED (R-018).** Rule A binds the word's total, as §2.4 already said. The carry stands.
 
-**I-17 · PART-RULED.** Silent Start's chain slot is settled — declared step 0, `suppression`, shared with RL.20 Blindfold. Its *rule* ("GREY only; no yellows") is still implemented as the second reading, greens surviving, and has not been ruled.
+**I-17 · RULED (R-028).** Silent Start's chain slot was already settled — declared step 0, `suppression`, shared with RL.20 Blindfold. The rule is now settled too: greens survive, only yellows are suppressed. Found from playtest because the banner printed the opposite reading and a green on row one looked like a scoring bug.
 
 **I-18 · RULED (R-014).** Generalised from R-003: no mechanic may remove a letter the current solution needs, by any route. A lock derived from feedback must rest on an honest, uncorrupted, unsuppressed observation.
 
@@ -860,6 +860,8 @@ overturn it.
 
 **I-23 · Forge upgrades did not exist.** The design showed per-relic upgrade text for three relics and `relics.json` had no field for it, so a Forge node had nothing to offer and R-08 could not be built.
 → **Ruled (R-021).** MECHANICS.md §6.7. Every relic carries exactly one `MK.II`, in `relics.json` under `upgrade`, on one of five recorded axes. Consumables are not upgradeable.
+
+**I-25 · R-025 traded gold tension for word-luck deaths.** Halving relic count (~15 a run to ~8) is what made gold matter, and it worked: gold left unspent fell from 671 to 312 and deaths-with-money-in-hand from 99.1% to 63.1%. But **word-luck deaths went from 8.1% of deaths to 33.7%** against a §10.3 target of under 5%. Fewer relics means less information, and a third of deaths are now ones where the answer was still in the candidate set with no way to narrow it. That is the cost of the trade showing up in the metric built to catch it. → **Not ruled.** It needs a decision about where information comes from once relics are scarcer — a cheaper first rung on the §2.5 ladder, a higher INFO weighting in shop stock, or an accepted looser target. Do not tune it by reverting R-025; the economy it fixed was the larger fault.
 
 **I-24 · Events did not exist.** v0 named them only in the node-weight table; the design contained one. A node type with a single piece of content repeats inside one run, which the draw rule forbids.
 → **Ruled (R-022).** MECHANICS.md §6.8 and `events.json`. Twelve events, drawn without replacement, `acts` gating eligibility and `requires` gating individual options.

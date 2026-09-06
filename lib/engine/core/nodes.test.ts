@@ -25,7 +25,7 @@ function run(seed: string): GameState {
 function reach(kind: NodeKind, seeds = 60): GameState | null {
   for (let i = 0; i < seeds; i++) {
     let s = run(`NODE${i}`);
-    for (let step = 0; step < 14; step++) {
+    for (let step = 0; step < 40; step++) {
       if (s.phase === 'MAP') {
         const target =
           s.map.available.find((id: NodeId) => s.map.nodes[id]!.kind === kind) ??
@@ -37,6 +37,18 @@ function reach(kind: NodeKind, seeds = 60): GameState | null {
       }
       if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') {
         s = reduce(s, { type: 'LEAVE_NODE' }, CONFIG).state;
+        continue;
+      }
+      // Row 1 is never a service row since playtest (0 gold at a shop is a dead
+      // first move), so reaching one means playing through the words first.
+      if (s.phase === 'WORD' && s.word) {
+        const w = s.word;
+        const answer = w.solutions[w.solved.findIndex((v) => !v)] ?? w.solutions[0]!;
+        s = reduce(s, { type: 'SUBMIT_GUESS', guess: answer }, CONFIG).state;
+        continue;
+      }
+      if (s.phase === 'REWARD') {
+        s = reduce(s, { type: 'SKIP_OFFER' }, CONFIG).state;
         continue;
       }
       break;
