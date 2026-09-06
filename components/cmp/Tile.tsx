@@ -83,7 +83,10 @@ export function Tile({
 function ariaFor(tile: EngineTile, typedLetter?: string): string {
   const letter = tile.letter ?? typedLetter ?? '';
   if (tile.state === 'HIDDEN') return 'withheld';
-  if (tile.state === 'UNKNOWN') return `${letter}, decayed`;
+  // UNKNOWN arrives from Decay and from Silent Start's suppression, and it
+  // means the same thing to a player either way: there is no reading here.
+  // Saying "decayed" would be wrong for half of them.
+  if (tile.state === 'UNKNOWN') return `${letter}, no reading`;
   const state =
     tile.state === 'GREEN' ? 'correct' : tile.state === 'YELLOW' ? 'present' : 'absent';
   const distance = tile.distance !== null ? `, ${tile.distance} positions away` : '';

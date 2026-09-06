@@ -781,6 +781,27 @@ function finishWord(
     events.push(...hooked.events);
   }
 
+  // An event's word_challenge resolves here, and only here. It was set on run
+  // state and never read — so EV.01 The Wager staked a relic on a two-guess
+  // solve and then neither branch fired. A wager that cannot be lost is not a
+  // wager, and one that cannot be won is worse.
+  if (next.pendingChallenge) {
+    const challenge = next.pendingChallenge;
+    const within = challenge.limit === null || guessesUsed <= challenge.limit;
+    const branch = solved && within ? challenge.onSuccess : challenge.onFailure;
+    next = { ...next, pendingChallenge: null };
+    for (const effect of branch) {
+      const applied = applyEventEffect(next, effect as Record<string, unknown>, challenge.source, cfg);
+      next = applied.state;
+      events.push(...applied.events);
+    }
+    events.push({
+      type: 'CHALLENGE_RESOLVED',
+      source: challenge.source,
+      met: solved && within,
+    });
+  }
+
   // Pending refunds are per word (Rule A is per word) and are dropped here.
   next = { ...next, word: null };
 

@@ -27,12 +27,14 @@ const NOTES: Partial<Record<ModifierId, string>> = {
  */
 export function ModifierBanner({
   modifiers,
-  elite,
+  /** ELITE or BOSS. Was a boolean that printed ELITE for both, which told a
+   *  player facing a boss the wrong thing about what they were facing. */
+  badge,
 }: {
   modifiers: readonly ModifierId[];
-  elite?: boolean;
+  badge?: 'ELITE' | 'BOSS' | null;
 }) {
-  if (modifiers.length === 0) return null;
+  if (modifiers.length === 0 && !badge) return null;
   const label = (id: ModifierId) => MODIFIERS.find((m) => m.id === id)?.label ?? id;
 
   return (
@@ -40,23 +42,32 @@ export function ModifierBanner({
       className="flex flex-none items-stretch overflow-hidden border-b border-amber"
       style={{ background: 'color-mix(in srgb, var(--term-amber) 8%, var(--term-bg))' }}
     >
-      {elite && (
-        <div className="flex flex-none items-center bg-amber px-2 font-mono text-[9px] font-bold leading-none tracking-[0.14em] text-ink">
-          ELITE
+      {/* A solid edge, so the strip reads as a warning band rather than a row
+          of small text. Raised from playtest: a modifier was easy to miss. */}
+      <div className="w-[4px] flex-none bg-amber" aria-hidden />
+      {badge && (
+        <div
+          className={`flex flex-none items-center px-2 font-mono text-[9px] font-bold leading-none tracking-[0.14em] ${
+            badge === 'BOSS' ? 'bg-red text-ink' : 'bg-amber text-ink'
+          }`}
+        >
+          {badge}
         </div>
       )}
       <div className="flex min-w-0 flex-1 items-center gap-2 px-[9px] py-[7px]">
         {modifiers.map((id) => (
           <span
             key={id}
-            className="flex-none border border-amber px-[5px] py-[3px] font-mono text-[9px] leading-[1.3] tracking-[0.1em] text-amber"
+            className="flex-none border border-amber px-[5px] py-[3px] font-mono text-[9px] font-bold leading-[1.3] tracking-[0.12em] text-amber"
           >
             {label(id)}
           </span>
         ))}
         <span
           className="truncate font-mono text-[9px] leading-[1.3]"
-          style={{ color: 'color-mix(in srgb, var(--term-amber) 55%, var(--term-bg))' }}
+          // Was mixed 55% into the ground, which made the one line explaining
+          // the modifier the least readable text on the screen.
+          style={{ color: 'color-mix(in srgb, var(--term-amber) 80%, var(--term-fg))' }}
         >
           {modifiers.map((id) => NOTES[id]).filter(Boolean).join(' · ')}
         </span>

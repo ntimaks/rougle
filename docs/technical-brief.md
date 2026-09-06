@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-five engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, and one (I-25) from measuring R-025. **Seventeen are now ruled** — see MECHANICS.md §11 R-014 … R-028 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-five engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, and one (I-25) from measuring R-025. **Nineteen are now ruled** — see MECHANICS.md §11 R-014 … R-030 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 

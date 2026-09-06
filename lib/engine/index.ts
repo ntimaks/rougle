@@ -24,6 +24,7 @@ export { checkActivation, usesThisWord, isBlindfolded } from './core/activation'
 
 // Types
 export type { Action, EngineError, EngineErrorCode, GameEvent, ReduceResult } from './core/actions';
+export type { PendingChallenge, ShopState, ForgeState, EventState } from './core/state';
 export type { Effect } from './core/effects';
 export type {
   CharacterCode,
