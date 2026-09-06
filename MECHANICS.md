@@ -66,20 +66,40 @@ The brief was written before the design pass. The design pass renamed most relic
 - Leftover guesses convert to gold at act end, base rate **10g each**.
 - Pool reaches 0 with the current word unsolved → offer emergency purchase (§2.3). If unaffordable or declined → **run ends**.
 
-### 2.2 Act budgets (provisional — see §10)
+### 2.2 Act budgets — measured
 
-| Act | Pool | Solve nodes | Boss | Word-equivalents | Guesses/word |
+| Act | Pool | Solve nodes | Boss | Measured need | Slack |
 |---|---|---|---|---|---|
-| I | 22 | 4 | Cipher (1 word, deferred) | 5 | 4.40 |
-| II | 19 | 4 | Twins (2 words) | 6 | 3.17 |
-| III | 17 | 4 (long) | Gauntlet (own pool) | 4 | 4.25 |
+| I | 19 | 4 | Cipher (1 word, deferred) | 4 × 3.83 + 5.22 = **20.5** | −1.5 |
+| II | 12 | 4 | Twins (2 words) | 4 × 3.78 + 5.05 = **20.2** | −8.2 |
+| III | 14 | 4 (long) | Gauntlet (own pool) | 4 × 3.32 = **13.3** | +0.7 |
 
-The boss order changed in v1.1 (R-019) and the word-equivalents column moved
-with it. **These budgets have not been re-derived since.** Simulation puts the
-win rate at 51% against the 25–35% target, so §2.2 is still the open question
-(ticket B-02) — the boss move fixed where players die, not how often.
+**Derived from measurement, not from the 3.9 baseline.** "Measured need" is the
+gross cost of an act — its solve nodes at the act's own measured guesses/word,
+plus its boss — taken from balance snapshot 006. Slack is what the pool gives
+against that, and it is negative on purpose: refunds (§2.4), relics and the two
+ladders (§2.3, §2.5) close the gap, and closing it is the game.
 
-Act III's higher per-word figure is correct: those are 6- and 7-letter words, which cost more even with a good build. The Gauntlet runs on a **fixed, separate pool of 14** and does not draw from the act pool.
+The v1.0 budgets (22/19/17) were derived arithmetically from a 3.9 human
+baseline and never re-derived. They were also measured against a board that was
+lying to the player until R-036. Both are why Act II killed 2% of runs while
+being nominally the tightest act in the game.
+
+**Act III's pool is not a difficulty lever.** Verified flat from 17 down to 10:
+win rate moved 51%→50% and Act III deaths 14%→15%, inside noise. Its four solve
+nodes cost 13.3 and everything that kills in Act III is the Gauntlet, on its own
+pool. So Act III's pool is set to its measured need and nothing more — a number
+that means something rather than three guesses of dead headroom.
+
+The pools are **not monotone**, and should not be read as a difficulty ramp.
+Each act's pool answers that act's structure: Act I is sized to teach (its death
+rate is capped at 15% by §10.3), Act II is sized to be the wall a build-less run
+hits (§10.3's no-relic gate), and Act III is sized to its need because its boss
+is funded separately.
+
+Act III's words are 6- and 7-letter and cost more per word even with a good
+build. The Gauntlet runs on a **fixed, separate pool of 14** and does not draw
+from the act pool.
 
 Baseline human performance is ~3.9 guesses/word on clean 5-letter words, ~3.5 for strong solvers, ~4.6 on 7-letter words. Every budget above sits below the relevant baseline. **A player with no relics should die in Act II.** This is the design intent and the primary thing simulation must confirm.
 
@@ -539,6 +559,8 @@ A simple entropy-maximising solver (fixed optimal opener, then filter candidates
 | Act I death rate | <15% |
 
 If word-list-luck deaths exceed 5%, §8 curation was not aggressive enough. Fix the list, not the budget.
+
+**What counts as one.** A word-luck death is: the answer was still in the candidate set, and **between 2 and 5** candidates could not be told apart in the budget left. That is the §8.1 failure — a coin-flip between near-twins. Dying with the answer still live but the field WIDE (6+, most of them far more) is a budget death, and the report prints it on its own line. The distinction is load-bearing in both directions: the two move opposite ways when pools are tuned, so a metric that merges them rises when the *budget* changes and points "fix the list" at the wrong file.
 
 ---
 

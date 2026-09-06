@@ -5,13 +5,18 @@
  * The harness overrides this object wholesale, which is why it is a plain frozen
  * value rather than a module of consts.
  *
- * ⚠ PROVISIONAL: the act budgets are derived estimates, not measurements
- * (MECHANICS.md §10.1). Every number in `acts` and `gauntlet` is provisional
- * until the Phase 5 sweep (B-02) confirms or replaces it. Do not treat them as
- * settled and do not tune the game by nudging them without a report.
+ * The act pools in `acts` are MEASURED (balance snapshot 006, MECHANICS.md
+ * §2.2) rather than derived from the 3.9 baseline the v1.0 numbers came from.
+ * `gauntlet` is still provisional — it has never been swept.
+ *
+ * Do not tune the game by nudging these without a report. Two findings from the
+ * sweep that produced them are worth knowing before you try:
+ * Act III's pool is NOT a difficulty lever (flat from 17 down to 10), and the
+ * win rate cannot be brought into §10.3's band by pools alone — the legal floor
+ * with Act I's death rate under 15% is about 48%.
  */
 export interface ActConfig {
-  /** PROVISIONAL — MECHANICS.md §2.2 */
+  /** MEASURED — MECHANICS.md §2.2, balance snapshot 006. */
   pool: number;
   solveNodes: number;
   mapNodes: number;
@@ -57,9 +62,9 @@ export interface GameConfig {
 
 export const CONFIG: Readonly<GameConfig> = Object.freeze({
   acts: [
-    { pool: 22, solveNodes: 4, mapNodes: 6, maxElites: 1, wordLength: 5 },
-    { pool: 19, solveNodes: 4, mapNodes: 6, maxElites: 2, wordLength: 5 },
-    { pool: 17, solveNodes: 4, mapNodes: 6, maxElites: 3, wordLength: 6 },
+    { pool: 19, solveNodes: 4, mapNodes: 6, maxElites: 1, wordLength: 5 },
+    { pool: 12, solveNodes: 4, mapNodes: 6, maxElites: 2, wordLength: 5 },
+    { pool: 14, solveNodes: 4, mapNodes: 6, maxElites: 3, wordLength: 6 },
   ],
   // A separate pool that never touches the act pool, in either direction.
   gauntlet: { pool: 14, words: 5, wordLength: 5 },

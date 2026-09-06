@@ -7,6 +7,9 @@ import type { RunResult } from './runner';
  * provisional until this runs, so this is the artefact the balance work reads.
  */
 
+/** Above this the field was wide and the budget ended — not a §8.1 coin-flip. */
+const WORD_LUCK_MAX = 5;
+
 export interface Report {
   runs: number;
   solver: SolverConfig;
@@ -15,6 +18,13 @@ export interface Report {
   deathsByCause: Record<string, number>;
   /** MECHANICS.md §10.3: deaths attributable to word-list luck, not decisions. */
   wordLuckDeathRate: number;
+  /**
+   * Died with the answer live but the field still WIDE (more than
+   * `WORD_LUCK_MAX` candidates). Not a word-list problem — the budget ended
+   * before the word was narrowed. Reported beside word-luck because the two
+   * were conflated and move in OPPOSITE directions when pools are tuned.
+   */
+  budgetPressureDeathRate: number;
   meanGuessesPerWord: number;
   meanGuessesPerWordByAct: number[];
   meanCleanFiveLetter: number;
@@ -74,9 +84,25 @@ export function buildReport(results: readonly RunResult[], solver: SolverConfig)
    * Deaths where the answer had already been eliminated are decision quality or
    * vocabulary, not luck. Deaths with exactly one candidate left are budget:
    * the bot knew the word and had no guess left to type it with.
+   *
+   * And so are deaths with the field still WIDE. This counted every death with
+   * two or more candidates left, which put "forced to coin-flip between four
+   * near-twins" in the same bucket as "the pool ran out while twenty words were
+   * still live". Measured over 607 deaths: 27.3% the former, 37.9% the latter,
+   * and over half of THOSE at the 20-candidate cap. The two move in opposite
+   * directions when pools are tuned — tightening a pool kills more runs early,
+   * with the field wide, so the number that is supposed to indict the WORD LIST
+   * rises when the BUDGET changes. §10.3 says "fix the list, not the budget" on
+   * the strength of this figure, so conflating them aims that at the wrong file.
    */
   const luckDeaths = deaths.filter(
-    (r) => r.deathWithAnswerKnown && r.deathCandidatesRemaining >= 2,
+    (r) =>
+      r.deathWithAnswerKnown &&
+      r.deathCandidatesRemaining >= 2 &&
+      r.deathCandidatesRemaining <= WORD_LUCK_MAX,
+  ).length;
+  const widePressureDeaths = deaths.filter(
+    (r) => r.deathWithAnswerKnown && r.deathCandidatesRemaining > WORD_LUCK_MAX,
   ).length;
 
   const byAct: number[][] = [[], [], []];
@@ -113,6 +139,7 @@ export function buildReport(results: readonly RunResult[], solver: SolverConfig)
     deathsByAct,
     deathsByCause,
     wordLuckDeathRate: deaths.length ? luckDeaths / deaths.length : 0,
+    budgetPressureDeathRate: deaths.length ? widePressureDeaths / deaths.length : 0,
     meanGuessesPerWord: mean(results.flatMap((r) => r.guessesPerWord)),
     meanGuessesPerWordByAct: byAct.map(mean),
     meanCleanFiveLetter: mean(results.flatMap((r) => r.cleanFiveLetterGuesses)),
@@ -161,6 +188,9 @@ export function formatReport(report: Report): string {
   );
   push(
     `  word-luck deaths                ${pct(report.wordLuckDeathRate).padEnd(10)} <5% of deaths ${verdict(report.wordLuckDeathRate < 0.05)}`,
+  );
+  push(
+    `  died with the field still wide  ${pct(report.budgetPressureDeathRate).padEnd(10)} (budget, not §8.1)`,
   );
   push(
     `  median emergency purchases      ${String(report.medianEmergencyPurchases).padEnd(10)} >0            ${verdict(report.medianEmergencyPurchases > 0)}`,
