@@ -282,3 +282,80 @@ describe('CH.03 The Cryptographer', () => {
     expect(activationFor('CH.03')!.cost.guesses).toBe(1);
   });
 });
+
+/**
+ * R-031 — an activation that produces nothing is refused, not consumed.
+ *
+ * From playtest: "I got the Auditor, it's kind of buggy, sometimes it activates
+ * sometimes not." It was charging the gold before running the handler, so naming
+ * a letter it cannot answer took 5g and returned in silence — no stamp, no
+ * error, and nothing to tell it apart from a use that worked.
+ */
+describe('R-031 an empty activation costs nothing', () => {
+  it('naming an already-tried letter is refused, and the gold is not taken', () => {
+    let s = inWord(['RL.07'], { gold: 100 });
+    const auditor = s.relics.find((r) => r.code === 'RL.07')!;
+    const guess = s.word!.solutions[0]!;
+    s = reduce(s, { type: 'SUBMIT_GUESS', guess }).state;
+    // The word may have ended on that guess; only the refusal matters here.
+    if (!s.word) return;
+
+    const tried = guess[0]!;
+    const goldBefore = s.gold;
+    const out = reduce(s, {
+      type: 'USE_ITEM',
+      instanceId: auditor.instanceId,
+      payload: { letter: tried },
+    });
+
+    expect(out.error?.code, 'a use that can teach nothing must say so').toBe('NO_EFFECT');
+    expect(out.state.gold, 'and must not charge for it').toBe(goldBefore);
+    expect(out.state.word!.revealed.letters).toHaveLength(0);
+  });
+
+  it('a garbled payload is refused rather than silently billed', () => {
+    const s = inWord(['RL.07'], { gold: 100 });
+    const auditor = s.relics.find((r) => r.code === 'RL.07')!;
+    const out = reduce(s, {
+      type: 'USE_ITEM',
+      instanceId: auditor.instanceId,
+      payload: { letter: '' },
+    });
+    expect(out.error?.code).toBe('NO_EFFECT');
+    expect(out.state.gold).toBe(100);
+  });
+
+  it('a real use still charges, stamps, and burns the once-per-word cap', () => {
+    const s = inWord(['RL.07'], { gold: 100 });
+    const auditor = s.relics.find((r) => r.code === 'RL.07')!;
+    const out = reduce(s, {
+      type: 'USE_ITEM',
+      instanceId: auditor.instanceId,
+      payload: { letter: 'Q' },
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.state.gold).toBe(95);
+    expect(out.state.word!.revealed.letters).toEqual([{ letter: 'Q', present: expect.any(Boolean) }]);
+    expect(out.events.some((e) => e.type === 'LETTER_STAMPED')).toBe(true);
+    // Second use this word is capped, not silently free.
+    const again = reduce(out.state, {
+      type: 'USE_ITEM',
+      instanceId: auditor.instanceId,
+      payload: { letter: 'Z' },
+    });
+    expect(again.error).toBeDefined();
+    expect(again.state.gold).toBe(95);
+  });
+
+  it('a relic firing is not reported as a consumable being used', () => {
+    const s = inWord(['RL.07'], { gold: 100 });
+    const auditor = s.relics.find((r) => r.code === 'RL.07')!;
+    const out = reduce(s, {
+      type: 'USE_ITEM',
+      instanceId: auditor.instanceId,
+      payload: { letter: 'Q' },
+    });
+    expect(out.events.some((e) => e.type === 'CONSUMABLE_USED')).toBe(false);
+    expect(out.events.some((e) => e.type === 'ACTIVATION_FIRED')).toBe(true);
+  });
+});
