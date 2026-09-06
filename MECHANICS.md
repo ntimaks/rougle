@@ -172,11 +172,15 @@ Copy must say twenty. The title screen currently says eighteen and the victory s
 
 ### 3.3 Node rewards
 
-| Node | Gold | Other |
-|---|---|---|
-| Word | 15–25g | Choice of 1 of 3 relics |
-| Elite | 40g | Choice of 1 of 3, weighted uncommon/rare |
-| Boss | 60g | Guaranteed boss relic |
+| Node | Reward |
+|---|---|
+| Word | **Choose one:** a relic from 3 offered, **or** 40g |
+| Elite | 40g **and** a relic from 3, weighted uncommon/rare |
+| Boss | 60g **and** a guaranteed boss relic |
+
+The word node's two rewards are one choice, not two grants (R-025). The three relics stay on screen when the gold is taken: you should see what you are refusing.
+
+This is where gold comes from in any quantity, so it is also what funds the shop, the forge and both ladders. A run that takes the relic every time is a run that cannot buy anything — which is the intended shape of the decision, and the reason the acquisition curve is now a balance number rather than a constant (§10.1).
 
 ---
 
@@ -616,6 +620,12 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 
 **R-024 · `poolMax` is the refill target, not a ceiling.** `addPool` clamped every positive delta to `poolMax`. Raised as §13 I-15 against `RL.27` The Vault, where it was noticed; found while building the §6.7 forge to be general. Six mechanics that GRANT guesses were silently doing nothing whenever the pool was full: the forge's gold conversion, `CN.03` The Decanter, `EV.05` The Infirmary, `RL.20` Blindfold's payout, `EV.08`'s revival, and the Vault's carry. Nothing errored — the guesses were simply absent, in exactly the situation you would most want them.
 → **Ruled:** the pool may sit above `poolMax`. The cap governs the **refill** at act start and nothing else, so a grant is a thing you carry rather than a new ceiling, and the meter reads 27/24. One rule with no exceptions, rather than a per-effect "may overflow" flag the next mechanic would forget to set. `RL.27`'s "Does not raise the act cap" is now literally true and no longer inert: the carry lands above the cap and the next refill returns to it. Closes §13 I-15.
+
+**R-025 · Node rewards.** §3.3 granted word nodes both gold and a free relic. Four solve nodes an act plus three bosses is roughly **15 relics a run** on a game where relics are the entire power axis — and it left gold with almost nothing to buy that was not already arriving for free, which degraded the shop into somewhere to dump a surplus. It also quietly invalidated the balance work: the §2.4 refund floor and the §6.3 information cap were sized against a player holding six to eight relics, not most of an archetype.
+→ **Ruled:** a word node offers a relic **or** 40g, exclusively. Elite and boss nodes grant both. The relic offer stays visible when the gold is taken. Relic count falls to roughly 8–12 a run depending on play, every coin held represents a relic refused, and the shop becomes the place you buy the specific thing your build needs rather than the random one-of-three you happened to roll. **Design change filed against S.05** — the secondary action becomes `TAKE 40g`, not `SKIP`, and the automatic gold line comes off. Relic count per run is added to the §10.1 harness output, because the acquisition curve is now a measurement rather than a constant.
+
+**R-026 · Nothing may defer feedback over two solutions.** Raised from playtest — *"playing Mirror felt almost impossible since I had no feedback if some of my letters hit or not"* — with a screenshot of six submitted rows and not one scored tile. Two faults produced it. `FOG` and `MIRROR` were not a declared stacking exclusion, so an Act III word could withhold feedback for a turn across two answers. And both the boss lookup and the boss NAME read `BOSSES[state.actIndex]` rather than the node, so any drift between the act counter and the map grafted one boss's mechanic onto another's word — the screenshot shows the Act II Twins labelled `THE CIPHER`, running the Cipher's 3-turn deferral over a mirrored word.
+→ **Ruled:** deferral and Mirror are mutually exclusive, enforced twice. `FOG`/`MIRROR` joins §5's exclusion table so the pair never rolls, and `startWord` zeroes `deferralDepth` whenever a word has more than one solution, so no other route — a boss, an event's `modifier_apply`, a future relic — can reassemble it. Two solutions win: a mirror is hard, a deferred mirror is unreadable. Every node now carries the act that generated it and the boss is read from the node, so the name and the mechanic cannot disagree again.
 
 ## 12. Still open
 

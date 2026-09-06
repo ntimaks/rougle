@@ -130,6 +130,7 @@ function buildOnce(
       nodes[id] = {
         id,
         kind,
+        actIndex,
         row: row - 1,
         col,
         next: [],
@@ -164,6 +165,7 @@ function buildOnce(
   nodes[bossId] = {
     id: bossId,
     kind: 'BOSS',
+    actIndex,
     row: ROWS,
     col: 0,
     next: [],

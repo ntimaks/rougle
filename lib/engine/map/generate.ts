@@ -31,6 +31,7 @@ export function generateLinearAct(
     nodes[id] = {
       id,
       kind: 'WORD',
+      actIndex,
       row: i,
       col: 0,
       next: [],
@@ -44,6 +45,7 @@ export function generateLinearAct(
   nodes[bossId] = {
     id: bossId,
     kind: 'BOSS',
+    actIndex,
     row: act.solveNodes,
     col: 0,
     next: [],

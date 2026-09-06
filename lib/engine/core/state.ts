@@ -157,6 +157,14 @@ export interface PendingChallenge {
 export interface MapNode {
   id: NodeId;
   kind: NodeKind;
+  /**
+   * Which act generated this node. A word's boss, its deferral and its name
+   * were all looked up as `BOSSES[state.actIndex]`, which is only correct while
+   * the map and the act counter agree — and a screenshot of the Act II Twins
+   * labelled THE CIPHER, running the Cipher's 3-turn deferral over a Mirror
+   * word, is what happens when they do not. The node knows what it is.
+   */
+  actIndex: 0 | 1 | 2;
   row: number;
   col: number;
   next: NodeId[];
@@ -181,6 +189,12 @@ export interface Offer {
   sourceNodeId: NodeId;
   /** Boss relics are guaranteed, not chosen from three. */
   forced: boolean;
+  /**
+   * R-025. Gold the player gets INSTEAD of taking a relic, on a word node.
+   * null where the node already paid its gold (elite, boss), so refusing buys
+   * nothing and the screen must not pretend it is a trade.
+   */
+  goldInstead: number | null;
 }
 
 export interface RunStats {

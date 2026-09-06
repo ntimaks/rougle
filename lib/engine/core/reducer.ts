@@ -77,7 +77,7 @@ export function reduce(
     case 'ACCEPT_OFFER':
       return acceptOffer(state, action.code, cfg);
     case 'SKIP_OFFER':
-      return advance({ ...state, pendingOffer: null }, [], cfg);
+      return declineOffer(state, cfg);
     case 'USE_ITEM':
       return applyItemUse(state, action.instanceId, action.payload ?? {}, cfg);
     case 'BUY_EMERGENCY':
@@ -532,7 +532,11 @@ function forgeConvert(s: GameState, guesses: number, cfg: Readonly<GameConfig>):
 function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): ReduceResult {
   const node = s.map.nodes[nodeId]!;
   const isBoss = node.kind === 'BOSS';
-  const boss = BOSSES[s.actIndex];
+  // From the NODE, never from state.actIndex. The two are meant to agree and a
+  // playtest screenshot proved they can drift: the Act II Twins ran the Act I
+  // Cipher's 3-turn deferral over a two-solution word, which is six blank rows
+  // and no way to read them.
+  const boss = BOSSES[node.actIndex];
   const modifiers: ModifierId[] = [...node.modifiers];
   const baseLength = cfg.acts[s.actIndex].wordLength;
   const length: WordLength = isBoss
@@ -555,7 +559,15 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     solutions.push(drawSolution(s.seed, `${domain}:b`, length, new Set([...used, solutions[0]!])));
   }
 
-  const deferralDepth = isBoss && boss.deferralDepth > 0
+  // R-026, enforced where the word is built rather than only where modifiers
+  // roll. The pair exclusion stops FOG meeting MIRROR, but a boss carries its
+  // deferral outside the modifier table, so the Cipher could still meet a
+  // mirrored word by another route. Two solutions always win: a deferred mirror
+  // is unreadable, a mirror is merely hard.
+  const mirrored = solutions.length > 1;
+  const deferralDepth = mirrored
+    ? 0
+    : isBoss && boss.deferralDepth > 0
     ? boss.deferralDepth
     : modifiers.includes('FOG')
       ? 1
@@ -784,24 +796,31 @@ function grantNodeReward(
   const events: GameEvent[] = [];
   let next = s;
 
-  const gold =
-    kind === 'BOSS'
-      ? cfg.rewards.boss
-      : kind === 'ELITE'
-        ? cfg.rewards.elite
-        : cfg.rewards.word[0] +
-          drawInt(s.seed, DOMAIN.offer(nodeId), 99, cfg.rewards.word[1] - cfg.rewards.word[0] + 1);
-
-  const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
-  next = golded.state;
-  events.push(...golded.events);
+  // R-025. A word node pays gold OR a relic and the player picks; an elite or
+  // a boss pays both. Granting both everywhere yielded ~15 relics a run, which
+  // left gold with nothing to buy that was not already coming for free.
+  const bothRewards = kind === 'BOSS' || kind === 'ELITE';
+  if (bothRewards) {
+    const gold = kind === 'BOSS' ? cfg.rewards.boss : cfg.rewards.elite;
+    const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
+    next = golded.state;
+    events.push(...golded.events);
+  }
 
   const codes = rollOffer(next, nodeId, cfg);
   if (codes.length > 0) {
     next = {
       ...next,
       phase: 'REWARD',
-      pendingOffer: { kind: 'RELIC', codes, sourceNodeId: nodeId, forced: false },
+      pendingOffer: {
+        kind: 'RELIC',
+        codes,
+        sourceNodeId: nodeId,
+        forced: false,
+        // null on elite and boss nodes: their gold is already paid, so refusing
+        // the relic buys nothing and the screen must not offer a trade.
+        goldInstead: bothRewards ? null : cfg.rewards.wordGoldInstead,
+      },
     };
   } else {
     const advanced = advance(next, events, cfg);
@@ -1083,6 +1102,26 @@ export function emergencyCost(
   cfg: Readonly<GameConfig> = CONFIG,
 ): number | null {
   return cfg.emergencyCosts[s.emergencyPurchasesThisAct] ?? null;
+}
+
+/**
+ * R-025 — refusing the relic takes the gold instead.
+ *
+ * Not a "skip". On a word node the two rewards are one choice, so declining is
+ * a purchase: it is how gold enters a run in any quantity, and therefore how
+ * the shop and both ladders get funded. `goldInstead` is null on elite and boss
+ * nodes, where the gold is already paid and refusing really is just refusing.
+ */
+function declineOffer(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  const instead = s.pendingOffer?.goldInstead ?? null;
+  let next: GameState = { ...s, pendingOffer: null };
+  const events: GameEvent[] = [];
+  if (instead !== null && instead > 0) {
+    const paid = applyEffects(next, [{ kind: 'GOLD', delta: instead, reason: 'relic declined' }], cfg);
+    next = paid.state;
+    events.push(...paid.events);
+  }
+  return advance(next, events, cfg);
 }
 
 // ------------------------------------------------------------ reveal ladder

@@ -44,6 +44,12 @@ const EXCLUSIONS: ReadonlyArray<readonly [ModifierId, ModifierId]> = [
   ['FOG', 'SILENT_START'],
   // Fog + Cipher is excluded too, but Cipher is a boss rather than a modifier;
   // `deferralDepth` is set once, so double deferral cannot arise.
+  //
+  // R-026. Deferral over two solutions is not hard, it is unreadable: you guess,
+  // you are shown nothing, and when the rows finally arrive there are two of
+  // them and no way to attribute either. Raised from playtest — "no feedback if
+  // some of my letters hit or not" — against exactly this pair.
+  ['FOG', 'MIRROR'],
 ];
 
 export function canStack(a: ModifierId, b: ModifierId): boolean {

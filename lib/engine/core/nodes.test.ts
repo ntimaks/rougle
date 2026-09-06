@@ -206,3 +206,89 @@ describe('§6.8 events', () => {
     expect(out.state.map.modifiersRevealed).toBe(true);
   });
 });
+
+/**
+ * A playtest screenshot showed the Act II Twins labelled THE CIPHER and running
+ * the Cipher's 3-turn deferral over a two-solution word: six rows submitted, not
+ * one tile of feedback. Both the boss name and the deferral were read from
+ * `state.actIndex` rather than from the node, so any drift between the two
+ * silently grafted one boss's mechanic onto another's word.
+ */
+describe('a boss is whatever the NODE says it is', () => {
+  it('every node carries the act that generated it', () => {
+    for (let i = 0; i < 30; i++) {
+      const s = run(`STAMP${i}`);
+      for (const node of Object.values(s.map.nodes)) {
+        expect(node.actIndex, `${node.id} is unstamped`).toBe(s.actIndex);
+      }
+    }
+  });
+
+  it('deferral and Mirror never both land on one word', () => {
+    // The Cipher defers and does not mirror; the Twins mirrors and does not
+    // defer. Deferral over two solutions is unreadable, so nothing may produce
+    // it by accident.
+    for (let i = 0; i < 40; i++) {
+      let s = run(`DEFER${i}`);
+      for (let step = 0; step < 120; step++) {
+        if (s.phase === 'DEATH' || s.phase === 'VICTORY') break;
+        if (s.phase === 'WORD' && s.word) {
+          const w = s.word;
+          expect(
+            w.deferralDepth > 0 && w.solutions.length > 1,
+            `${w.nodeId}: deferral ${w.deferralDepth} over ${w.solutions.length} solutions`,
+          ).toBe(false);
+          const answer = w.solutions[w.solved.findIndex((v) => !v)] ?? w.solutions[0]!;
+          s = reduce(s, { type: 'SUBMIT_GUESS', guess: answer }, CONFIG).state;
+          continue;
+        }
+        if (s.phase === 'MAP') {
+          s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }, CONFIG).state;
+          continue;
+        }
+        if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') {
+          s = reduce(s, { type: 'LEAVE_NODE' }, CONFIG).state;
+          continue;
+        }
+        if (s.phase === 'REWARD') {
+          s = reduce(s, { type: 'SKIP_OFFER' }, CONFIG).state;
+          continue;
+        }
+        s = reduce(s, { type: 'ADVANCE' }, CONFIG).state;
+      }
+    }
+  });
+
+  it('a stale actIndex can no longer mislabel a boss or borrow its deferral', () => {
+    // Reproduce the drift directly: act 1's map, act 0's counter.
+    let s = run('DRIFT');
+    for (let step = 0; step < 60 && s.actIndex === 0; step++) {
+      if (s.phase === 'WORD' && s.word) {
+        const w = s.word;
+        s = reduce(s, { type: 'SUBMIT_GUESS', guess: w.solutions[0]! }, CONFIG).state;
+      } else if (s.phase === 'MAP') {
+        s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }, CONFIG).state;
+      } else if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') {
+        s = reduce(s, { type: 'LEAVE_NODE' }, CONFIG).state;
+      } else if (s.phase === 'REWARD') {
+        s = reduce(s, { type: 'SKIP_OFFER' }, CONFIG).state;
+      } else {
+        s = reduce(s, { type: 'ADVANCE' }, CONFIG).state;
+      }
+    }
+    expect(s.actIndex, 'the walk should have reached act 2').toBe(1);
+
+    const bossId = s.map.bossId;
+    const drifted = {
+      ...s,
+      actIndex: 0 as const,
+      phase: 'MAP' as const,
+      word: null,
+      map: { ...s.map, currentId: null, available: [bossId] },
+    };
+    const entered = reduce(drifted, { type: 'SELECT_NODE', nodeId: bossId }, CONFIG).state;
+    // The Twins mirrors and does not defer, whatever the counter claims.
+    expect(entered.word!.solutions.length).toBe(2);
+    expect(entered.word!.deferralDepth).toBe(0);
+  });
+});
