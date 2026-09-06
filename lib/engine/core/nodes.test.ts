@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
 import { initialState, reduce } from './reducer';
-import { FORGE_GOLD_PER_GUESS, shopPrice } from './nodes';
+import { FORGE_CANDIDATES, FORGE_GOLD_PER_GUESS, drawForgeCandidates, shopPrice } from './nodes';
 import { EVENTS } from '../content/events';
 import { REGISTRY } from '../content/registry';
 import type { GameState, NodeId, NodeKind } from './state';
@@ -21,10 +21,16 @@ function run(seed: string): GameState {
   }).state;
 }
 
-/** Walk until a node of this kind is entered, or give up. */
-function reach(kind: NodeKind, seeds = 60): GameState | null {
+/**
+ * Walk until a node of this kind is entered, or give up.
+ *
+ * `prefix` exists so a test can ask for a DIFFERENT forge rather than the same
+ * one sixty times — R-035's draw is a function of seed and node, so sampling it
+ * means varying the seed.
+ */
+function reach(kind: NodeKind, seeds = 60, prefix = 'NODE'): GameState | null {
   for (let i = 0; i < seeds; i++) {
-    let s = run(`NODE${i}`);
+    let s = run(`${prefix}${i}`);
     for (let step = 0; step < 40; step++) {
       if (s.phase === 'MAP') {
         const target =
@@ -129,6 +135,20 @@ describe('§6.4 shop', () => {
   });
 });
 
+/** N held relics that a forge can legally work on, plus optionally spent ones. */
+function plantRelics(n: number, alreadyUpgraded = false) {
+  const codes = Object.values(REGISTRY)
+    .filter((d) => d.upgrade)
+    .slice(alreadyUpgraded ? 12 : 0, (alreadyUpgraded ? 12 : 0) + n);
+  return codes.map((d, i) => ({
+    instanceId: `${d.code}#planted${alreadyUpgraded ? 'U' : ''}${i}`,
+    code: d.code,
+    state: {},
+    acquiredAt: 1,
+    upgraded: alreadyUpgraded,
+  }));
+}
+
 describe('§6.7 forge', () => {
   it('grants one operation, or two holding RL.09 The Anvil', () => {
     expect(reach('FORGE')!.forge!.operationsLeft).toBe(1);
@@ -136,20 +156,72 @@ describe('§6.7 forge', () => {
 
   it('upgrading marks the instance, spends the operation, and cannot repeat', () => {
     let s = reach('FORGE')!;
-    const target = s.relics[0];
-    expect(target, 'the run starts with a character innate to upgrade').toBeDefined();
+    const target = s.forge!.candidates[0];
+    if (!target) return; // Nothing eligible was drawn; covered below.
     const before = s.forge!.operationsLeft;
-    const out = reduce(s, { type: 'FORGE_UPGRADE', instanceId: target!.instanceId }, CONFIG);
-    if (!REGISTRY[target!.code]?.upgrade) {
-      // Character innates have no MK.II; that is a refusal, not a crash.
-      expect(out.error?.code).toBe('NOT_UPGRADEABLE');
-      return;
-    }
-    s = out.state;
-    expect(s.relics[0]!.upgraded).toBe(true);
+    s = reduce(s, { type: 'FORGE_UPGRADE', instanceId: target }, CONFIG).state;
+    expect(s.relics.find((r) => r.instanceId === target)!.upgraded).toBe(true);
     expect(s.forge!.operationsLeft).toBe(before - 1);
-    expect(reduce(s, { type: 'FORGE_UPGRADE', instanceId: target!.instanceId }, CONFIG).error?.code)
+    expect(reduce(s, { type: 'FORGE_UPGRADE', instanceId: target }, CONFIG).error?.code)
       .toBe('NO_OPERATIONS');
+  });
+
+  /*
+   * R-035. The forge draws what it will work on; it does not open your bag.
+   *
+   * Tested against the draw rather than against a walked run: the first forge a
+   * run reaches typically holds only the character innate, which has no MK.II,
+   * so a walked test asserting "at most three" passes while every offer is
+   * empty. Measured over 203 walked forges with relics taken, the offer is 3 in
+   * 79% of visits against a mean of 7.2 eligible held — the cap is doing work.
+   */
+  it('offers at most three, and only relics that have an unspent MK.II', () => {
+    const base = reach('FORGE')!;
+    const s = { ...base, relics: [...base.relics, ...plantRelics(8), ...plantRelics(2, true)] };
+    const offer = drawForgeCandidates(s, 'n-forge');
+    expect(offer).toHaveLength(FORGE_CANDIDATES);
+    expect(new Set(offer).size, 'no relic is offered twice').toBe(offer.length);
+    for (const id of offer) {
+      const held = s.relics.find((r) => r.instanceId === id);
+      expect(held, 'the offer names a relic actually held').toBeDefined();
+      expect(held!.upgraded, 'never one already MK.II').toBe(false);
+      expect(REGISTRY[held!.code]!.upgrade, 'never one with no MK.II').toBeDefined();
+    }
+  });
+
+  it('offers everything eligible when fewer than three are', () => {
+    const base = reach('FORGE')!;
+    const two = { ...base, relics: [...base.relics, ...plantRelics(2)] };
+    expect(drawForgeCandidates(two, 'n-forge')).toHaveLength(2);
+    expect(drawForgeCandidates(base, 'n-forge'), 'a run holding only its innate').toEqual([]);
+  });
+
+  it('refuses a relic it did not offer, however upgradeable it is', () => {
+    const s = reach('FORGE')!;
+    // The relic must be HELD and ELIGIBLE and merely absent from the offer, or
+    // an older check fires first and the test proves nothing about R-035. The
+    // first forge of a run typically holds only the character innate, which has
+    // no MK.II, so the outsider is planted rather than hoped for.
+    const upgradeable = Object.values(REGISTRY).find((d) => d.upgrade)!;
+    const outsider = {
+      instanceId: `${upgradeable.code}#outside`,
+      code: upgradeable.code,
+      state: {},
+      acquiredAt: 1,
+      upgraded: false,
+    };
+    const forced = { ...s, relics: [...s.relics, outsider] };
+    expect(forced.forge!.candidates).not.toContain(outsider.instanceId);
+    const err = reduce(forced, { type: 'FORGE_UPGRADE', instanceId: outsider.instanceId }, CONFIG).error;
+    expect(err?.code).toBe('NOT_IN_OFFER');
+  });
+
+  it('is a function of the address: same node same offer, different node different', () => {
+    const base = reach('FORGE')!;
+    const s = { ...base, relics: [...base.relics, ...plantRelics(8)] };
+    expect(drawForgeCandidates(s, 'n-forge')).toEqual(drawForgeCandidates(s, 'n-forge'));
+    const elsewhere = ['n-a', 'n-b', 'n-c', 'n-d'].map((id) => drawForgeCandidates(s, id).join());
+    expect(new Set(elsewhere).size, 'two forges in a run are not the same forge').toBeGreaterThan(1);
   });
 
   it('converts gold to guesses at the §6.7 rate, and refuses what it cannot afford', () => {

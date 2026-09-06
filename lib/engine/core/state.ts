@@ -139,6 +139,14 @@ export interface ForgeState {
   operationsLeft: number;
   /** Codes upgraded here, so the screen can show what it did. */
   upgraded: string[];
+  /**
+   * The relics THIS forge will work on: instance ids, drawn on entry (R-035).
+   * A forge used to offer everything upgradeable you held, which made the node
+   * strictly better the more relics you carried and left branch B with nothing
+   * to compete against. It is a draw now, like the shop's shelf and the reward
+   * screen's three offers.
+   */
+  candidates: string[];
 }
 
 export interface EventState {
@@ -280,7 +288,7 @@ export interface GameState {
   outcome: { result: 'WIN' | 'DEATH'; cause: DeathCause | null } | null;
 }
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export function emptyStats(): RunStats {
   return {

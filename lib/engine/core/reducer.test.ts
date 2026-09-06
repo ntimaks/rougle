@@ -5,6 +5,7 @@ import { resolveHook } from './hooks';
 import { applyEffects, canDispatch, emergencyCost, initialState, reduce } from './reducer';
 import { refillPool } from './pool';
 import { deserialize, serialize } from './serialize';
+import { SAVE_VERSION } from './state';
 import type { Action, GameState } from '../index';
 import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
@@ -207,6 +208,32 @@ describe('E-13 — serialisation', () => {
   it('refuses a save from the future', () => {
     const s = { ...start(), version: 99 };
     expect(deserialize(serialize(s))).toBeNull();
+  });
+
+  /*
+   * R-035 gave ForgeState a `candidates` list and the reducer refuses every
+   * upgrade not in it. A v1 save written while standing in a forge has no such
+   * field, so without this the node would come back silently dead — every
+   * upgrade refused, with the screen showing nothing to pick.
+   */
+  it('backfills a v1 forge with the offer R-035 added', () => {
+    const s = start();
+    const legacy = JSON.parse(serialize(s)) as Record<string, unknown>;
+    legacy['version'] = 1;
+    legacy['phase'] = 'FORGE';
+    legacy['forge'] = { nodeId: 'n1', operationsLeft: 1, upgraded: [] };
+    const loaded = deserialize(JSON.stringify(legacy));
+    expect(loaded).not.toBeNull();
+    expect(loaded!.version).toBe(SAVE_VERSION);
+    expect(Array.isArray(loaded!.forge!.candidates)).toBe(true);
+  });
+
+  it('leaves a v1 save with no forge alone', () => {
+    const legacy = JSON.parse(serialize(start())) as Record<string, unknown>;
+    legacy['version'] = 1;
+    const loaded = deserialize(JSON.stringify(legacy));
+    expect(loaded!.version).toBe(SAVE_VERSION);
+    expect(loaded!.forge).toBeNull();
   });
 });
 

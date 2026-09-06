@@ -370,10 +370,14 @@ Every relic carries **exactly one** upgrade tier, `MK.II`, defined in `relics.js
 
 A Forge node grants **one** operation, chosen by the player:
 
-- **A · Upgrade a held relic** — free. Applies `MK.II` permanently for the run.
+- **A · Upgrade one of the relics this forge offers** — free. Applies `MK.II` permanently for the run.
 - **B · Convert gold to guesses** — 20g each, any quantity affordable.
 
-`RL.09` The Anvil grants two operations instead of one. Both may be upgrades, both conversions, or one of each.
+A forge offers **at most three** relics, drawn on entry from those you hold that have an unspent `MK.II` (R-035). It is a draw, like the shop's shelf and the reward screen's three offers, and it is addressed on the node, so the same forge on the same seed always offers the same three. When you hold three or fewer eligible relics, it offers all of them; when you hold none — a common first forge, since the character innate has no `MK.II` — branch A is empty and the operation can only go to B.
+
+**Selecting is not committing.** Both branches are shown together, because the whole tension of the node is that an upgrade and three guesses cost the same single operation. But the player picks A or B, changes their mind freely, and spends only on one explicit commit.
+
+`RL.09` The Anvil grants two operations instead of one. Both may be upgrades, both conversions, or one of each. The offer is drawn once on entry and does not re-draw between operations.
 
 #### Upgrade constraints — normative
 
@@ -650,6 +654,9 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 
 **R-034 · A withheld row says when it will speak.** Raised from playtest at the Cipher — *"it seems like it's delayed, is that the whole point?"* It was: deferral at depth 3 held rows 4, 5 and 6 exactly as §4.4 specifies, and the engine was correct throughout. But three identical dim rows with no reading and no timing do not read as a queue, they read as a screen that has stopped working, and a player asking whether their game is broken is not experiencing the mechanic they paid for. §4.4 already frames deferral as *"the full result is computed and stored; it is simply not shown yet"* — "yet" is a promise the board never kept.
 → **Ruled:** deferral withholds the **reading**, never the **schedule**. Every held row carries `meta.revealsIn`, the number of guesses until it resolves, derived from the same arithmetic as `isDeferred` so the two cannot disagree; a test asserts the countdown against the predicate rather than against copied numbers. It renders as a corner badge in the position the Rangefinder distance already uses — `withhold` nulls `distance`, so the two never collide — rather than as a gutter, which on deferred rows only would narrow their tiles and break the board's column alignment, or as a centred label, which would sit on top of the dimmed letters the player typed. This is the per-row half of R-033: the banner states the rule once, the badge says which row is next.
+
+**R-035 · A forge offers three relics, and nothing is spent until you say so.** Raised from playtest: *"I selected a relic but since there also was the option of buying guesses I think I clicked both — I wanted to upgrade the relic and I ended up doing nothing."* Two faults, and the player had in fact upgraded a relic without ever being told. **The screen ran two interaction grammars at once**: branch B was select-a-quantity then confirm, while branch A committed irreversibly on the relic's own click — so the branch with no confirm step was the destructive one, and a player who correctly read B's grammar and applied it to A spent their operation by accident. Nothing then said so: the screen after an upgrade differed from the screen before it by a heading and some opacity. Separately, the forge listed **every** upgradeable relic held, which made the node strictly better the more you carried, gave branch B nothing to compete against, and meant the operation always went to whatever your best relic happened to be — no decision, just a formality.
+→ **Ruled:** §6.7. A forge draws **at most three** candidates on entry, addressed on the node, from the relics you hold with an unspent `MK.II`; the engine refuses `FORGE_UPGRADE` for anything outside that offer (`NOT_IN_OFFER`), because a restriction only the screen knows is not a rule. Both branches stay visible together — that is the trade the node is about — but selection is free and reversible and exactly one control spends the operation. The shop keeps its one-click-per-card grammar: there, each card is an independent purchase at its own price, whereas the forge allocates **one** resource between two kinds of thing, and an either/or wants select-then-commit. A spent operation is marked on the row that consumed it. Measured over 203 walked forges: a mean of 7.2 eligible relics held, so the cap binds on 79% of visits.
 
 ## 12. Still open
 

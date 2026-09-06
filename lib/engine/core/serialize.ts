@@ -1,3 +1,4 @@
+import { REGISTRY } from '../content/registry';
 import { SAVE_VERSION, type GameState } from './state';
 
 /**
@@ -54,16 +55,42 @@ function isStateShaped(value: unknown): value is GameState {
 /**
  * Version migrations. Each step takes the previous shape to the next; they run
  * in order, so a save two versions old walks through both.
- *
- * There is nothing to migrate yet. The function exists now rather than later
- * because the first save format ships with Phase 2, and retrofitting migration
- * onto saves already in players' browsers is not possible.
  */
+type Migration = (state: GameState) => GameState;
+
+/**
+ * Indexed by the version being migrated FROM: `MIGRATIONS[1]` takes a v1 save
+ * to v2. A gap in the table is a bug, not a no-op, so `migrate` throws on one
+ * rather than handing the game a save it does not understand.
+ */
+const MIGRATIONS: Record<number, Migration> = {
+  // v1 → v2: R-035 gave ForgeState a drawn `candidates` list. A save written
+  // while standing in a forge has no such field, and the reducer refuses every
+  // upgrade not in it — so a run saved at a forge would come back with the node
+  // silently dead. Backfill from what the player holds: the pre-R-035 forge
+  // offered everything upgradeable, which is exactly this list.
+  1: (s) => ({
+    ...s,
+    forge: s.forge
+      ? {
+          ...s.forge,
+          candidates:
+            s.forge.candidates ??
+            s.relics.filter((r) => !r.upgraded && REGISTRY[r.code]?.upgrade).map((r) => r.instanceId),
+        }
+      : null,
+  }),
+};
+
 export function migrate(state: GameState): GameState {
-  const next = state;
+  let next = state;
   if (next.version > SAVE_VERSION) {
     throw new SaveError(`Save version ${next.version} is newer than ${SAVE_VERSION}.`);
   }
-  // while (next.version < SAVE_VERSION) { ... next = { ...next, version: next.version + 1 } }
+  while (next.version < SAVE_VERSION) {
+    const step = MIGRATIONS[next.version];
+    if (!step) throw new SaveError(`No migration from save version ${next.version}.`);
+    next = { ...step(next), version: next.version + 1 };
+  }
   return next;
 }

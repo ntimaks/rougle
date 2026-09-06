@@ -27,6 +27,7 @@ import {
   EVENTS,
   FORGE_GOLD_PER_GUESS,
   drawEvent,
+  drawForgeCandidates,
   forgeOperations,
   optionAvailable,
   rollShopStock,
@@ -209,6 +210,12 @@ export function canDispatch(
       if (!held) return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
       if (held.upgraded) return { code: 'ALREADY_UPGRADED', message: 'Already MK.II.' };
       if (!REGISTRY[held.code]?.upgrade) return { code: 'NOT_UPGRADEABLE', message: 'No MK.II exists.' };
+      // R-035: a forge works on the three relics it drew, not on everything you
+      // hold. Enforced here rather than by rendering fewer buttons, because a
+      // restriction only the screen knows is not a rule.
+      if (!s.forge.candidates.includes(action.instanceId)) {
+        return { code: 'NOT_IN_OFFER', message: 'This forge does not take that one.' };
+      }
       return null;
     }
     case 'FORGE_CONVERT': {
@@ -405,7 +412,16 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   if (node.kind === 'FORGE') {
     const operations = forgeOperations(next);
     return {
-      state: { ...next, phase: 'FORGE', forge: { nodeId, operationsLeft: operations, upgraded: [] } },
+      state: {
+        ...next,
+        phase: 'FORGE',
+        forge: {
+          nodeId,
+          operationsLeft: operations,
+          upgraded: [],
+          candidates: drawForgeCandidates(next, nodeId),
+        },
+      },
       events: [...events, { type: 'FORGE_OPENED', nodeId, operations }],
     };
   }
@@ -508,6 +524,13 @@ function forgeUpgrade(s: GameState, instanceId: string): ReduceResult {
   }
   if (!REGISTRY[held.code]?.upgrade) {
     return { state: s, events: [], error: { code: 'NOT_UPGRADEABLE', message: 'No MK.II exists.' } };
+  }
+  if (!s.forge.candidates.includes(instanceId)) {
+    return {
+      state: s,
+      events: [],
+      error: { code: 'NOT_IN_OFFER', message: 'This forge does not take that one.' },
+    };
   }
 
   return {

@@ -101,8 +101,18 @@ function encodeCached(words: readonly string[], length: WordLength): Encoded {
  * - distance with letter === null (Rangefinder): a genuine constraint — some
  *   letter of the solution sits N positions from here — and modelled as one,
  *   because treating it as noise would systematically under-rate the relic.
- * - SILENT_START: turn 0 reports no yellows, so a GREY on turn 0 under that
- *   modifier means "not green here", nothing more.
+ * - SILENT_START: turn 0 suppresses YELLOW to UNKNOWN and touches nothing else
+ *   (R-028, R-029). So on that row UNKNOWN means the true state is YELLOW, and
+ *   GREY is an ordinary grey — genuinely absent, a full constraint.
+ *
+ *   This read the pre-R-029 chain, where suppression reported GREY in place of
+ *   YELLOW: UNKNOWN fell through to the Decay branch below and was taken as a
+ *   faded GREEN, so the true answer was eliminated on the first guess of every
+ *   Silent Start word and the bot then burned the pool failing to solve it.
+ *   Cost 21 points of win rate and quadrupled the Act I death rate in every
+ *   sweep taken between R-029 and this fix — all of it measurement, none of it
+ *   the game. A solver that does not model a rule change does not report a
+ *   harder game; it reports a broken bot. Filed as §13 I-27.
  */
 export function consistent(
   candidate: string,
@@ -124,14 +134,16 @@ export function consistent(
       continue;
     }
 
-    if (tile.state === 'UNKNOWN') {
-      // Decayed green: the bot remembers it was green.
-      if (actual !== 'GREEN') return false;
+    if (opts.silentStartRow && tile.state === 'UNKNOWN') {
+      // A withheld yellow. Suppression only ever hides YELLOW, so this is the
+      // strongest constraint on the row, not the weakest.
+      if (actual !== 'YELLOW') return false;
       continue;
     }
 
-    if (opts.silentStartRow && tile.state === 'GREY') {
-      if (actual === 'GREEN') return false;
+    if (tile.state === 'UNKNOWN') {
+      // Decayed green: the bot remembers it was green.
+      if (actual !== 'GREEN') return false;
       continue;
     }
 
