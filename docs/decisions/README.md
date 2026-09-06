@@ -16,3 +16,4 @@ same PR updates the brief and adds a record here.
 | [0008](ADR-0008-activations.md) | Activations are `onUse` plus a declared block; the engine owns timing, cap and cost | Accepted — MECHANICS R-015 |
 | [0009](ADR-0009-boss-order.md) | The Cipher opens the run; the Twins becomes the Act II wall | Accepted — MECHANICS R-019 |
 | [0010](ADR-0010-act-end-receipt.md) | The act end is a phase holding a receipt, not an atomic transition | Accepted |
+| [0011](ADR-0011-reveal-ladder.md) | Gold buys information on an escalating ladder; the inert second currency was why the pool felt loose | Accepted — MECHANICS R-020 |
