@@ -7,11 +7,13 @@ import RL04 from './RL.04';
 import RL05 from './RL.05';
 import RL06 from './RL.06';
 import RL07 from './RL.07';
+import RL08 from './RL.08';
 import RL10 from './RL.10';
 import RL11 from './RL.11';
 import RL12 from './RL.12';
 import RL13 from './RL.13';
 import RL14 from './RL.14';
+import RL17 from './RL.17';
 import RL18 from './RL.18';
 import RL19 from './RL.19';
 import RL20 from './RL.20';
@@ -42,11 +44,13 @@ export const IMPLEMENTATIONS: Readonly<Record<string, RelicImpl>> = Object.freez
   'RL.05': RL05,
   'RL.06': RL06,
   'RL.07': RL07,
+  'RL.08': RL08,
   'RL.10': RL10,
   'RL.11': RL11,
   'RL.12': RL12,
   'RL.13': RL13,
   'RL.14': RL14,
+  'RL.17': RL17,
   'RL.18': RL18,
   'RL.19': RL19,
   'RL.20': RL20,

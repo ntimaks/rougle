@@ -173,11 +173,24 @@ describe('registry validation', () => {
 });
 
 describe('registry shape', () => {
-  it('codes are opaque: gaps are expected and assert nothing', () => {
-    // R-011. RL.08 and RL.17 are absent on purpose (§13 I-14) — noted here so
-    // nobody "fixes" the gap.
-    expect(REGISTRY['RL.08']).toBeUndefined();
-    expect(REGISTRY['RL.17']).toBeUndefined();
+  it('codes are opaque: the registry is a lookup, not a range', () => {
+    // R-011. This used to pin RL.08 and RL.17 as absent (technical brief §13
+    // I-14). R-020 filled both, which is exactly what I-14 said was allowed —
+    // "new relics fill gaps arbitrarily". So the test now asserts the rule
+    // rather than the two codes that happened to be missing when it was
+    // written, since the version that named them would have to be edited every
+    // time the rule was correctly followed.
+    expect(REGISTRY['RL.99']).toBeUndefined();
+    expect(REGISTRY['']).toBeUndefined();
+  });
+
+  it('code order carries no meaning, which is why sorting uses the fields', () => {
+    // The concrete hazard R-011 is guarding against: if codes happened to group
+    // by archetype, someone would sort by code and it would look fine until the
+    // next relic was minted into a gap.
+    const byCode = [...RELIC_DEFS].sort((a, b) => a.code.localeCompare(b.code));
+    const runs = byCode.filter((d, i) => i > 0 && d.archetype !== byCode[i - 1]!.archetype).length;
+    expect(runs, 'codes group by archetype — sorting by code would look correct').toBeGreaterThan(4);
   });
 
   it('every character has a pool modifier and an innate', () => {
