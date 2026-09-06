@@ -438,7 +438,26 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
 
 /** Clears whichever service node is open and returns to the map. */
 function leaveNode(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
-  return advance({ ...s, shop: null, forge: null, event: null }, [], cfg);
+  const node = s.map.currentId ? s.map.nodes[s.map.currentId] : null;
+  // "Used it" is what RL.16 The Pilgrim is paid for NOT doing, so it has to
+  // mean the same thing at every node kind: you took what the node offered.
+  const usedIt =
+    (s.shop?.stock.some((x) => x.sold) ?? false) ||
+    (s.forge ? s.forge.operationsLeft < forgeOperations(s) : false);
+
+  const hooked = node
+    ? applyEffects(
+        s,
+        resolveHook(s, 'onNodeLeave', { nodeId: node.id, kind: node.kind, usedIt }, cfg),
+        cfg,
+      )
+    : { state: s, events: [] };
+
+  return advance(
+    { ...hooked.state, shop: null, forge: null, event: null },
+    hooked.events,
+    cfg,
+  );
 }
 
 function buyStock(s: GameState, slot: number, cfg: Readonly<GameConfig>): ReduceResult {
@@ -1097,10 +1116,26 @@ function beginNextAct(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
 
 // ------------------------------------------------------- emergency and death
 
+/**
+ * How many emergency guesses are free this act. RL.25 Insurance grants one, two
+ * at MK.II. Read from held relics rather than fired as a hook, for the same
+ * reason `revealCost` reads `reveal_discount`: a price is a query.
+ */
+function freeEmergencies(s: GameState): number {
+  const held = s.relics.find((r) => r.code === 'RL.25');
+  if (!held) return 0;
+  return held.upgraded ? 2 : 1;
+}
+
 export function emergencyCost(
   s: GameState,
   cfg: Readonly<GameConfig> = CONFIG,
 ): number | null {
+  // Free purchases still consume a rung. Insurance buys the price, not the cap
+  // — otherwise it would quietly raise the §2.3 ladder from three outs to four.
+  if (s.emergencyPurchasesThisAct < freeEmergencies(s)) {
+    return cfg.emergencyCosts[s.emergencyPurchasesThisAct] === undefined ? null : 0;
+  }
   return cfg.emergencyCosts[s.emergencyPurchasesThisAct] ?? null;
 }
 

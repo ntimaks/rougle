@@ -145,3 +145,17 @@ describe('determinism', () => {
     }
   });
 });
+
+describe('the opening move is always playable', () => {
+  it('row 1 is never a service row', () => {
+    // A run starts with 0 gold, so a shop or a forge on row 1 is a first move
+    // that can do nothing. Found in playtest, fixed in generation rather than
+    // by handing out starting gold.
+    for (const { map, seed } of maps(4000)) {
+      for (const id of map.rows[0]!) {
+        expect(['WORD', 'ELITE'], `${seed}: row 1 holds a ${map.nodes[id]!.kind}`)
+          .toContain(map.nodes[id]!.kind);
+      }
+    }
+  });
+});

@@ -100,6 +100,9 @@ export interface RevealPolicy {
   candidatesOver: number;
 }
 
+/** When the bot starts taking gold instead of relics at a word node (R-025). */
+const RELICS_BEFORE_BANKING = 4;
+
 export const REVEAL_POLICY: RevealPolicy = {
   poolAtMost: 2,
   guessesOnWordAtLeast: 3,
@@ -321,8 +324,15 @@ export function playRun(
           s = reduce(s, { type: 'SKIP_OFFER' }, cfg).state;
           break;
         }
-        const pick = offer.codes[0]!;
-        s = reduce(s, { type: 'ACCEPT_OFFER', code: pick }, cfg).state;
+        // R-025 made the word-node reward a CHOICE, and a bot that always takes
+        // the relic never earns gold — which would leave the shop, the forge and
+        // both ladders measuring a player who cannot afford any of them.
+        // Build first, then bank: take relics until the deck is real, then take
+        // the gold. A floor, not optimal play, and stated in the report.
+        const banking = offer.goldInstead !== null && s.relics.length >= RELICS_BEFORE_BANKING;
+        s = banking
+          ? reduce(s, { type: 'SKIP_OFFER' }, cfg).state
+          : reduce(s, { type: 'ACCEPT_OFFER', code: offer.codes[0]! }, cfg).state;
         break;
       }
 

@@ -264,7 +264,7 @@ Modifiers attach to words. They are the entire difficulty curve.
 | Modifier | Act | Effect |
 |---|---|---|
 | Locked Key | I+ | One random letter unusable this word. **Never a solution letter.** |
-| Silent Start | I+ | First guess returns GREY only; no yellows |
+| Silent Start | I+ | First guess reports no yellows — a letter present but misplaced reads GREY. Greens survive (R-028) |
 | Long Word | II+ | 6 letters |
 | Decay | II+ | GREEN reverts to UNKNOWN after one turn |
 | Fog | II+ | Feedback for guess *n* shows only after guess *n+1* is submitted |
@@ -629,6 +629,9 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 
 **R-027 · Rangefinder was not withholding anything.** R-002 read *"stop reporting which letter it is"* as blanking the glyph on the tile, and the tile duly drew a bare distance. But the letter was never hidden: the keyboard projection falls back to the typed guess, the aria label falls back the same way, and the row is one the player typed themselves. So the identity half of the trade cost nothing but memory — a tax that reads as a UI failure rather than a mechanic, which is exactly how it was reported from playtest.
 → **Ruled:** the tile keeps the letter and carries the distance as a corner badge. Rangefinder is a pure information gain, and its RARE rarity is what pays for it. The declared anti-synergy with `RL.02` The Sieve is **dropped on both sides**: it was premised on withholding that never happened, and in any case Rangefinder transforms yellows while the Sieve eats greys, so the two never met. Anything that genuinely withholds identity must also stop the keyboard learning it, or it is not withholding — it is only refusing to draw.
+
+**R-028 · Silent Start keeps its greens.** §5 read *"First guess returns GREY only; no yellows"*, which does not say whether greens survive — raised as technical brief §13 I-17 and implemented one way without ever being ruled. Playtest found the gap the way gaps are usually found: the modifier banner printed the OTHER reading, `FIRST GUESS REPORTS GREY ONLY`, so a green on the first row looked like a scoring bug. The engine was right and the copy was lying.
+→ **Ruled:** greens survive; only yellows are suppressed. Silent Start is an Act I modifier and the first one many players meet, and the harsher reading makes an opening guess worth almost nothing on a pool that is already shared — punishing in the place with the least room to recover. "No yellows" is also the crisper rule to print on a banner. The banner now reads `NO YELLOWS ON YOUR FIRST GUESS`. Closes §13 I-17.
 
 ## 12. Still open
 

@@ -13,6 +13,7 @@ export const HOOK_NAMES = [
   'onRunStart',
   'onActStart',
   'onNodeEnter',
+  'onNodeLeave',
   'onWordStart',
   'onGuessSubmit',
   'onFeedbackTransform',
@@ -30,6 +31,13 @@ export interface HookPayloads {
   onRunStart: Record<string, never>;
   onActStart: { actIndex: number };
   onNodeEnter: { nodeId: string; kind: string };
+  /**
+   * Leaving a SHOP, FORGE or EVENT. Added for RL.16 The Pilgrim, which pays for
+   * passing a shop without buying — a thing that can only be known on the way
+   * out. AGENTS.md: a relic that cannot name a hook means the hook list is
+   * incomplete, so extend it rather than special-casing the relic.
+   */
+  onNodeLeave: { nodeId: string; kind: string; usedIt: boolean };
   onWordStart: { nodeId: string; solutions: string[]; previousSolution: string | null };
   onGuessSubmit: { guess: string; turn: number; newUniqueLetters: number };
   onFeedbackTransform: Record<string, never>;

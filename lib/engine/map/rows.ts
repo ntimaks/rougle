@@ -27,8 +27,17 @@ import type { MapNode, MapState, NodeId, NodeKind } from '../core/state';
  */
 
 const ROWS = 6;
-/** Which rows may be SERVICE. Row 6 is excluded: the pre-boss node is a solve node. */
-const SERVICE_CANDIDATES = [1, 2, 3, 4, 5] as const;
+/**
+ * Which rows may be SERVICE.
+ *
+ * Row 6 is excluded because §3.1 makes the pre-boss node a solve node. Row 1 is
+ * excluded for an economic reason found in playtest: a run starts with 0 gold,
+ * so opening on a shop is a node you can do nothing at — the first move of the
+ * game spent looking at prices you cannot pay. Starting gold would fix it too
+ * and was rejected: gold arriving free weakens the act-end conversion and the
+ * R-025 trade, which are what make every coin mean a relic refused.
+ */
+const SERVICE_CANDIDATES = [2, 3, 4, 5] as const;
 
 export interface GeneratedAct {
   map: MapState;
