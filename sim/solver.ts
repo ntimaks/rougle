@@ -54,7 +54,7 @@ export interface SolverView {
   modifiers: readonly ModifierId[];
   board: BoardView;
   locked: readonly string[];
-  presetTiles: ReadonlyArray<{ index: number; letter: string }>;
+  presetTiles: ReadonlyArray<{ index: number; letter: string; solutionIndex: number }>;
   revealed: {
     vowelCount: number | null;
     hasRepeat: boolean | null;
@@ -222,8 +222,10 @@ export function filterCandidates(view: SolverView, pool: readonly string[]): str
   // Pre-guess reveals and pre-set tiles describe the FIRST solution. Under
   // Mirror the second one is a different word, and applying the first's vowel
   // count to it eliminates the real answer on turn one — exactly the shape of
-  // bug that makes a boss look unbeatable. (Which solution a reveal describes
-  // under Mirror is itself unstated; raised as §13 I-19.)
+  // bug that makes a boss look unbeatable. R-036 rules this for PRESET TILES —
+  // each carries the solution it describes — and leaves it implemented-only for
+  // the rest of `revealed` (vowel count, repeat flag, named letters), which is
+  // what this blanket guard still covers. §13 I-19.
   const revealsApply = view.solutionIndex === 0;
   const hasReveals =
     view.presetTiles.length > 0 ||
@@ -287,6 +289,11 @@ export function filterCandidates(view: SolverView, pool: readonly string[]): str
 function applyReveals(view: SolverView, pool: readonly string[]): string[] {
   return pool.filter((word) => {
     for (const preset of view.presetTiles) {
+      // R-036 put the solution a preset describes on the preset itself, so the
+      // filter is now exact rather than relying on the `revealsApply` blanket
+      // above. Both agree while every preset is drawn from solutions[0]; this
+      // is the one that stays right if that ever changes.
+      if (preset.solutionIndex !== view.solutionIndex) continue;
       if (word[preset.index] !== preset.letter) return false;
     }
     if (view.revealed.vowelCount !== null) {

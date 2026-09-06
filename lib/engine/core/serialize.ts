@@ -80,6 +80,19 @@ const MIGRATIONS: Record<number, Migration> = {
         }
       : null,
   }),
+
+  // v2 → v3: R-036 gave each preset tile the `solutionIndex` it is true of.
+  // Every tile written before it was drawn from `solutions[0]`, so 0 is not a
+  // guess — it is what the old code did.
+  2: (s) => ({
+    ...s,
+    word: s.word
+      ? {
+          ...s.word,
+          presetTiles: s.word.presetTiles.map((p) => ({ ...p, solutionIndex: p.solutionIndex ?? 0 })),
+        }
+      : null,
+  }),
 };
 
 export function migrate(state: GameState): GameState {

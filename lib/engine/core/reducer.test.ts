@@ -228,6 +228,16 @@ describe('E-13 — serialisation', () => {
     expect(Array.isArray(loaded!.forge!.candidates)).toBe(true);
   });
 
+  it('backfills the solution a preset tile describes, added by R-036', () => {
+    const s = toFirstWord(start());
+    const legacy = JSON.parse(serialize(s)) as Record<string, unknown>;
+    legacy['version'] = 1;
+    (legacy['word'] as Record<string, unknown>)['presetTiles'] = [{ index: 0, letter: 'N' }];
+    const loaded = deserialize(JSON.stringify(legacy));
+    expect(loaded!.version).toBe(SAVE_VERSION);
+    expect(loaded!.word!.presetTiles).toEqual([{ index: 0, letter: 'N', solutionIndex: 0 }]);
+  });
+
   it('leaves a v1 save with no forge alone', () => {
     const legacy = JSON.parse(serialize(start())) as Record<string, unknown>;
     legacy['version'] = 1;

@@ -274,7 +274,9 @@ describe('CH.03 The Cryptographer', () => {
     const before = s.pool;
     s = reduce(s, { type: 'USE_ITEM', instanceId: innate.instanceId, payload: { index: 0 } }).state;
     expect(s.pool).toBe(before - 1);
-    expect(s.word!.presetTiles).toEqual([{ index: 0, letter: s.word!.solutions[0]![0] }]);
+    expect(s.word!.presetTiles).toEqual([
+      { index: 0, letter: s.word!.solutions[0]![0], solutionIndex: 0 },
+    ]);
   });
 
   it('has no use cap — the guess it costs is the cap', () => {

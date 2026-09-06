@@ -72,6 +72,7 @@ describe('§2.5 the reveal ladder', () => {
     const presets = Array.from({ length: length - 2 }, (_, i) => ({
       index: i,
       letter: s.word!.solutions[0]![i]!,
+      solutionIndex: 0,
     }));
     const nearly: GameState = { ...s, word: { ...s.word!, presetTiles: presets } };
     expect(revealBlocker(nearly, CONFIG)).toBeNull();
@@ -90,8 +91,8 @@ describe('§2.5 the reveal ladder', () => {
       word: {
         ...s.word!,
         presetTiles: [
-          { index: 0, letter: s.word!.solutions[0]![0]! },
-          { index: 1, letter: s.word!.solutions[0]![1]! },
+          { index: 0, letter: s.word!.solutions[0]![0]!, solutionIndex: 0 },
+          { index: 1, letter: s.word!.solutions[0]![1]!, solutionIndex: 0 },
         ],
       },
     };
