@@ -114,6 +114,7 @@ describe('scoreBase', () => {
       hasRepeat: null,
       revealedLetters: [],
       deferred: false,
+      revealsIn: null,
     });
   });
 });

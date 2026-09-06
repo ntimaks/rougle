@@ -44,6 +44,17 @@ export function isDeferred(w: Readonly<WordState>, turn: number, turnNow: number
   return turn > turnNow - 1 - w.deferralDepth;
 }
 
+/**
+ * Guesses until a deferred row speaks. The inverse of `isDeferred`, from the
+ * same arithmetic: the row resolves once `turnNow` reaches `turn + 1 + depth`.
+ *
+ * Deferral is a designed cost. Not knowing when it lifts is not — it turns a
+ * mechanic into a screen that looks broken, which is how it was reported.
+ */
+export function revealsIn(w: Readonly<WordState>, turn: number, turnNow: number): number {
+  return Math.max(1, turn + 1 + w.deferralDepth - turnNow);
+}
+
 /** Every tile HIDDEN, identity withheld, meta flagged deferred. */
 export function withhold(fb: FeedbackResult): FeedbackResult {
   const out = cloneFeedback(fb);
@@ -52,7 +63,7 @@ export function withhold(fb: FeedbackResult): FeedbackResult {
     tile.letter = null;
     tile.distance = null;
   }
-  out.meta = { ...out.meta, deferred: true, revealedLetters: [] };
+  out.meta = { ...out.meta, deferred: true, revealedLetters: [], revealsIn: null };
   return out;
 }
 
@@ -98,7 +109,10 @@ export function projectBoard(
       turn,
       results: rec.raw.map((raw, solutionIndex) => {
         const fb = runChain({ state, word: w, turn, solutionIndex }, raw);
-        if (isDeferred(w, turn, turnNow)) return withhold(fb);
+        if (isDeferred(w, turn, turnNow)) {
+          const held = withhold(fb);
+          return { ...held, meta: { ...held.meta, revealsIn: revealsIn(w, turn, turnNow) } };
+        }
         if (applyDecay && decaying && turn < turnNow - CONFIG.decayTurns) return decayGreens(fb);
         return fb;
       }),

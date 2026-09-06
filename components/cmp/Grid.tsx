@@ -32,7 +32,7 @@ export function Grid({
       {rows.map((row) => (
         <div key={row.turn} className="flex flex-col gap-[5px]">
           {row.results.map((result, solutionIndex) => (
-            <div key={solutionIndex} className="flex gap-[5px]">
+            <div key={solutionIndex} className="relative flex gap-[5px]">
               {solutionCount > 1 && (
                 <span
                   className="flex w-[14px] flex-none items-center justify-center font-mono text-[9px] text-fg3"
@@ -50,6 +50,29 @@ export function Grid({
                   animate={row.turn === rows.length - 1}
                 />
               ))}
+              {/*
+                R-034. A deferred row is blank BY DESIGN and the banner already
+                says so ("NO ANSWER UNTIL THE THIRD GUESS"), but nothing said
+                WHICH row speaks next, so three identical dim rows read as a
+                broken screen rather than as a queue.
+
+                A corner badge rather than a gutter or a centred overlay: a
+                gutter on deferred rows only would narrow their tiles and break
+                the column alignment the board depends on, and a centred label
+                would sit on top of the dimmed letters the player typed. This
+                is the same corner the Rangefinder distance uses, and the two
+                never collide — `withhold` nulls `distance`.
+              */}
+              {result.meta.revealsIn !== null && (
+                <span
+                  className="pointer-events-none absolute right-[3px] top-[2px] font-mono text-[10px] font-bold leading-none text-accent"
+                  aria-label={`reveals in ${result.meta.revealsIn} ${
+                    result.meta.revealsIn === 1 ? 'guess' : 'guesses'
+                  }`}
+                >
+                  {result.meta.revealsIn}
+                </span>
+              )}
             </div>
           ))}
         </div>

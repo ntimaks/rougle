@@ -25,6 +25,16 @@ export interface FeedbackMeta {
   hasRepeat: boolean | null;
   revealedLetters: Array<{ index: number; letter: string }>;
   deferred: boolean;
+  /**
+   * Guesses until a deferred row speaks; null when it already has.
+   *
+   * Deferral is a designed cost — the Cipher makes you commit three guesses
+   * before you learn anything. Not knowing WHEN a row resolves is incidental
+   * friction on top of it, and it reads as the board being broken rather than
+   * as a mechanic. Raised from playtest: "it seems like it's delayed, is that
+   * the whole point?"
+   */
+  revealsIn: number | null;
 }
 
 export interface FeedbackResult {

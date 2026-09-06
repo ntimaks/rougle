@@ -67,6 +67,26 @@ describe('deferral', () => {
     expect(renderStates(projectBoard(state(), w, 1).rows[0]!.results[0]!)).toBe('·····');
     expect(renderStates(projectBoard(state(), w, 2).rows[0]!.results[0]!)).not.toBe('·····');
   });
+
+  // R-034. The countdown is the inverse of `isDeferred` and has to stay that
+  // way: a row that reads "reveals in 1" and then does not is worse than no
+  // countdown at all, so this asserts against `isDeferred` rather than against
+  // hand-copied numbers.
+  it('counts down to the guess on which each held row speaks', () => {
+    const w = word({
+      deferralDepth: 3,
+      history: Array.from({ length: 6 }, (_, i) => record('SLATE', 'CRANE', i)),
+    });
+    const rows = projectBoard(state(), w, 6).rows;
+    expect(rows.map((r) => r.results[0]!.meta.revealsIn)).toEqual([null, null, null, 1, 2, 3]);
+  });
+
+  it('a row promised for guess n is readable at guess n', () => {
+    const w = word({ deferralDepth: 3, history: [record('SLATE', 'CRANE', 0)] });
+    const promised = projectBoard(state(), w, 1).rows[0]!.results[0]!.meta.revealsIn!;
+    expect(isDeferred(w, 0, 1 + promised - 1)).toBe(true);
+    expect(isDeferred(w, 0, 1 + promised)).toBe(false);
+  });
 });
 
 describe('decay', () => {
