@@ -38,6 +38,7 @@ export type EngineErrorCode =
   | 'REVEAL_EXHAUSTED'
   | 'REVEAL_UNAVAILABLE'
   | 'POSITION_KNOWN'
+  | 'NO_EFFECT'
   | 'NO_SUCH_SLOT'
   | 'SOLD_OUT'
   | 'NO_OPERATIONS'
@@ -76,6 +77,8 @@ export type GameEvent =
   | { type: 'RELIC_SUPPRESSED'; instanceId: string }
   | { type: 'CONSUMABLE_GRANTED'; code: ConsumableCode }
   | { type: 'CONSUMABLE_USED'; code: ConsumableCode }
+  | { type: 'ACTIVATION_FIRED'; code: string }
+  | { type: 'LETTER_STAMPED'; letter: string; present: boolean }
   | { type: 'LETTER_LOCKED'; letter: string; source: string }
   | { type: 'TILE_PRESET'; index: number }
   | { type: 'META_REVEALED'; field: string }

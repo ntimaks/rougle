@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CHARACTER_BY_CODE,
   REGISTRY,
@@ -36,6 +36,17 @@ export function RelicDrawer({
   const dispatch = useGame((s) => s.dispatch);
   const { animate } = useMotion();
   const [pending, setPending] = useState<string | null>(null);
+
+  // Every letter the player has already spent information on this word: typed
+  // into a guess, or already stamped by an earlier activation.
+  const tried = useMemo(() => {
+    const w = state.word;
+    if (!w) return new Set<string>();
+    return new Set<string>([
+      ...w.history.flatMap((h) => [...h.guess]),
+      ...w.revealed.letters.map((r) => r.letter),
+    ]);
+  }, [state.word]);
 
   const holders: RelicInstance[] = [
     ...state.relics,
@@ -111,6 +122,7 @@ export function RelicDrawer({
                     cost={activation?.cost ?? {}}
                     error={check?.error?.message ?? null}
                     open={pending === holder.instanceId}
+                    tried={tried}
                     onOpen={() => setPending(holder.instanceId)}
                     onFire={(payload) => {
                       dispatch({ type: 'USE_ITEM', instanceId: holder.instanceId, payload });
@@ -133,6 +145,7 @@ function ActivationControl({
   inputKind,
   cost,
   error,
+  tried,
   open,
   onOpen,
   onFire,
@@ -144,6 +157,8 @@ function ActivationControl({
   open: boolean;
   onOpen: () => void;
   onFire: (payload: Record<string, unknown>) => void;
+  /** Letters already guessed or already stamped this word. */
+  tried: ReadonlySet<string>;
 }) {
   const [letter, setLetter] = useState('');
   const [wager, setWager] = useState(1);
@@ -179,19 +194,34 @@ function ActivationControl({
     return (
       <div className="mt-[8px]">
         <p className="font-mono text-[9px] leading-none tracking-[0.14em] text-fg2">NAME A LETTER</p>
+        {/*
+          The input kind is UNTRIED_LETTER, so tried letters are not offered.
+          Showing all 26 let a player spend 5g naming a letter the Auditor
+          cannot answer — it returned nothing and the gold was already gone.
+          The engine refuses that now (R-031); not offering it is the half that
+          stops the player wanting to.
+        */}
         <div className="mt-[6px] flex flex-wrap gap-[3px]">
-          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setLetter(c)}
-              className={`h-[28px] w-[28px] border font-mono text-[11px] ${
-                letter === c ? 'border-ink bg-accent text-ink' : 'border-line-strong text-fg1'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => {
+            const spent = tried.has(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                disabled={spent}
+                onClick={() => setLetter(c)}
+                className={`h-[28px] w-[28px] border font-mono text-[11px] ${
+                  spent
+                    ? 'cursor-not-allowed border-dark2 text-fg3 opacity-40'
+                    : letter === c
+                      ? 'border-ink bg-accent text-ink'
+                      : 'border-line-strong text-fg1'
+                }`}
+              >
+                {c}
+              </button>
+            );
+          })}
         </div>
         <button
           type="button"

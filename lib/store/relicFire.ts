@@ -28,6 +28,9 @@ function signed(n: number): string {
 
 /** The source code stamped on an event, or null if it was not a relic's doing. */
 function sourceOf(event: GameEvent): string | null {
+  // ACTIVATION_FIRED names its relic in `code`, since it IS the relic firing
+  // rather than an effect attributed to one.
+  if (event.type === 'ACTIVATION_FIRED') return event.code;
   const raw =
     'source' in event && typeof event.source === 'string'
       ? event.source
@@ -53,8 +56,12 @@ function labelFor(event: GameEvent): string | null {
       return 'letter revealed';
     case 'META_REVEALED':
       return event.field === 'vowelCount' ? 'vowel count' : 'read';
+    case 'LETTER_STAMPED':
+      return `${event.letter} ${event.present ? 'PRESENT' : 'ABSENT'}`;
     case 'RELIC_UPGRADED':
       return 'MK.II';
+    case 'ACTIVATION_FIRED':
+      return 'fired';
     default:
       return null;
   }

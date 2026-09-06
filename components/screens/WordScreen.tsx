@@ -13,6 +13,7 @@ import { Grid } from '@/components/cmp/Grid';
 import { Keyboard } from '@/components/cmp/Keyboard';
 import { ChallengeBanner } from '@/components/cmp/ChallengeBanner';
 import { ModifierBanner } from '@/components/cmp/ModifierBanner';
+import { StampedLetters } from '@/components/cmp/StampedLetters';
 import { RevealBar } from '@/components/cmp/RevealBar';
 import { CRITICAL_AT } from '@/components/cmp/PoolMeter';
 import { useGame } from '@/lib/store/useGame';
@@ -80,6 +81,8 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
         <ChallengeBanner challenge={state.pendingChallenge} guessesUsed={word.history.length} />
       )}
       <ModifierBanner modifiers={word.modifiers} badge={isBoss ? 'BOSS' : node.kind === 'ELITE' ? 'ELITE' : null} />
+
+      <StampedLetters word={word} />
 
       <div className="flex flex-none items-center gap-2 border-b border-line-soft px-3 py-2">
         <span className="font-mono text-[9px] leading-none tracking-[0.18em] text-fg2">

@@ -1359,7 +1359,30 @@ function applyItemUse(
     };
   }
   const holder = [...s.relics, ...s.consumables].find((i) => i.instanceId === instanceId)!;
-  const events: GameEvent[] = [{ type: 'CONSUMABLE_USED', code: holder.code }];
+
+  // R-031. An activation that produces nothing is REFUSED, not consumed.
+  //
+  // The cost was charged before the handler ran, so naming a letter the Auditor
+  // cannot answer — one already tried — took 5g and returned silently: no
+  // stamp, no error, no way to tell it from a use that worked. R-015 already
+  // says an unaffordable activation is refused rather than consumed; this is
+  // the same rule for a different reason, and it belongs in the engine so no
+  // relic has to remember it.
+  if (effects.length === 0) {
+    return {
+      state: s,
+      events: [],
+      error: { code: 'NO_EFFECT', message: 'Nothing to learn from that.' },
+    };
+  }
+
+  const events: GameEvent[] = [
+    // A relic is not a consumable. The event said CONSUMABLE_USED for both,
+    // which is what the relic chips read to know they fired.
+    holder.code.startsWith('CN.')
+      ? { type: 'CONSUMABLE_USED', code: holder.code }
+      : { type: 'ACTIVATION_FIRED', code: holder.code },
+  ];
 
   // The cost is charged by the engine from the declared block, not by the
   // relic, so every activation pays the same way and a relic cannot forget to.
@@ -1535,7 +1558,7 @@ function applyEffect(
           ...w,
           revealed: { ...w.revealed, letters: [...w.revealed.letters, { letter: effect.letter, present }] },
         })),
-        events: [{ type: 'META_REVEALED', field: `letter:${effect.letter}` }],
+        events: [{ type: 'LETTER_STAMPED', letter: effect.letter, present }],
       };
     }
 
