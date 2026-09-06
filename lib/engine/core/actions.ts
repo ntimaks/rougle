@@ -13,6 +13,7 @@ export type Action =
   | { type: 'ACCEPT_OFFER'; code: string }
   | { type: 'SKIP_OFFER' }
   | { type: 'BUY_EMERGENCY' }
+  | { type: 'BUY_REVEAL'; index: number }
   | { type: 'DECLINE_EMERGENCY' }
   | { type: 'ADVANCE' }
   | { type: 'ABANDON_RUN' };
@@ -29,6 +30,9 @@ export type EngineErrorCode =
   | 'NOT_IN_OFFER'
   | 'UNAFFORDABLE'
   | 'EMERGENCY_EXHAUSTED'
+  | 'REVEAL_EXHAUSTED'
+  | 'REVEAL_UNAVAILABLE'
+  | 'POSITION_KNOWN'
   | 'INVENTORY_FULL'
   | 'RUN_OVER';
 
@@ -66,6 +70,7 @@ export type GameEvent =
   | { type: 'MODIFIERS_CLEARED' }
   | { type: 'EMERGENCY_OFFERED'; cost: number; affordable: boolean }
   | { type: 'EMERGENCY_BOUGHT'; cost: number }
+  | { type: 'REVEAL_BOUGHT'; index: number; letter: string; cost: number; nth: number }
   | { type: 'ACT_ENDED'; actIndex: number; leftover: number; goldGained: number }
   | { type: 'OUROBOROS_TRIGGERED'; actIndex: number }
   | { type: 'RUN_ENDED'; outcome: 'WIN' | 'DEATH'; cause: string | null };

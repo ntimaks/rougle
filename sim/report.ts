@@ -24,6 +24,9 @@ export interface Report {
   meanEmergencyPurchases: number;
   medianEmergencyPurchases: number;
   meanFinalGold: number;
+  meanRevealsBought: number;
+  meanGoldSpent: number;
+  deathsHoldingGold: number;
   relicPickRate: Record<string, number>;
   /** Win rate given the pair was held, minus the baseline. Flags degenerates. */
   coOccurrence: Array<{ pair: string; runs: number; winRate: number; deltaPP: number }>;
@@ -118,6 +121,14 @@ export function buildReport(results: readonly RunResult[], solver: SolverConfig)
     meanEmergencyPurchases: mean(results.map((r) => r.emergencyPurchases)),
     medianEmergencyPurchases: median(results.map((r) => r.emergencyPurchases)),
     meanFinalGold: mean(results.map((r) => r.finalGold)),
+    meanRevealsBought: mean(results.map((r) => r.revealsBought)),
+    meanGoldSpent: mean(results.map((r) => r.goldSpent)),
+    // R-020's pathology in one number: dying with the price of an out in hand.
+    deathsHoldingGold: (() => {
+      const deaths = results.filter((r) => !r.won);
+      if (deaths.length === 0) return 0;
+      return deaths.filter((r) => r.goldEarned - r.goldSpent >= 25).length / deaths.length;
+    })(),
     relicPickRate,
     coOccurrence,
     unimplemented: Object.keys(PENDING_IMPLEMENTATION),
@@ -192,7 +203,10 @@ export function formatReport(report: Report): string {
   push();
   push('Economy');
   push(`  mean emergency purchases        ${report.meanEmergencyPurchases.toFixed(2)}`);
+  push(`  mean gold spent                 ${report.meanGoldSpent.toFixed(0)}`);
   push(`  mean gold unspent at end        ${report.meanFinalGold.toFixed(0)}`);
+  push(`  mean §2.5 reveals bought        ${report.meanRevealsBought.toFixed(2)}`);
+  push(`  deaths holding 25g or more      ${pct(report.deathsHoldingGold)}   ← R-020, was 99.1%`);
   push(`  median words reached            ${report.medianWordsReached}`);
   push();
   push('Relic pick rate (offered-and-taken / runs)');
@@ -227,5 +241,18 @@ export function formatReport(report: Report): string {
     '    RL.21, RL.28 and CH.03 without using them, so their pick rates and their',
   );
   push('    contribution to the win rate are understated.');
+  push(
+    '  · The §2.5 reveal ladder IS fired, on a threshold policy: three guesses into a',
+  );
+  push(
+    '    word with more than five candidates left. That is a plausible human, not an',
+  );
+  push(
+    '    optimal one, and the win rate is very sensitive to it — the same seeds give',
+  );
+  push(
+    '    58.5% never buying and 32.8% buying aggressively. Read the win rate below as',
+  );
+  push('    one point on that curve rather than as the game\'s difficulty.');
   return lines.join('\n');
 }

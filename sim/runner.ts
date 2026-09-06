@@ -7,6 +7,8 @@ import {
   initialState,
   projectBoard,
   reduce,
+  currentPool,
+  revealBlocker,
   type CharacterCode,
   type GameConfig,
   type GameState,
@@ -16,6 +18,7 @@ import '../lib/engine/words/all';
 import {
   DEFAULT_SOLVER,
   chooseGuess,
+  filterCandidates,
   knownSolutions,
   type SolverConfig,
   type SolverView,
@@ -57,6 +60,8 @@ export interface RunResult {
   cleanFiveLetterGuesses: number[];
   goldEarned: number;
   goldSpent: number;
+  /** §2.5 reveals bought across the run, so the sink can be measured. */
+  revealsBought: number;
   emergencyPurchases: number;
   relicsTaken: string[];
   finalGold: number;
@@ -68,6 +73,68 @@ const MAX_ACTIONS = 4000;
 export interface RunOptions {
   /** Gate 3: "does a no-relic bot die in Act II?" */
   noRelics?: boolean;
+  /** Measure the game as it was before R-020, for the A/B on the reveal ladder. */
+  noReveals?: boolean;
+  /** Overrides for when the bot buys a §2.5 reveal. See REVEAL_POLICY. */
+  revealPolicy?: Partial<RevealPolicy>;
+}
+
+/**
+ * When the bot buys a reveal.
+ *
+ * Two triggers, because "stuck" has two shapes and only one of them is about
+ * the act pool. `poolAtMost` is running out of run; `guessesOnWordAtLeast` is
+ * the one the playtest actually described — several guesses into a word and
+ * still no idea — which can happen with a healthy pool and is invisible to any
+ * threshold on it.
+ *
+ * `candidatesOver` guards both: with two candidates left you guess one, you do
+ * not pay to be told which.
+ */
+export interface RevealPolicy {
+  poolAtMost: number;
+  guessesOnWordAtLeast: number;
+  candidatesOver: number;
+}
+
+export const REVEAL_POLICY: RevealPolicy = {
+  poolAtMost: 2,
+  guessesOnWordAtLeast: 3,
+  candidatesOver: 5,
+};
+
+/**
+ * Which position to buy. Picks the one that splits the candidate set most
+ * evenly — the position whose letter is least predictable is the one carrying
+ * the most information, which is the same principle the guess ranker uses.
+ */
+function revealTarget(
+  s: GameState,
+  view: SolverView,
+  vocabulary: readonly string[],
+): number | null {
+  const word = s.word!;
+  const known = new Set(word.presetTiles.map((p) => p.index));
+  const candidates = filterCandidates(view, vocabulary);
+  if (candidates.length === 0) return null;
+
+  let best: number | null = null;
+  let bestSpread = -1;
+  for (let i = 0; i < word.length; i++) {
+    if (known.has(i)) continue;
+    const counts = new Map<string, number>();
+    for (const candidate of candidates) {
+      const letter = candidate[i]!;
+      counts.set(letter, (counts.get(letter) ?? 0) + 1);
+    }
+    // Distinct letters at this position: more means the reveal eliminates more.
+    const spread = counts.size;
+    if (spread > bestSpread) {
+      bestSpread = spread;
+      best = i;
+    }
+  }
+  return best;
 }
 
 export function playRun(
@@ -86,6 +153,7 @@ export function playRun(
   let deathWithAnswerKnown = false;
   let deathCandidatesRemaining = 0;
   let actions = 0;
+  let revealsBought = 0;
 
   const known = new Map<number, ReturnType<typeof knownSolutions>>();
   const vocabRng = (i: number) => draw(seed, 'solver:vocab', i);
@@ -114,18 +182,46 @@ export function playRun(
           known.set(word.length, knownSolutions(word.length, solver, vocabRng));
         }
 
-        const board = projectBoard(s, word);
-        const view: SolverView = {
-          length: word.length,
-          modifiers: word.modifiers,
-          board,
-          // board.locked, not word.lockedLetters: RL.02 The Sieve adds
-          // proven-grey letters, and the engine will reject a guess using one.
-          locked: board.locked,
-          presetTiles: word.presetTiles,
-          revealed: word.revealed,
-          solutionIndex: Math.max(0, solutionIndex),
+        const buildView = (state: GameState): SolverView => {
+          const w = state.word!;
+          const projected = projectBoard(state, w);
+          return {
+            length: w.length,
+            modifiers: w.modifiers,
+            board: projected,
+            // board.locked, not word.lockedLetters: RL.02 The Sieve adds
+            // proven-grey letters, and the engine will reject a guess using one.
+            locked: projected.locked,
+            presetTiles: w.presetTiles,
+            revealed: w.revealed,
+            solutionIndex: Math.max(0, solutionIndex),
+          };
         };
+
+        let view = buildView(s);
+
+        // §2.5 — buy reveals when the pool cannot cover the search that is left.
+        // Deliberately a DESPERATION policy, not optimal play: it buys only when
+        // the pool is nearly gone and the word is still genuinely open. A skilled
+        // human buys earlier and more often, so every number this produces is a
+        // LOWER bound on what the ladder does to the game (§13 I-22).
+        if (!options.noReveals) {
+          const policy = { ...REVEAL_POLICY, ...options.revealPolicy };
+          while (
+            (currentPool(s) <= policy.poolAtMost ||
+              s.word!.history.length >= policy.guessesOnWordAtLeast) &&
+            revealBlocker(s, cfg) === null &&
+            filterCandidates(view, known.get(word.length)!.all).length > policy.candidatesOver
+          ) {
+            const position = revealTarget(s, view, known.get(word.length)!.all);
+            if (position === null) break;
+            const bought = reduce(s, { type: 'BUY_REVEAL', index: position }, cfg);
+            if (bought.error) break;
+            s = bought.state;
+            revealsBought++;
+            view = buildView(s);
+          }
+        }
 
         const choice = chooseGuess(
           view,
@@ -208,6 +304,7 @@ export function playRun(
     cleanFiveLetterGuesses: cleanFive,
     goldEarned: s.stats.goldEarned,
     goldSpent: s.stats.goldSpent,
+    revealsBought,
     emergencyPurchases: s.stats.emergencyPurchases,
     relicsTaken: s.stats.relicsTaken,
     finalGold: s.gold,

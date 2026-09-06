@@ -147,6 +147,13 @@ export interface RelicDef {
    * (RL.28 Shaved Coin before Liar Letter exists). See R-015.
    */
   offer_from_act?: number;
+  /**
+   * Proportional discount on the §2.5 reveal ladder, 0–1. Declared as data
+   * rather than as a hook because a price is a query, not a state change, and
+   * `Effect` is the vocabulary of state change. `revealCost` reads this from
+   * every held relic, so a future discount relic needs no engine change.
+   */
+  reveal_discount?: number;
   /** Set by the loader: consumables live in their own array in the JSON. */
   isConsumable: boolean;
 }

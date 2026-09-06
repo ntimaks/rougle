@@ -98,6 +98,11 @@ export interface WordState {
   pendingRefunds: Array<{ amount: number; source: string }>;
   /** Deferral depth in effect: 0 none, 1 Fog, 3 Cipher. */
   deferralDepth: number;
+  /**
+   * How many §2.5 reveals have been bought on this word. Indexes the price
+   * ladder, and its length is the cap. Per word, so it resets with the word.
+   */
+  revealsPurchased: number;
   /** Reveals granted before the first guess, after the §6.3 cap. */
   revealed: {
     vowelCount: number | null;

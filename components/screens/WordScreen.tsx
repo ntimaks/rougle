@@ -5,12 +5,14 @@ import {
   BOSSES,
   canDispatch,
   currentPool,
+  emergencyCost,
   projectBoard,
   type GameState,
 } from '@/lib/engine';
 import { Grid } from '@/components/cmp/Grid';
 import { Keyboard } from '@/components/cmp/Keyboard';
 import { ModifierBanner } from '@/components/cmp/ModifierBanner';
+import { RevealBar } from '@/components/cmp/RevealBar';
 import { CRITICAL_AT } from '@/components/cmp/PoolMeter';
 import { useGame } from '@/lib/store/useGame';
 import { useMotion } from '@/lib/store/useMotion';
@@ -128,6 +130,8 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
           {guessError.message}
         </p>
       )}
+
+      <RevealBar state={state} emergencyCost={emergencyCost(state)} />
 
       <Keyboard
         letterStates={view.keyboard}

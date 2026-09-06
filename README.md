@@ -15,9 +15,9 @@ playing the build, which is the one thing an agent cannot do for the project.
 What exists: the ported scorer with its differential test, address-based RNG,
 the pure reducer, the pool reducer with the §2.4 floor, the transform chain,
 board projection, player activations, the emergency ladder, the relic registry
-with its ten validations, 28 of the 36 codes in `relics.json`, the eight word
-modifiers, all three bosses, the word lists, save/load, the entropy solver, the
-harness and its calibration — and on top of them S.01–S.08, the component set,
+with its ten validations, 30 of the 38 codes in `relics.json`, the eight word
+modifiers, all three bosses, the word lists, save/load, the §2.5 reveal ladder,
+the entropy solver, the harness and its calibration — and on top of them S.01–S.08, the component set,
 and the relic drawer that fires activations.
 
 What does not: branching maps, shops, forges, events, elite nodes (so STACKED,

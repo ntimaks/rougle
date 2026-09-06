@@ -1,6 +1,6 @@
 # Rougle — Mechanics Specification
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Canonical
 **Supersedes:** `Roguelike Wordle Mechanics.md` (v0, the original brief) — that document is now historical and should be deleted from the repo or moved to `docs/archive/`.
 **Companion file:** `relics.json` — machine-readable relic registry, normative for all relic rules.
@@ -107,6 +107,32 @@ Several relics reduce guess cost. Without a floor they compose to zero or negati
 **Rule C — Free-guess effects are refunds.** `RL.13` Opening Gambit's free first guess is implemented as a refund, not as a skipped decrement, so it falls under Rules A and B. The pool must visibly tick down and back up; this is both a balance requirement and a legibility one.
 
 These three rules together cap the theoretical maximum at one word per guess and make unbounded loops structurally impossible. Implement them in the pool reducer, not in individual relics.
+
+---
+
+### 2.5 The reveal ladder — normative
+
+Gold buys information. At any point in a word **after the first guess**, the player may name an unrevealed position and pay to have its solution letter filled in as a locked tile.
+
+Cost escalates within the word and resets each word:
+
+| Reveal | Cost |
+|---|---|
+| 1st | 20g |
+| 2nd | 55g |
+| 3rd | 130g |
+| 4th+ | Unavailable |
+
+This is the second of the game's two ladders, and the pair is the economy. §2.3 converts gold into **pool**; §2.5 converts gold into **information**. Leftover guesses convert into gold at the act end. That closes the loop: a guess saved on an easy word is a reveal bought on a hard one, and every guess therefore has a price the player can name.
+
+Six rules, all of which live in the engine:
+
+- **Rule A — gated behind one guess.** The ladder is unavailable before the first guess of a word. Without this it is an opening tax rather than an out, and three bought reveals before guessing is exactly the pre-guess stack §6.3 exists to prevent.
+- **Rule B — never the last unknown.** If buying would leave every position known, the ladder is unavailable. Reveals bought and tiles preset by relics count together, so Rosetta plus two purchases cannot finish a five-letter word. Paying to win is not a decision.
+- **Rule C — unaffordable is refused, not consumed.** The price does not step up on an attempt that could not be paid. Same principle as R-015.
+- **Rule D — a bought reveal is truthful.** It is not corrupted by Liar Letter and not subject to Decay. Certainty is the product being sold; a paid reveal that might lie is just a worse guess. This is deliberate counterplay against Liar Letter.
+- **Rule E — a revealed letter is never locked out.** The letter is fixed at that position, not removed from the alphabet: it may occur elsewhere in the word. Locking it would violate R-014.
+- **Rule F — reveals are not pre-guess reveals.** They resolve during a word, so §6.3's cap of 2 does not apply, by the same reasoning that exempts Rangefinder, The Auditor and The Lantern. The escalating price is the cap.
 
 ---
 
@@ -282,7 +308,7 @@ Independent pre-guess reveals compound superlinearly, because each constrains a 
 
 Affected: Lexicon, Palimpsest, The Concordance, Rosetta Slab, Hot Streak's free green, Skeleton Key.
 
-Not affected: Rangefinder, The Auditor, The Lantern — these resolve during a word, not before it.
+Not affected: Rangefinder, The Auditor, The Lantern — these resolve during a word, not before it. The §2.5 reveal ladder is exempt for the same reason (Rule F), and is additionally gated behind the first guess so it cannot be stacked before one.
 
 ### 6.4 Shop weighting
 
@@ -485,6 +511,14 @@ Every contradiction found across v0, the prototype and the component sheet, and 
 
 **R-019 · The Twins is the Act II boss; Mirror is Act III.** Measured, not argued. As the Act I boss the Twins ended **20.5% of all runs** — half of every death in the game, against 4.3% for the next worst node. Not because Mirror is broken: two solutions cost 5.20 guesses against the ~7.8 two independent words would cost, exactly as technical brief §13 I-10 predicted. The problem is variance landing on a hard wall at the end of the shortest act, with the fewest relics to absorb it. Raising Act I's pool to 28 left the rate at 21.5%, so it was never a budget problem.
 → **Ruled:** the Cipher opens the run and the Twins becomes the Act II boss; the Mirror modifier moves from Act II+ to Act III only. Act I deaths fall from 20.8% to 3.9%, inside the §10.3 target for the first time. **The spike relocated rather than dissolved** — the Twins now ends 37.8% of runs in Act II — but a death there is a fair one: the player has a built deck, has learned the economy, and chose to walk into it. Giving the Twins its own fixed pool was measured and rejected: the Gauntlet pattern removes the emergency ladder with it, and 74.8% died there.
+
+**R-020 · Gold is inert, and that is why the pool is not tense.** Raised from playtest: *"it becomes very annoying if I get stuck"*, and separately that the tension reads as strange everywhere except that moment. Measured over 1000 runs, both halves are one fault. Mean gold earned per run is **759**; mean gold spent is **89**. **88% of every coin the game pays out is never spent.** At the moment of death a player holds a mean of **206g**, and **99.1% of deaths happen with at least 25g in pocket** — 80.6% with at least 100g. The mechanism is that §2.3 is the only sink and it caps at three purchases per act: once the ladder is exhausted `emergencyCost` returns null, the offer is never made, and the run ends with the gold still there. 420 of 427 deaths are that exact shape, which is R-012's mockup anomaly reproduced at scale.
+
+So being stuck is not a shortage of resources. It is holding a resource with nothing to exchange it for — frustration, not tension. And the general strangeness is the same fact seen from the other side: an economy where one currency starves while a parallel one drowns does not read as pressure, because the player can feel that spending decisions are not connected to anything.
+
+→ **Ruled:** §2.5, the reveal ladder. Gold buys information at an escalating price, gated behind the first guess and incapable of finishing a word (Rules A and B). This is not primarily an out for stuck players — it is what gives a guess a price. Once gold buys information and leftover guesses buy gold, spending a fourth guess on word seven has a nameable cost in reveals foregone on word twelve, which is the mechanism the design bet on and never had. GREED was the thinnest archetype (4 relics) for the same underlying reason, so `RL.08` and `RL.17` are built on the new ladder, one leaning into it and one rewarding abstention, per R-011's provision for filling code gaps.
+
+**This raises the win rate, and B-02 is already the wrong side of its target.** Adding an out cannot do otherwise. The ruling is that the sink is correct on its own merits and the rate is a separate axis: gold income (`goldPerLeftoverGuess`) and the price ladder are now both live tuning levers, where before income had nothing to tune against. Measured in §10.3.
 
 **R-018 · The refund floor and word-start refunds.** §2.4 Rule A applied at the moment a refund fires truncates any refund on guess 1 to nothing, because gross spend is 1 and the floor is 1. That makes `RL.13` Opening Gambit — whose entire rule is "your first guess of a word is refunded" — never refund, and `RL.19` The Moth eat a letter for free.
 → **Ruled:** Rule A binds the **word's total**, as §2.4 already says ("applies per word, not per guess"). A refund the floor cannot grant yet is carried and retried on later guesses of the same word, and dropped when the word ends. Rule B is unaffected: the losers of an event are discarded, never carried, so two relics still cannot stack across turns. Raised as technical brief §13 I-16.

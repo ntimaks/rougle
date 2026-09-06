@@ -93,6 +93,33 @@
       "ruling": "R-001"
     },
     {
+      "code": "RL.08",
+      "name": "THE FENCE",
+      "archetype": "GREED",
+      "rarity": "UNCOMMON",
+      "hook": "onWordStart",
+      "rule": "Reveals cost 30% less.",
+      "flavor": "He knows what a letter is worth. It is less than you paid.",
+      "pre_guess_reveal": false,
+      "reveal_discount": 0.3,
+      "synergy": ["RL.24"],
+      "ruling": "R-020",
+      "engine_note": "Read as data by revealCost, not fired as a hook: a price is a query, not a state change. The declared hook is nominal and the relic registers no handler. Discounts multiply and the price floors at 1g, so no stack of them makes a reveal free."
+    },
+    {
+      "code": "RL.17",
+      "name": "THE HOLDOUT",
+      "archetype": "GREED",
+      "rarity": "COMMON",
+      "hook": "onWordSolved",
+      "rule": "Solve a word without buying a reveal and gain 25g.",
+      "flavor": "Paid nothing. Learned nothing. Won anyway.",
+      "pre_guess_reveal": false,
+      "anti_synergy": ["RL.08"],
+      "anti_synergy_reason": "The Fence makes reveals cheap enough to be worth buying; the Holdout pays you not to buy them. Holding both leaves one of the two idle on every word.",
+      "ruling": "R-020"
+    },
+    {
       "code": "RL.09",
       "name": "THE ANVIL",
       "archetype": "ROUTE",
