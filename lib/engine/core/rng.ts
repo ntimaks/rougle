@@ -93,6 +93,7 @@ export const DOMAIN = {
   modifier: (nodeId: string) => `modifier:${nodeId}`,
   offer: (nodeId: string) => `offer:${nodeId}`,
   shop: (nodeId: string) => `shop:${nodeId}`,
+  forge: (nodeId: string) => `forge:${nodeId}`,
   liar: (nodeId: string) => `liar:${nodeId}`,
   truth: (nodeId: string) => `truth:${nodeId}`,
   moth: (nodeId: string) => `moth:${nodeId}`,

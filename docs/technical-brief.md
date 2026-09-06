@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-six engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, one (I-25) from measuring R-025 and one (I-26) from playtesting the result. **Twenty-two are now ruled** — see MECHANICS.md §11 R-014 … R-034 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-seven engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, one (I-25) from measuring R-025, one (I-26) from playtesting the result and one (I-27) from a sweep that turned out to be measuring the bot. **Twenty-three are now ruled** — see MECHANICS.md §11 R-014 … R-035 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -364,7 +364,9 @@ Where no natural index exists, take one from `counters` and bump it via `SET_COU
 
 ### 2.6 Persistence
 
-`serialize.ts` is pure (strings in, strings out, no browser globals). `lib/persistence/local.ts` is the only file naming `localStorage`, is `'use client'`, and is called only from `useEffect`. Save debounced 250 ms after every successful reduce. A corrupt save is discarded, never fatal. `actStartSnapshot` is a serialized state string written at `onActStart`; Ouroboros is `JSON.parse` of it with the current relic list retained and `ouroborosSpent: true`.
+`serialize.ts` is pure (strings in, strings out, no browser globals). `lib/persistence/local.ts` is the only file naming `localStorage`, is `'use client'`, and is called only from `useEffect`. Save debounced 250 ms after every successful reduce. A corrupt save is discarded, never fatal.
+
+**Migrations.** `MIGRATIONS` is keyed by the version being migrated FROM, and `migrate` walks a save forward one step at a time. A missing step throws rather than falling through, because handing the game a save it does not understand is worse than refusing it. `SAVE_VERSION` is at **2**: v1 → v2 backfills `ForgeState.candidates`, added by R-035, without which a run saved while standing in a forge would return with every upgrade refused and no way to see why. `actStartSnapshot` is a serialized state string written at `onActStart`; Ouroboros is `JSON.parse` of it with the current relic list retained and `ouroborosSpent: true`.
 
 ---
 
@@ -864,6 +866,8 @@ overturn it.
 **I-25 · R-025 traded gold tension for word-luck deaths.** Halving relic count (~15 a run to ~8) is what made gold matter, and it worked: gold left unspent fell from 671 to 312 and deaths-with-money-in-hand from 99.1% to 63.1%. But **word-luck deaths went from 8.1% of deaths to 33.7%** against a §10.3 target of under 5%. Fewer relics means less information, and a third of deaths are now ones where the answer was still in the candidate set with no way to narrow it. That is the cost of the trade showing up in the metric built to catch it. → **Not ruled.** It needs a decision about where information comes from once relics are scarcer — a cheaper first rung on the §2.5 ladder, a higher INFO weighting in shop stock, or an accepted looser target. Do not tune it by reverting R-025; the economy it fixed was the larger fault.
 
 **I-26 · A held row and an all-absent row look nearly identical.** Found while verifying R-034 in a browser. `DEFERRED` is `bg-sunken` (#141414) with a #4A4A48 glyph and `ABSENT` is `bg-absent` (#1C1C1B) with `text-fg3`; at tile size the two are a shade apart, so a row the engine is withholding reads as a row that came back with nothing in it. That is the R-029 failure in visual form — a withholding presenting as a claim — and R-034's badge marks the row without fixing the tile. → **Not ruled.** It needs a CMP.02 decision, because the obvious separators are taken: dashed borders belong to `DECAYED` (§13 I-01) and horizontal scanlines to untrustworthy. Not blocking; the badge carries the meaning for now.
+
+**I-27 · RESOLVED. The solver modelled a rule the engine no longer had.** R-029 changed Silent Start's suppression from `GREY` to `UNKNOWN`, and the solver's consistency check had one reading of `UNKNOWN` — a Decay-faded `GREEN`. So on the first guess of every Silent Start word it required that position to be green, eliminated the true answer, and burned the pool failing to solve a word it had already ruled out. Every sweep between R-029 and balance snapshot 004 reported it as the GAME getting harder: 43.7% → 21.7% win rate, 9.8% → 44.7% Act I deaths, all of it the bot. → **Fixed**: on a Silent Start row `UNKNOWN` means the true state is `YELLOW` (the strongest constraint on the row) and `GREY` is an ordinary grey, since suppression no longer lies. The standing rule this leaves: **a rules change that alters which feedback states the engine can emit is not done until the solver models it** — otherwise the next sweep describes the bot while appearing to describe the game.
 
 **I-24 · Events did not exist.** v0 named them only in the node-weight table; the design contained one. A node type with a single piece of content repeats inside one run, which the draw rule forbids.
 → **Ruled (R-022).** MECHANICS.md §6.8 and `events.json`. Twelve events, drawn without replacement, `acts` gating eligibility and `requires` gating individual options.

@@ -1,7 +1,7 @@
 import { EVENTS, eventsForAct, type EventDef } from '../content/events';
 import { REGISTRY, offerableConsumables, offerableInAct, offerableRelics } from '../content/registry';
 import type { GameConfig } from './config';
-import { DOMAIN, draw, drawInt, drawWeighted } from './rng';
+import { DOMAIN, draw, drawInt, drawShuffle, drawWeighted } from './rng';
 import type { GameState, NodeId, ShopStockItem } from './state';
 
 /**
@@ -90,6 +90,33 @@ export function forgeOperations(s: GameState): number {
 
 /** §6.7: 20g per guess, any quantity affordable. */
 export const FORGE_GOLD_PER_GUESS = 20;
+
+/**
+ * How many relics a forge offers to work on. Three, like the reward screen's
+ * three offers — a number a player can hold in their head against branch B.
+ */
+export const FORGE_CANDIDATES = 3;
+
+/**
+ * The relics THIS forge will upgrade, drawn on entry (R-035, §6.7).
+ *
+ * A forge used to list every upgradeable relic you held. That made the node
+ * strictly better the more you carried, gave branch B nothing to compete
+ * against once you held anything good, and meant the operation always went to
+ * whatever your best relic happened to be. Drawing three makes WHICH relic you
+ * can improve part of the run rather than a foregone conclusion, and it is the
+ * same shape as the shop's shelf and the reward screen's offers.
+ *
+ * Eligibility is checked here, not on screen: an already-MK.II relic or one
+ * with no upgrade tier would burn a slot on something unusable.
+ */
+export function drawForgeCandidates(s: GameState, nodeId: NodeId): string[] {
+  const eligible = s.relics.filter((r) => !r.upgraded && REGISTRY[r.code]?.upgrade);
+  if (eligible.length <= FORGE_CANDIDATES) return eligible.map((r) => r.instanceId);
+  return drawShuffle(s.seed, DOMAIN.forge(nodeId), 0, eligible)
+    .slice(0, FORGE_CANDIDATES)
+    .map((r) => r.instanceId);
+}
 
 /**
  * Draw an event for this node. §6.8: without replacement within a run, gated by

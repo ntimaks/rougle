@@ -199,11 +199,17 @@ export function playRun(
       }
 
       case 'FORGE': {
-        // Upgrade the earliest un-upgraded relic; if there is none, buy guesses.
+        // Upgrade the first relic THIS FORGE OFFERS (R-035); if it offers
+        // nothing upgradeable, buy guesses. Reading `relics` here instead would
+        // pick something outside the offer, take NOT_IN_OFFER, and break out of
+        // the loop — leaving the bot standing in a forge doing nothing at all,
+        // which is a silent measurement bug rather than a visible failure.
         while ((s.forge?.operationsLeft ?? 0) > 0) {
-          const target = s.relics.find((r) => !r.upgraded);
+          const target = s.forge!.candidates.find(
+            (id) => !s.relics.find((r) => r.instanceId === id)?.upgraded,
+          );
           const op = target
-            ? reduce(s, { type: 'FORGE_UPGRADE', instanceId: target.instanceId }, cfg)
+            ? reduce(s, { type: 'FORGE_UPGRADE', instanceId: target }, cfg)
             : reduce(s, { type: 'FORGE_CONVERT', guesses: 1 }, cfg);
           if (op.error) break;
           s = op.state;
