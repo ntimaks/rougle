@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-five engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, and one (I-25) from measuring R-025. **Twenty-two are now ruled** — see MECHANICS.md §11 R-014 … R-033 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-six engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, two (I-23, I-24) from the content the specs never contained, one (I-25) from measuring R-025 and one (I-26) from playtesting the result. **Twenty-two are now ruled** — see MECHANICS.md §11 R-014 … R-034 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -862,6 +862,8 @@ overturn it.
 → **Ruled (R-021).** MECHANICS.md §6.7. Every relic carries exactly one `MK.II`, in `relics.json` under `upgrade`, on one of five recorded axes. Consumables are not upgradeable.
 
 **I-25 · R-025 traded gold tension for word-luck deaths.** Halving relic count (~15 a run to ~8) is what made gold matter, and it worked: gold left unspent fell from 671 to 312 and deaths-with-money-in-hand from 99.1% to 63.1%. But **word-luck deaths went from 8.1% of deaths to 33.7%** against a §10.3 target of under 5%. Fewer relics means less information, and a third of deaths are now ones where the answer was still in the candidate set with no way to narrow it. That is the cost of the trade showing up in the metric built to catch it. → **Not ruled.** It needs a decision about where information comes from once relics are scarcer — a cheaper first rung on the §2.5 ladder, a higher INFO weighting in shop stock, or an accepted looser target. Do not tune it by reverting R-025; the economy it fixed was the larger fault.
+
+**I-26 · A held row and an all-absent row look nearly identical.** Found while verifying R-034 in a browser. `DEFERRED` is `bg-sunken` (#141414) with a #4A4A48 glyph and `ABSENT` is `bg-absent` (#1C1C1B) with `text-fg3`; at tile size the two are a shade apart, so a row the engine is withholding reads as a row that came back with nothing in it. That is the R-029 failure in visual form — a withholding presenting as a claim — and R-034's badge marks the row without fixing the tile. → **Not ruled.** It needs a CMP.02 decision, because the obvious separators are taken: dashed borders belong to `DECAYED` (§13 I-01) and horizontal scanlines to untrustworthy. Not blocking; the badge carries the meaning for now.
 
 **I-24 · Events did not exist.** v0 named them only in the node-weight table; the design contained one. A node type with a single piece of content repeats inside one run, which the draw rule forbids.
 → **Ruled (R-022).** MECHANICS.md §6.8 and `events.json`. Twelve events, drawn without replacement, `acts` gating eligibility and `requires` gating individual options.

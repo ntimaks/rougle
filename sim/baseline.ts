@@ -67,7 +67,7 @@ export function solveClean(
             distance: null,
             trustworthy: true,
           })),
-          meta: { vowelCount: null, hasRepeat: null, revealedLetters: [], deferred: false },
+          meta: { vowelCount: null, hasRepeat: null, revealedLetters: [], deferred: false, revealsIn: null },
         },
       ],
     });
