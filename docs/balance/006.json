@@ -1,0 +1,103 @@
+{
+  "runs": 1000,
+  "solver": {
+    "suboptimality": 1,
+    "memoryDecay": 0,
+    "vocabularyGap": 0.0938,
+    "searchWidth": 200
+  },
+  "winRate": 0.512,
+  "deathsByAct": [
+    75,
+    323,
+    90
+  ],
+  "deathsByCause": {
+    "EMERGENCY_UNAFFORDABLE": 337,
+    "POOL_EXHAUSTED": 74,
+    "GAUNTLET": 77
+  },
+  "wordLuckDeathRate": 0.2889344262295082,
+  "budgetPressureDeathRate": 0.38114754098360654,
+  "meanGuessesPerWord": 3.5590113857261874,
+  "meanGuessesPerWordByAct": [
+    3.7629222629222627,
+    3.5989204412109834,
+    3.334863262574106
+  ],
+  "meanCleanFiveLetter": 3.6254728877679696,
+  "meanBossGuesses": [
+    5.068108108108108,
+    4.70265780730897,
+    3.3021052631578947
+  ],
+  "medianWordsReached": 19,
+  "meanEmergencyPurchases": 0.992,
+  "medianEmergencyPurchases": 1,
+  "meanFinalGold": 297.405,
+  "meanRevealsBought": 2.725,
+  "meanGoldSpent": 394.575,
+  "deathsHoldingGold": 0.6147540983606558,
+  "relicPickRate": {
+    "RL.01": 0.422,
+    "RL.02": 0.412,
+    "RL.05": 0.397,
+    "RL.29": 0.395,
+    "RL.17": 0.366,
+    "RL.24": 0.356,
+    "RL.18": 0.328,
+    "RL.08": 0.316,
+    "RL.10": 0.313,
+    "RL.11": 0.308,
+    "RL.03": 0.303,
+    "RL.06": 0.297,
+    "RL.20": 0.29,
+    "RL.25": 0.285,
+    "RL.14": 0.282,
+    "RL.23": 0.28,
+    "RL.07": 0.275,
+    "RL.19": 0.275,
+    "RL.04": 0.272,
+    "RL.09": 0.264,
+    "RL.15": 0.26,
+    "RL.13": 0.251,
+    "RL.21": 0.246,
+    "RL.12": 0.242,
+    "RL.26": 0.242,
+    "RL.16": 0.231,
+    "RL.27": 0.217,
+    "RL.28": 0.069
+  },
+  "coOccurrence": [
+    {
+      "pair": "RL.21+RL.04",
+      "runs": 61,
+      "winRate": 0.7540983606557377,
+      "deltaPP": 24.209836065573764
+    },
+    {
+      "pair": "RL.21+RL.07",
+      "runs": 59,
+      "winRate": 0.711864406779661,
+      "deltaPP": 19.9864406779661
+    },
+    {
+      "pair": "RL.30+RL.20",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    },
+    {
+      "pair": "RL.30+RL.21",
+      "runs": 0,
+      "winRate": 0,
+      "deltaPP": 0
+    }
+  ],
+  "unimplemented": [
+    "RL.22",
+    "RL.30",
+    "RL.31"
+  ],
+  "elapsedMs": 12014
+}
