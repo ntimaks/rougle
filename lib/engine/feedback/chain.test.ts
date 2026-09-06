@@ -16,6 +16,7 @@ function word(over: Partial<WordState> = {}): WordState {
     modifiers: [],
     history: [],
     presetTiles: [],
+    revealsPurchased: 0,
     lockedLetters: [],
     liarIndex: null,
     truthMask: null,

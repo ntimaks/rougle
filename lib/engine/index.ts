@@ -11,7 +11,7 @@
  */
 
 // Rules core
-export { reduce, canDispatch, initialState, emergencyCost, applyEffects, rollOffer } from './core/reducer';
+export { reduce, canDispatch, initialState, emergencyCost, revealCost, revealBlocker, applyEffects, rollOffer } from './core/reducer';
 export { CONFIG, withConfig, type GameConfig, type ActConfig } from './core/config';
 export { serialize, deserialize, migrate, SaveError } from './core/serialize';
 export { draw, drawInt, drawPick, drawShuffle, drawWeighted, formatSeed, hash32, isValidSeed, DOMAIN, SEED_LENGTH } from './core/rng';

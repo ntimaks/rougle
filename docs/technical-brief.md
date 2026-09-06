@@ -826,6 +826,7 @@ Found while reading MECHANICS.md v1.0, `relics.json` and the design bundle. Nine
 **I-13 · Pool meter elasticity** (§12 open Q1). Engineering answer: `max` is already a prop and CMP.01 takes `value:int · max:int`, so rendering 17, 19 or 22 pips is free. The open question is only whether 17 pips *read* the same as 24. Not blocking; decide on the built component, not in the abstract.
 
 **I-14 · `relics.json` codes RL.08 and RL.17 are absent.** Consistent with R-011 (codes are opaque, gaps are fine). Noted only so nobody "fixes" it. The registry validator asserts nothing about contiguity.
+→ **Closed by R-020.** Both gaps are now filled — `RL.08` The Fence and `RL.17` The Holdout, built on the §2.5 reveal ladder. The registry validator still asserts nothing about contiguity; the test that named these two codes was rewritten to assert the rule instead, since it would otherwise fail every time R-011 was correctly followed.
 
 ### Found while building — Phase 1
 

@@ -73,6 +73,8 @@ export function reduce(
       return applyItemUse(state, action.instanceId, action.payload ?? {}, cfg);
     case 'BUY_EMERGENCY':
       return buyEmergency(state, cfg);
+    case 'BUY_REVEAL':
+      return buyReveal(state, action.index, [], cfg);
     case 'DECLINE_EMERGENCY':
       return die(state, 'EMERGENCY_DECLINED', cfg);
     case 'ADVANCE':
@@ -170,6 +172,17 @@ export function canDispatch(
     case 'DECLINE_EMERGENCY':
       if (s.phase !== 'EMERGENCY') return wrongPhase('EMERGENCY');
       return null;
+    case 'BUY_REVEAL': {
+      const blocked = revealBlocker(s, cfg);
+      if (blocked) return blocked;
+      if (action.index < 0 || action.index >= s.word!.length) {
+        return { code: 'POSITION_KNOWN', message: 'No such position.' };
+      }
+      if (knownPositions(s).has(action.index)) {
+        return { code: 'POSITION_KNOWN', message: 'Already revealed.' };
+      }
+      return null;
+    }
     default:
       return null;
   }
@@ -372,6 +385,7 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     refundsAppliedThisWord: 0,
     pendingRefunds: [],
     deferralDepth,
+    revealsPurchased: 0,
     revealed: { vowelCount: null, hasRepeat: null, sharedLetter: null, letters: [] },
     nodeId,
     poolSource: s.gauntlet ? 'GAUNTLET' : 'ACT',
@@ -731,8 +745,111 @@ function beginNextAct(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
 
 // ------------------------------------------------------- emergency and death
 
-export function emergencyCost(s: GameState, cfg: Readonly<GameConfig>): number | null {
+export function emergencyCost(
+  s: GameState,
+  cfg: Readonly<GameConfig> = CONFIG,
+): number | null {
   return cfg.emergencyCosts[s.emergencyPurchasesThisAct] ?? null;
+}
+
+// ------------------------------------------------------------ reveal ladder
+
+/**
+ * The price of the next §2.5 reveal, or null when the ladder is spent.
+ *
+ * Discounts are read from `reveal_discount` on every held relic rather than
+ * fired as hooks: a price is a query and `Effect` is the vocabulary of state
+ * change. Reading the registry generically also means a second discount relic
+ * needs no engine change — which is the difference between data-driven and a
+ * special case.
+ *
+ * Discounts multiply rather than sum, so two of them cannot reach zero, and the
+ * floor of 1 catches the rest. A free reveal is not a decision.
+ */
+export function revealCost(
+  s: GameState,
+  cfg: Readonly<GameConfig> = CONFIG,
+): number | null {
+  if (!s.word) return null;
+  const base = cfg.revealCosts[s.word.revealsPurchased];
+  if (base === undefined) return null;
+  let price = base;
+  for (const held of s.relics) {
+    const discount = REGISTRY[held.code]?.reveal_discount;
+    if (discount) price *= 1 - discount;
+  }
+  return Math.max(1, Math.round(price));
+}
+
+/** Positions whose letter the player already knows for certain. */
+function knownPositions(s: GameState): Set<number> {
+  return new Set((s.word?.presetTiles ?? []).map((p) => p.index));
+}
+
+/**
+ * Why the ladder is closed right now, or null if it is open. Split out because
+ * `canDispatch` and the view need the same answer, and a view that re-derives
+ * legality is a view that will eventually disagree with the engine.
+ */
+export function revealBlocker(
+  s: GameState,
+  cfg: Readonly<GameConfig> = CONFIG,
+): EngineError | null {
+  if (s.phase !== 'WORD' || !s.word) return { code: 'WRONG_PHASE', message: 'Not in a word.' };
+  // Rule A. Engage with the word before buying your way through it.
+  if (s.word.history.length === 0) {
+    return { code: 'REVEAL_UNAVAILABLE', message: 'Guess once before buying a reveal.' };
+  }
+  // Rule B. Bought reveals and relic presets count together, so the ladder can
+  // never hand over the last unknown position.
+  if (knownPositions(s).size >= s.word.length - 1) {
+    return { code: 'REVEAL_UNAVAILABLE', message: 'Only one position left to find.' };
+  }
+  const cost = revealCost(s, cfg);
+  if (cost === null) return { code: 'REVEAL_EXHAUSTED', message: 'No reveals left this word.' };
+  // Rule C. Refused, not consumed: this returns before revealsPurchased moves.
+  if (s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
+  return null;
+}
+
+function buyReveal(
+  s: GameState,
+  index: number,
+  events: GameEvent[],
+  cfg: Readonly<GameConfig>,
+): ReduceResult {
+  const blocked = revealBlocker(s, cfg);
+  if (blocked) return { state: s, events, error: blocked };
+  const word = s.word!;
+  if (index < 0 || index >= word.length) {
+    return { state: s, events, error: { code: 'POSITION_KNOWN', message: 'No such position.' } };
+  }
+  if (knownPositions(s).has(index)) {
+    return { state: s, events, error: { code: 'POSITION_KNOWN', message: 'Already revealed.' } };
+  }
+
+  const cost = revealCost(s, cfg)!;
+  // Rule D. Read from the solution directly, not through the transform chain:
+  // a bought reveal is not corrupted by Liar Letter and does not decay. That is
+  // the whole product. Under Mirror this is the first unsolved solution, so the
+  // purchase applies to the board the player is currently working.
+  const solutionIndex = Math.max(0, word.solved.findIndex((v) => !v));
+  const letter = word.solutions[solutionIndex]![index]!;
+
+  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -cost, reason: 'reveal' }], cfg);
+  let next = paid.state;
+  const out = [...events, ...paid.events];
+
+  // Rule E is satisfied by construction: PRESET_TILE fixes the letter at this
+  // position and never touches lockedLetters, so the letter stays typable
+  // elsewhere in the word (R-014).
+  const revealed = applyEffects(next, [{ kind: 'PRESET_TILE', index, letter }], cfg);
+  next = revealed.state;
+  out.push(...revealed.events);
+
+  next = withWord(next, (w) => ({ ...w, revealsPurchased: w.revealsPurchased + 1 }));
+  out.push({ type: 'REVEAL_BOUGHT', index, letter, cost, nth: word.revealsPurchased + 1 });
+  return { state: next, events: out };
 }
 
 /**

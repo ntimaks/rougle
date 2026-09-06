@@ -40,6 +40,11 @@ export interface GameConfig {
   maxEffectDepth: number;
   /** RL.07 The Auditor, per R-001. */
   auditorCostGold: number;
+  /**
+   * The §2.5 reveal ladder. Escalating within a word, reset each word; its
+   * length is the per-word cap, so a fourth purchase is simply off the end.
+   */
+  revealCosts: readonly number[];
 }
 
 export const CONFIG: Readonly<GameConfig> = Object.freeze({
@@ -64,6 +69,7 @@ export const CONFIG: Readonly<GameConfig> = Object.freeze({
   decayTurns: 1,
   maxEffectDepth: 8,
   auditorCostGold: 5,
+  revealCosts: [20, 55, 130], // MECHANICS.md §2.5
 } as const);
 
 /** Harness override. Returns a new frozen config; never mutates CONFIG. */
