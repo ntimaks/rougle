@@ -3,6 +3,7 @@ import { CONFIG, withConfig } from './config';
 import { canDispatch, initialState, reduce, revealBlocker, revealCost } from './reducer';
 import type { GameState, RelicInstance } from './state';
 import { wordList } from '../words';
+import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
 
 /**
@@ -22,12 +23,13 @@ function stuck(gold = 500, codes: string[] = []): GameState {
     seed: SEED,
     characterCode: 'CH.01',
   }).state;
-  s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
+  s = enterFirstWord(s);
   const extra: RelicInstance[] = codes.map((code, i) => ({
     instanceId: `${code}#${100 + i}`,
     code,
     state: {},
     acquiredAt: 100 + i,
+    upgraded: false,
   }));
   return { ...s, gold, relics: [...s.relics, ...extra] };
 }

@@ -614,6 +614,9 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 **R-023 · Relic count.** Referred to elsewhere as 31, taken from the highest code `RL.31`.
 → **Clarification, not a rule change:** count the array, never the codes. Codes are opaque and non-sequential per R-011. The count was 29 when this was raised; R-020 assigned `RL.08` and `RL.17`, so it is now **31 relics and 4 consumables**, and it will move again. Any tooling that derives a count or an index from a code is a bug — which is precisely why the number in prose keeps going stale and the registry test asserts the rule instead.
 
+**R-024 · `poolMax` is the refill target, not a ceiling.** `addPool` clamped every positive delta to `poolMax`. Raised as §13 I-15 against `RL.27` The Vault, where it was noticed; found while building the §6.7 forge to be general. Six mechanics that GRANT guesses were silently doing nothing whenever the pool was full: the forge's gold conversion, `CN.03` The Decanter, `EV.05` The Infirmary, `RL.20` Blindfold's payout, `EV.08`'s revival, and the Vault's carry. Nothing errored — the guesses were simply absent, in exactly the situation you would most want them.
+→ **Ruled:** the pool may sit above `poolMax`. The cap governs the **refill** at act start and nothing else, so a grant is a thing you carry rather than a new ceiling, and the meter reads 27/24. One rule with no exceptions, rather than a per-effect "may overflow" flag the next mechanic would forget to set. `RL.27`'s "Does not raise the act cap" is now literally true and no longer inert: the carry lands above the cap and the next refill returns to it. Closes §13 I-15.
+
 ## 12. Still open
 
 1. **Pool display elasticity.** `poolMax` is a prop, but CMP.01's visual logic is built around 24 discrete pips and §2.2 now proposes 22/19/17. Decide whether the pip row is fixed-24 with the number carrying overflow, or genuinely elastic. Blocking for CMP.01 sign-off.

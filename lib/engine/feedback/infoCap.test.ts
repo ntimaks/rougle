@@ -15,6 +15,7 @@ function holding(...codes: string[]): GameState {
       code,
       state: {},
       acquiredAt: i,
+      upgraded: false,
     })),
   };
 }
@@ -56,9 +57,9 @@ describe('the information cap', () => {
 
   it('orderForSuppression is a stable sort on acquiredAt', () => {
     const items = [
-      { instanceId: 'c', code: 'RL.05', acquiredAt: 3 },
-      { instanceId: 'a', code: 'RL.01', acquiredAt: 1 },
-      { instanceId: 'b', code: 'RL.03', acquiredAt: 2 },
+      { instanceId: 'c', code: 'RL.05', acquiredAt: 3, upgraded: false },
+      { instanceId: 'a', code: 'RL.01', acquiredAt: 1, upgraded: false },
+      { instanceId: 'b', code: 'RL.03', acquiredAt: 2, upgraded: false },
     ];
     expect(orderForSuppression(items).map((i) => i.instanceId)).toEqual(['a', 'b', 'c']);
   });

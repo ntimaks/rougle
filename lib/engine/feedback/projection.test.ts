@@ -40,7 +40,7 @@ function state(over: Partial<GameState> = {}): GameState {
   return { ...initialState('PROJSEED', 'CH.01'), ...over };
 }
 
-const relic = (code: string, at = 1) => ({ instanceId: `${code}#${at}`, code, state: {}, acquiredAt: at });
+const relic = (code: string, at = 1) => ({ instanceId: `${code}#${at}`, code, state: {}, acquiredAt: at, upgraded: false });
 
 describe('deferral', () => {
   it('Fog hides row n until n+1 is submitted', () => {

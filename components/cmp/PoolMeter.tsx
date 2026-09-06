@@ -62,6 +62,11 @@ export function PoolMeter({
           {value}
         </span>
         <span className="font-mono text-[11px] leading-none text-fg3">/{max}</span>
+        {value > max && (
+          <span className="font-mono text-[9px] font-bold leading-none tracking-[0.14em] text-accent">
+            +{value - max} CARRIED
+          </span>
+        )}
         {critical && (
           <span className="ml-2 flex items-center gap-[5px] font-mono text-[9px] font-bold leading-none tracking-[0.14em] text-red">
             <span
@@ -75,11 +80,17 @@ export function PoolMeter({
       </div>
 
       {!compact && (
+        // R-024 lets the pool sit ABOVE poolMax, so the row is as long as
+        // whichever is larger. Carried guesses get the accent rather than the
+        // normal fill: without that the row simply reads "full" and the player
+        // never learns that the forge, the Decanter or the Vault did anything.
         <div className="mt-[4px] flex h-[11px] gap-[2px]" aria-hidden>
-          {Array.from({ length: max }, (_, i) => (
+          {Array.from({ length: Math.max(value, max) }, (_, i) => (
             <div
               key={i}
-              className={`flex-1 border ${i < value ? pipOn : 'border-dark3 bg-transparent'}`}
+              className={`flex-1 border ${
+                i >= max ? 'border-accent bg-accent' : i < value ? pipOn : 'border-dark3 bg-transparent'
+              }`}
             />
           ))}
         </div>

@@ -66,7 +66,7 @@ export function holdersInOrder(state: Readonly<GameState>): RelicInstance[] {
   const relics = [...state.relics].sort((a, b) => a.acquiredAt - b.acquiredAt);
   const consumables = [...state.consumables]
     .sort((a, b) => a.acquiredAt - b.acquiredAt)
-    .map<RelicInstance>((c) => ({ ...c, state: {} }));
+    .map<RelicInstance>((c) => ({ ...c, state: {}, upgraded: false }));
   return [...relics, ...consumables];
 }
 

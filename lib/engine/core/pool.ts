@@ -207,11 +207,26 @@ export function applyRefund(s: GameState, amount: number, source: string): PoolR
  * Gains are clamped to poolMax ("does not raise the cap"); losses are not
  * clamped here because pool reaching 0 is a legal, load-bearing state.
  */
+/**
+ * R-024 — `poolMax` is the refill target, not a ceiling.
+ *
+ * This used to clamp a positive delta to `poolMax`, which made every mechanic
+ * that GRANTS guesses silently do nothing whenever the pool was full: the §6.7
+ * forge conversion, `CN.03` The Decanter, `EV.05` The Infirmary, `RL.20`
+ * Blindfold's payout, `EV.08`'s revival, and `RL.27` The Vault — which is
+ * technical brief §13 I-15, raised against the Vault alone and in fact general.
+ *
+ * The failure was invisible in exactly the situation you would want the grant:
+ * a full pool at act start. Nothing errored; the guesses were simply absent.
+ *
+ * So the pool may now sit above `poolMax`, and the meter renders 27/24. One
+ * rule with no exceptions, rather than a per-effect "may overflow" flag that
+ * the next mechanic would forget to set.
+ */
 export function addPool(s: GameState, delta: number, reason: string): PoolResult {
   const usesGauntletPool = s.word?.poolSource === 'GAUNTLET' && s.gauntlet !== null;
-  const ceiling = usesGauntletPool ? CONFIG.gauntlet.pool : s.poolMax;
   const before = currentPool(s);
-  const after = delta > 0 ? Math.min(ceiling, before + delta) : before + delta;
+  const after = before + delta;
   const applied = after - before;
   if (applied === 0) return { state: s, events: [] };
 

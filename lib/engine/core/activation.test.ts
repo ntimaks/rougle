@@ -6,6 +6,7 @@ import { initialState, reduce } from './reducer';
 import { activationFor, isActivated, offerableInAct, REGISTRY } from '../content/registry';
 import { projectBoard, renderStates } from '../index';
 import type { GameState, RelicInstance } from './state';
+import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
 
 /**
@@ -21,12 +22,13 @@ function inWord(codes: string[] = [], over: Partial<GameState> = {}): GameState 
     seed: SEED,
     characterCode: 'CH.01',
   }).state;
-  s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
+  s = enterFirstWord(s);
   const extra: RelicInstance[] = codes.map((code, i) => ({
     instanceId: `${code}#${100 + i}`,
     code,
     state: {},
     acquiredAt: 100 + i,
+    upgraded: false,
   }));
   return { ...s, relics: [...s.relics, ...extra], ...over };
 }
@@ -107,7 +109,7 @@ describe('costs', () => {
   });
 
   it('recordUse counts per node', () => {
-    const relic: RelicInstance = { instanceId: 'x', code: 'RL.07', state: {}, acquiredAt: 0 };
+    const relic: RelicInstance = { instanceId: 'x', code: 'RL.07', state: {}, acquiredAt: 0, upgraded: false };
     expect(usesThisWord(relic, 'n1')).toBe(0);
     const once = { ...relic, state: recordUse(relic, 'n1') };
     expect(usesThisWord(once, 'n1')).toBe(1);
@@ -267,7 +269,7 @@ describe('CH.03 The Cryptographer', () => {
     // pool_modifier −4 on Act I's 22.
     expect(started.state.poolMax).toBe(CONFIG.acts[0].pool - 4);
 
-    let s = reduce(started.state, { type: 'SELECT_NODE', nodeId: started.state.map.available[0]! }).state;
+    let s = enterFirstWord(started.state);
     const innate = s.relics.find((r) => r.code === 'CH.03')!;
     const before = s.pool;
     s = reduce(s, { type: 'USE_ITEM', instanceId: innate.instanceId, payload: { index: 0 } }).state;

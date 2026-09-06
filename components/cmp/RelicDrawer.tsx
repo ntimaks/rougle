@@ -39,7 +39,7 @@ export function RelicDrawer({
 
   const holders: RelicInstance[] = [
     ...state.relics,
-    ...state.consumables.map((c) => ({ ...c, state: {} })),
+    ...state.consumables.map((c) => ({ ...c, state: {}, upgraded: false })),
   ].sort((a, b) => a.acquiredAt - b.acquiredAt);
 
   return (

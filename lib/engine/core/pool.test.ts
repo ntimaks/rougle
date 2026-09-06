@@ -3,6 +3,7 @@ import { CONFIG } from './config';
 import { grantableRefund, highestRefund, spendGuess } from './pool';
 import { initialState, reduce } from './reducer';
 import type { GameState, WordState } from './state';
+import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
 
 /**
@@ -143,7 +144,7 @@ describe('pending refunds (ADR-0005)', () => {
       seed,
       characterCode: 'CH.01',
     }).state;
-    s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
+    s = enterFirstWord(s);
     const solution = s.word!.solutions[0]!;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: solution }).state;
     expect(s.word).toBeNull();

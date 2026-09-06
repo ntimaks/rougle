@@ -23,7 +23,7 @@ Three documents govern this project and they do not overlap.
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-four engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, and two (I-23, I-24) from the content the specs never contained. **Twelve are now ruled** — see MECHANICS.md §11 R-014 … R-023 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-four engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, and two (I-23, I-24) from the content the specs never contained. **Thirteen are now ruled** — see MECHANICS.md §11 R-014 … R-024 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -838,7 +838,7 @@ because a run cannot proceed without a fix; the fix is stated so a ruling can
 overturn it.
 
 **I-15 · `RL.27` The Vault cannot be implemented as written.** The pool refills to `poolMax` at act start and `pool` never exceeds `poolMax`, so a carry has nowhere to go and a RARE relic does nothing. Needs a ruling on whether the carry raises that act's cap. Blocking C-05; `refillPool` deliberately takes no carry parameter.
-→ **Still open after R-021.** The rule text now reads "Does not raise the act cap", which restates the constraint rather than resolving it: with the cap unchanged and `refillPool` setting the pool absolutely, a carry still has nowhere to land. The only reading that leaves the relic doing anything is that `poolMax` governs the REFILL and is not a hard ceiling — the pool may sit above it while a carry is live. That is an engine change, not a copy change, so it is being made deliberately in Phase 3 rather than assumed here.
+→ **Ruled (R-024).** `poolMax` governs the refill at act start and is not a ceiling; the pool may sit above it. Building the §6.7 forge showed the fault was never about the Vault: `addPool` clamped every positive delta, so the forge conversion, `CN.03` The Decanter, `EV.05` The Infirmary, `RL.20` Blindfold's payout and `EV.08`'s revival were all silently inert at full pool too. Six mechanics, one clamp. `RL.27`'s "Does not raise the act cap" is now literally true and no longer self-defeating.
 
 **I-16 · Rule A truncation kills `RL.13` and `RL.19`.** Applied at the moment a refund fires, the floor truncates any refund on guess 1 to nothing — so Opening Gambit, whose whole rule is "your first guess is refunded", never refunds, and The Moth eats a letter for free. Rule A is stated per word, not per guess. → *Implemented provisionally:* the shortfall is queued on `WordState.pendingRefunds` and retried on later guesses of the same word. ADR-0005.
 

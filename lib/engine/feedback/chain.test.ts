@@ -36,7 +36,7 @@ function state(over: Partial<GameState> = {}): GameState {
 }
 
 function relic(code: string, at = 1) {
-  return { instanceId: `${code}#${at}`, code, state: {}, acquiredAt: at };
+  return { instanceId: `${code}#${at}`, code, state: {}, acquiredAt: at, upgraded: false };
 }
 
 describe('chain order', () => {

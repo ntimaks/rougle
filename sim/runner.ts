@@ -14,6 +14,7 @@ import {
   type GameState,
   wordList,
 } from '../lib/engine';
+import { EVENTS } from '../lib/engine/content/events';
 import '../lib/engine/words/all';
 import {
   DEFAULT_SOLVER,
@@ -75,6 +76,8 @@ export interface RunOptions {
   noRelics?: boolean;
   /** Measure the game as it was before R-020, for the A/B on the reveal ladder. */
   noReveals?: boolean;
+  /** Measure the game with the shop inert, for an A/B on the new sinks. */
+  noShopping?: boolean;
   /** Overrides for when the bot buys a §2.5 reveal. See REVEAL_POLICY. */
   revealPolicy?: Partial<RevealPolicy>;
 }
@@ -165,9 +168,57 @@ export function playRun(
 
     switch (s.phase) {
       case 'MAP': {
+        // Route choice is a real decision now (R-01), and the bot does not make
+        // it: it always walks the first available node. That is a deliberate
+        // floor, not an oversight — a bot that picked optimally would hide how
+        // punishing a bad route is, which is the thing route design is for.
         const nodeId = s.map.available[0];
         if (!nodeId) throw new Error(`Run ${seed} is on the map with nowhere to go.`);
         s = reduce(s, { type: 'SELECT_NODE', nodeId }, cfg).state;
+        break;
+      }
+
+      case 'SHOP': {
+        // Buy the cheapest affordable thing, then leave. Crude, and enough to
+        // stop the shop being a pure gold sink in the report.
+        if (!options.noShopping) {
+          const affordable = (s.shop?.stock ?? [])
+            .map((item, slot) => ({ item, slot }))
+            .filter(({ item }) => !item.sold && item.price <= s.gold)
+            .sort((a, b) => a.item.price - b.item.price);
+          for (const { slot } of affordable) {
+            const bought = reduce(s, { type: 'BUY_STOCK', slot }, cfg);
+            if (!bought.error) s = bought.state;
+          }
+        }
+        s = reduce(s, { type: 'LEAVE_NODE' }, cfg).state;
+        break;
+      }
+
+      case 'FORGE': {
+        // Upgrade the earliest un-upgraded relic; if there is none, buy guesses.
+        while ((s.forge?.operationsLeft ?? 0) > 0) {
+          const target = s.relics.find((r) => !r.upgraded);
+          const op = target
+            ? reduce(s, { type: 'FORGE_UPGRADE', instanceId: target.instanceId }, cfg)
+            : reduce(s, { type: 'FORGE_CONVERT', guesses: 1 }, cfg);
+          if (op.error) break;
+          s = op.state;
+        }
+        s = reduce(s, { type: 'LEAVE_NODE' }, cfg).state;
+        break;
+      }
+
+      case 'EVENT': {
+        // Always the last option, which §6.8 guarantees is the non-destructive
+        // one. Understates events badly and says so in the report caveat — a bot
+        // that never gambles cannot measure a system built on gambles.
+        const def = s.event ? EVENTS[s.event.code] : undefined;
+        const key = def?.options.at(-1)?.key;
+        const chosen = key
+          ? reduce(s, { type: 'CHOOSE_EVENT_OPTION', key }, cfg)
+          : { state: s, error: { code: 'NO_SUCH_OPTION' } as const };
+        s = chosen.error ? reduce(s, { type: 'LEAVE_NODE' }, cfg).state : chosen.state;
         break;
       }
 
