@@ -212,3 +212,80 @@ describe('registry shape', () => {
     }
   });
 });
+
+/**
+ * R-021 — every relic carries exactly one MK.II tier, and the three hard rules
+ * in §6.7 hold. These are the constraints a Forge cannot enforce at runtime: by
+ * the time a player is standing at the node, an upgrade that breaks one of them
+ * is already printed on a card.
+ */
+describe('§6.7 forge upgrades', () => {
+  it('every relic has exactly one upgrade, and no consumable has any', () => {
+    for (const d of RELIC_DEFS) {
+      if (d.isConsumable) {
+        expect(d.upgrade, `${d.code} is a consumable and cannot be upgraded`).toBeUndefined();
+      } else {
+        expect(d.upgrade, `${d.code} has no MK.II`).toBeDefined();
+      }
+    }
+  });
+
+  it('rule 1 — no upgrade introduces a pre_guess_reveal the base relic lacks', () => {
+    // §6.3 caps pre-guess reveals at 2. An upgrade that added one could push a
+    // player over a cap they could not have anticipated when they routed here.
+    for (const d of RELIC_DEFS) {
+      if (!d.upgrade || d.pre_guess_reveal) continue;
+      expect(
+        /before (your |the )?first guess|at word start|opens with|already carved|reveal(s|ed)? (one|a) (letter|green)/i.test(
+          d.upgrade.rule,
+        ),
+        `${d.code} MK.II reads like a pre-guess reveal: "${d.upgrade.rule}"`,
+      ).toBe(false);
+    }
+  });
+
+  it('rule 3 — boss relics upgrade on cost or reach, never raw magnitude', () => {
+    for (const d of RELIC_DEFS) {
+      if (d.rarity !== 'BOSS' || !d.upgrade) continue;
+      expect(['cost', 'reach'], `${d.code} MK.II is ${d.upgrade.axis}`).toContain(d.upgrade.axis);
+    }
+  });
+
+  it('an upgrade never changes hook, archetype, rarity or code', () => {
+    // Structural: the upgrade block simply has no field for any of them. This
+    // asserts nobody adds one.
+    for (const d of RELIC_DEFS) {
+      if (!d.upgrade) continue;
+      for (const forbidden of ['hook', 'archetype', 'rarity', 'code']) {
+        expect(forbidden in d.upgrade, `${d.code} MK.II declares ${forbidden}`).toBe(false);
+      }
+    }
+  });
+
+  it('the MK.II name derives from the relic name, so the card stays the same object', () => {
+    for (const d of RELIC_DEFS) {
+      if (!d.upgrade) continue;
+      expect(d.upgrade.name, `${d.code}`).toBe(`${d.name} MK.II`);
+    }
+  });
+
+  it('upgrade rule is player-facing copy, like `rule` (test 8b)', () => {
+    for (const d of RELIC_DEFS) {
+      if (!d.upgrade) continue;
+      expect(d.upgrade.rule, `${d.code} MK.II reads like code`).not.toMatch(/\b[A-Z][a-zA-Z]*\.[a-z]/);
+    }
+  });
+
+  it('the axis distribution is recorded, not asserted', () => {
+    // §6.7 says magnitude should be the plurality and warns that all-magnitude
+    // would make forge choices samey. Pinning exact counts would fail on every
+    // new relic, so this asserts the shape: magnitude leads, but not alone.
+    const axes = RELIC_DEFS.filter((d) => d.upgrade).map((d) => d.upgrade!.axis);
+    const counts = new Map<string, number>();
+    for (const a of axes) counts.set(a, (counts.get(a) ?? 0) + 1);
+    expect(counts.get('magnitude') ?? 0, 'magnitude should lead').toBeGreaterThan(0);
+    expect(counts.size, 'more than one axis in use').toBeGreaterThanOrEqual(4);
+    expect((counts.get('magnitude') ?? 0) / axes.length, 'all-magnitude is the failure mode')
+      .toBeLessThan(0.7);
+  });
+});

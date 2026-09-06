@@ -3,8 +3,10 @@ import { CONFIG, withConfig } from './config';
 import { EffectDepthError } from './effects';
 import { resolveHook } from './hooks';
 import { applyEffects, canDispatch, emergencyCost, initialState, reduce } from './reducer';
+import { refillPool } from './pool';
 import { deserialize, serialize } from './serialize';
 import type { Action, GameState } from '../index';
+import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
 
 /** E-04, E-05, E-07, E-10, E-13 and the determinism gate. */
@@ -20,7 +22,7 @@ function start(character: 'CH.01' | 'CH.02' = 'CH.01'): GameState {
 }
 
 function toFirstWord(s: GameState): GameState {
-  return reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
+  return enterFirstWord(s);
 }
 
 describe('E-05 — canDispatch', () => {
@@ -63,10 +65,23 @@ describe('E-04 — effects', () => {
     expect(out.state.gold).toBe(0);
   });
 
-  it('pool never exceeds poolMax', () => {
+  it('a granted guess may push the pool above poolMax (R-024)', () => {
+    // This asserted the opposite until R-024. Clamping made every mechanic that
+    // GRANTS guesses a no-op at full pool — the forge conversion, the Decanter,
+    // the Infirmary, Blindfold's payout, the Vault (§13 I-15) — and did it
+    // silently, in exactly the situation you would want the grant.
     const s = { ...start(), pool: 5, poolMax: 10 };
     const out = applyEffects(s, [{ kind: 'POOL', delta: 99, reason: 'test' }]);
-    expect(out.state.pool).toBe(10);
+    expect(out.state.pool).toBe(104);
+    expect(out.state.poolMax, 'a grant does not raise the cap').toBe(10);
+  });
+
+  it('poolMax is still the refill target at act start', () => {
+    // The other half of R-024: the cap governs the REFILL. An overflow is a
+    // thing you carry, not a new ceiling.
+    const s = { ...start(), pool: 40, poolMax: 10 };
+    const refilled = refillPool(s, 10, 'act start');
+    expect(refilled.state.pool).toBe(10);
   });
 
   it('POOL_MAX cuts the live pool too, clamped at 1 (§13 I-07 / ADR-0004)', () => {
@@ -99,8 +114,8 @@ describe('E-07 — hooks fire in acquisition order', () => {
     const s: GameState = {
       ...start(),
       relics: [
-        { instanceId: 'RL.23#5', code: 'RL.23', state: {}, acquiredAt: 5 },
-        { instanceId: 'RL.13#2', code: 'RL.13', state: {}, acquiredAt: 2 },
+        { instanceId: 'RL.23#5', code: 'RL.23', state: {}, acquiredAt: 5, upgraded: false },
+        { instanceId: 'RL.13#2', code: 'RL.13', state: {}, acquiredAt: 2, upgraded: false },
       ],
       word: toFirstWord(start()).word,
     };
@@ -219,7 +234,10 @@ describe('Gate 1 — determinism', () => {
     for (const action of script) {
       other = reduce(other, action.type === 'START_RUN' ? { ...action, seed: 'OTHERSED' } : action).state;
     }
-    expect(other.word?.solutions[0]).not.toBe(play().word?.solutions[0]);
+    // Compare whole runs, not the current word. Since R-01 the map branches, so
+    // one script can leave two seeds at different node KINDS — and two runs both
+    // parked at a shop would compare undefined against undefined and pass.
+    expect(serialize(other)).not.toBe(serialize(play()));
   });
 
   it('a config override changes the run without changing the engine', () => {
@@ -241,6 +259,7 @@ describe('run shape', () => {
     let s = start();
     for (let i = 0; i < 40 && s.phase !== 'DEATH' && s.phase !== 'VICTORY'; i++) {
       if (s.phase === 'MAP') s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
+      else if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') s = reduce(s, { type: 'LEAVE_NODE' }).state;
       else if (s.phase === 'REWARD') s = reduce(s, { type: 'SKIP_OFFER' }).state;
       else if (s.phase === 'WORD') s = reduce(s, { type: 'SUBMIT_GUESS', guess: s.word!.solutions[0]! }).state;
       else s = reduce(s, { type: 'ADVANCE' }).state;

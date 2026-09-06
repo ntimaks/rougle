@@ -4,7 +4,8 @@
     "authority": "Normative for relic names, codes, rarity, archetype, hooks and rules. Governed by MECHANICS.md.",
     "codes": "Codes are OPAQUE string primary keys. They are not sequential and do not sort by archetype. Sort by archetype/rarity fields. Codes already rendered in the design files are preserved exactly.",
     "rule_vs_flavor": "`rule` is normative and implementable. `flavor` is display copy and carries no mechanical meaning.",
-    "caps": "See MECHANICS.md §2.4 (refund floor) and §6.3 (information cap). Both are enforced in the engine, not per relic."
+    "caps": "See MECHANICS.md §2.4 (refund floor) and §6.3 (information cap). Both are enforced in the engine, not per relic.",
+    "upgrades": "Every relic carries exactly one upgrade tier, applied at a Forge node (MECHANICS.md §6.7). Consumables are not upgradeable. An upgrade never changes a relic's hook, archetype, rarity or code — only its rule. The card is the same object with an MK.II badge."
   },
 
   "archetypes": {
@@ -25,6 +26,11 @@
       "rarity": "COMMON",
       "hook": "onWordStart",
       "rule": "Your first guess of each word also reports how many vowels the answer holds.",
+      "upgrade": {
+        "name": "LEXICON MK.II",
+        "axis": "reach",
+        "rule": "The vowel count arrives at word start, before your first guess, instead of alongside it."
+      },
       "pre_guess_reveal": true
     },
     {
@@ -34,6 +40,11 @@
       "rarity": "COMMON",
       "hook": "onFeedbackTransform",
       "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word.",
+      "upgrade": {
+        "name": "THE SIEVE MK.II",
+        "axis": "duration",
+        "rule": "Greys lock out for the whole act, not just the word."
+      },
       "engine_note": "Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.04"],
@@ -46,6 +57,11 @@
       "rarity": "UNCOMMON",
       "hook": "onWordStart",
       "rule": "At word start, learn one letter this solution shares with the previous solution. If they share none, learn that instead.",
+      "upgrade": {
+        "name": "PALIMPSEST MK.II",
+        "axis": "magnitude",
+        "rule": "Learn two shared letters instead of one."
+      },
       "pre_guess_reveal": true
     },
     {
@@ -55,6 +71,11 @@
       "rarity": "RARE",
       "hook": "onFeedbackTransform",
       "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is.",
+      "upgrade": {
+        "name": "RANGEFINDER MK.II",
+        "axis": "magnitude",
+        "rule": "Yellows report direction as well as distance. Two places left reads differently from two places right."
+      },
       "flavor": "Distance, not identity.",
       "pre_guess_reveal": false,
       "transform_order": 3,
@@ -68,6 +89,11 @@
       "rarity": "COMMON",
       "hook": "onWordStart",
       "rule": "Your first guess of each word also reports whether the answer repeats any letter.",
+      "upgrade": {
+        "name": "THE CONCORDANCE MK.II",
+        "axis": "magnitude",
+        "rule": "Also reports how many distinct letters the answer holds."
+      },
       "pre_guess_reveal": true
     },
     {
@@ -77,6 +103,11 @@
       "rarity": "UNCOMMON",
       "hook": "onActStart",
       "rule": "See the modifiers on every node in the act before choosing a path.",
+      "upgrade": {
+        "name": "CARTOGRAPHER MK.II",
+        "axis": "reach",
+        "rule": "Also shows which relic archetype each reward node will offer."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -87,6 +118,11 @@
       "hook": "onUse",
       "activation": { "timing": "ANY_TIME_IN_WORD", "usesPerWord": 1, "cost": { "gold": 5 }, "input": "UNTRIED_LETTER" },
       "rule": "Once per word, at any time, name one untried letter and pay 5g. He stamps it PRESENT or ABSENT. If you cannot pay, he does not answer.",
+      "upgrade": {
+        "name": "THE AUDITOR MK.II",
+        "axis": "cost",
+        "rule": "He stamps free."
+      },
       "flavor": "Never wrong. Never free.",
       "pre_guess_reveal": false,
       "synergy": ["RL.02"],
@@ -99,6 +135,11 @@
       "rarity": "UNCOMMON",
       "hook": "onWordStart",
       "rule": "Reveals cost 30% less.",
+      "upgrade": {
+        "name": "THE FENCE MK.II",
+        "axis": "magnitude",
+        "rule": "Reveals cost half, not thirty percent less."
+      },
       "flavor": "He knows what a letter is worth. It is less than you paid.",
       "pre_guess_reveal": false,
       "reveal_discount": 0.3,
@@ -113,6 +154,11 @@
       "rarity": "COMMON",
       "hook": "onWordSolved",
       "rule": "Solve a word without buying a reveal and gain 25g.",
+      "upgrade": {
+        "name": "THE HOLDOUT MK.II",
+        "axis": "magnitude",
+        "rule": "Solving without buying a reveal pays 45g."
+      },
       "flavor": "Paid nothing. Learned nothing. Won anyway.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.08"],
@@ -126,6 +172,11 @@
       "rarity": "UNCOMMON",
       "hook": "onNodeEnter",
       "rule": "Forge nodes give you two operations instead of one. Act pool reduced by 1.",
+      "upgrade": {
+        "name": "THE ANVIL MK.II",
+        "axis": "cost",
+        "rule": "The pool penalty is lifted. Two forge operations, no weight."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -135,6 +186,11 @@
       "rarity": "COMMON",
       "hook": "onWordSolved",
       "rule": "Solve in exactly three and gain 10g.",
+      "upgrade": {
+        "name": "THE METRONOME MK.II",
+        "axis": "magnitude",
+        "rule": "Solve in exactly three: 10g and one guess back."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -144,6 +200,12 @@
       "rarity": "COMMON",
       "hook": "onWordSolved",
       "rule": "Solve in three or fewer and one guess spins straight back into the pool.",
+      "upgrade": {
+        "name": "FLYWHEEL MK.II",
+        "axis": "magnitude",
+        "rule": "Refunds two guesses instead of one.",
+        "engine_note": "Two is the maximum useful value. Under the MECHANICS.md §2.4 floor a word costs a minimum of 1 guess net, so a 3-guess solve refunding 2 already sits on the floor. A third would be dead."
+      },
       "pre_guess_reveal": false,
       "refund": { "amount": 1, "trigger": "solve_lte_3" }
     },
@@ -154,6 +216,11 @@
       "rarity": "UNCOMMON",
       "hook": "onWordSolved",
       "rule": "Three consecutive solves in three or fewer, and the next word opens with one green revealed. The counter resets on any solve of four or more.",
+      "upgrade": {
+        "name": "HOT STREAK MK.II",
+        "axis": "reliability",
+        "rule": "The streak needs two consecutive solves, not three."
+      },
       "pre_guess_reveal": true
     },
     {
@@ -163,6 +230,11 @@
       "rarity": "UNCOMMON",
       "hook": "onGuessSubmit",
       "rule": "Your first guess of a word is refunded if it contains four or more unique letters not yet used this word.",
+      "upgrade": {
+        "name": "OPENING GAMBIT MK.II",
+        "axis": "reliability",
+        "rule": "Three unique unused letters is enough."
+      },
       "pre_guess_reveal": false,
       "refund": { "amount": 1, "trigger": "first_guess_4_unique" },
       "engine_note": "Implemented as a refund, never as a skipped decrement. The pool must visibly tick down and back up. See MECHANICS.md §2.4 Rule C."
@@ -174,6 +246,11 @@
       "rarity": "UNCOMMON",
       "hook": "onWordSolved",
       "rule": "Solve in two or fewer: gain 40g. Solve in five or more: lose 20g.",
+      "upgrade": {
+        "name": "THE GUILLOTINE MK.II",
+        "axis": "magnitude",
+        "rule": "Two or fewer pays 60g. Five or more still costs 20g."
+      },
       "flavor": "Fast, or shorter.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.23"],
@@ -186,6 +263,11 @@
       "rarity": "UNCOMMON",
       "hook": "onNodeEnter",
       "rule": "Elite nodes refund 2 guesses on clear, and award no gold.",
+      "upgrade": {
+        "name": "BLOODHOUND MK.II",
+        "axis": "magnitude",
+        "rule": "Elites refund three guesses. They still pay nothing."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -195,6 +277,11 @@
       "rarity": "RARE",
       "hook": "onNodeEnter",
       "rule": "Passing a shop node without buying anything grants 30g on leaving.",
+      "upgrade": {
+        "name": "THE PILGRIM MK.II",
+        "axis": "reach",
+        "rule": "50g, and passing a forge without using it pays the same."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -204,6 +291,11 @@
       "rarity": "COMMON",
       "hook": "onGuessSubmit",
       "rule": "Each guess has a 50% chance of being refunded.",
+      "upgrade": {
+        "name": "THE WISHBONE MK.II",
+        "axis": "reliability",
+        "rule": "The odds are two in three."
+      },
       "pre_guess_reveal": false,
       "refund": { "amount": 1, "trigger": "coinflip_0.5" }
     },
@@ -214,6 +306,12 @@
       "rarity": "UNCOMMON",
       "hook": "onWordStart",
       "rule": "At every word start it eats one letter off your keyboard and hands you a guess for it. It never eats a letter present in the solution.",
+      "upgrade": {
+        "name": "THE MOTH MK.II",
+        "axis": "magnitude",
+        "rule": "It eats a letter and hands you two guesses.",
+        "engine_note": "Fires on onWordStart, so it stacks with onWordSolved refunds — different events, so the highest-refund-only rule does not merge them. The §2.4 floor is what caps the combination."
+      },
       "flavor": "It eats the alphabet, not the word.",
       "pre_guess_reveal": false,
       "refund": { "amount": 1, "trigger": "word_start" },
@@ -228,6 +326,11 @@
       "hook": "onUse",
       "activation": { "timing": "BEFORE_SUBMIT", "usesPerWord": 1, "cost": {}, "input": null },
       "rule": "Choose to take no feedback on a guess. If that guess was within one letter of the solution, gain 3 guesses. Otherwise nothing.",
+      "upgrade": {
+        "name": "BLINDFOLD MK.II",
+        "axis": "reliability",
+        "rule": "Within two letters is enough."
+      },
       "engine_note": "\"Within one letter\" is Hamming distance <= 1: the guess and the solution are the same length, and at most one position differs. Transpositions do not count. Ruled in R-017.",
       "ruling": "R-017",
       "pre_guess_reveal": false
@@ -240,6 +343,12 @@
       "hook": "onUse",
       "activation": { "timing": "BEFORE_FIRST_GUESS", "usesPerWord": 1, "cost": {}, "input": "WAGER" },
       "rule": "Before a word, wager any number of guesses. Solve within that count and gain the same number back. Fail and lose all of them.",
+      "upgrade": {
+        "name": "ALL IN MK.II",
+        "axis": "cost",
+        "rule": "A lost wager costs half of what you staked, rounded down.",
+        "engine_note": "Cost reduction rather than payout increase, deliberately. RL.21 already carries a balance_flag; raising the upside would compound it."
+      },
       "pre_guess_reveal": false,
       "refund": { "amount": "wager", "trigger": "solve_within_wager" },
       "balance_flag": "Pairs degenerately with any relic that removes uncertainty about your own solve count. Watch RL.04 and RL.07 co-occurrence in simulation."
@@ -251,6 +360,11 @@
       "rarity": "BOSS",
       "hook": "onWordSolved",
       "rule": "Six- and seven-letter words award double gold and roll relic offers one rarity tier higher.",
+      "upgrade": {
+        "name": "POLYGLOT MK.II",
+        "axis": "reach",
+        "rule": "Also applies to Mirror words and boss words."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -260,6 +374,11 @@
       "rarity": "UNCOMMON",
       "hook": "onGuessSubmit",
       "rule": "Every guess you spend rattles 5g loose.",
+      "upgrade": {
+        "name": "THE TIN CUP MK.II",
+        "axis": "magnitude",
+        "rule": "+8g a guess, up from 5g."
+      },
       "flavor": "Flailing pays. Slowly.",
       "pre_guess_reveal": false,
       "anti_synergy": ["RL.14", "RL.11"],
@@ -272,6 +391,11 @@
       "rarity": "COMMON",
       "hook": "onActEnd",
       "rule": "Leftover guesses convert at 15g each instead of 10g.",
+      "upgrade": {
+        "name": "THE LEDGER MK.II",
+        "axis": "magnitude",
+        "rule": "Leftover guesses convert at 22g."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -281,6 +405,11 @@
       "rarity": "UNCOMMON",
       "hook": "onPoolChange",
       "rule": "The first emergency guess of each act is free.",
+      "upgrade": {
+        "name": "INSURANCE MK.II",
+        "axis": "magnitude",
+        "rule": "The first two emergency guesses each act are free."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -290,6 +419,11 @@
       "rarity": "RARE",
       "hook": "onGuessSubmit",
       "rule": "After two failed guesses on a word, the first letter is lit for free.",
+      "upgrade": {
+        "name": "THE LANTERN MK.II",
+        "axis": "reliability",
+        "rule": "It lights after one failed guess, not two."
+      },
       "flavor": "It only lights the way once you are lost.",
       "pre_guess_reveal": false
     },
@@ -300,6 +434,11 @@
       "rarity": "RARE",
       "hook": "onActEnd",
       "rule": "Up to 10 leftover guesses carry into the next act instead of converting to gold. Does not raise the act cap.",
+      "upgrade": {
+        "name": "THE VAULT MK.II",
+        "axis": "magnitude",
+        "rule": "Carries up to sixteen."
+      },
       "pre_guess_reveal": false
     },
     {
@@ -310,6 +449,11 @@
       "hook": "onUse",
       "activation": { "timing": "ANY_TIME_IN_WORD", "usesPerWord": 1, "cost": {}, "input": null },
       "rule": "Once per word, re-roll which positions report truthfully. You do not get to see the roll.",
+      "upgrade": {
+        "name": "SHAVED COIN MK.II",
+        "axis": "magnitude",
+        "rule": "Twice per word. You still do not see the roll."
+      },
       "flavor": "Heads it tells you. Tails it does not.",
       "pre_guess_reveal": false,
       "transform_order": 1,
@@ -324,6 +468,11 @@
       "rarity": "BOSS",
       "hook": "onFeedbackTransform",
       "rule": "Fully immune to the Liar Letter modifier. Corruption transforms are skipped entirely.",
+      "upgrade": {
+        "name": "THE MASK MK.II",
+        "axis": "reach",
+        "rule": "Also immune to Fog."
+      },
       "pre_guess_reveal": false,
       "transform_order": 2
     },
@@ -334,6 +483,12 @@
       "rarity": "BOSS",
       "hook": "onWordFailed",
       "rule": "On death, restart the current act with your relics intact. Once per run, then it is spent.",
+      "upgrade": {
+        "name": "OUROBOROS MK.II",
+        "axis": "reach",
+        "rule": "You restart the act with your gold as well as your relics.",
+        "engine_note": "This also settles a rule the base relic left unspecified: at MK.I gold is lost on revival, at MK.II it is kept."
+      },
       "pre_guess_reveal": false,
       "balance_flag": "Removes the downside of any wager. Watch co-occurrence with RL.20 and RL.21 in simulation."
     },
@@ -344,6 +499,11 @@
       "rarity": "BOSS",
       "hook": "onWordStart",
       "rule": "Every word opens with one green already carved. In exchange the act pool is cut by three.",
+      "upgrade": {
+        "name": "ROSETTA SLAB MK.II",
+        "axis": "cost",
+        "rule": "The act pool is cut by one instead of three."
+      },
       "flavor": "Older than the language it breaks.",
       "pre_guess_reveal": true,
       "transform_order": 4

@@ -18,6 +18,7 @@ export function RewardScreen({ state }: { state: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const [picked, setPicked] = useState<string | null>(null);
   const offer = state.pendingOffer;
+  const goldInstead = offer?.goldInstead ?? null;
   if (!offer) return null;
 
   const held = state.relics.map((r) => r.code);
@@ -58,12 +59,20 @@ export function RewardScreen({ state }: { state: GameState }) {
         >
           {picked ? `TAKE ${REGISTRY[picked]?.name ?? picked}` : 'SELECT ONE'}
         </Button>
+        {/*
+          R-025 — refusing is a purchase, not a dismissal. On a word node the
+          relic and the gold are one choice, so the secondary action names its
+          price. On an elite or a boss the gold is already paid and refusing
+          really is refusing, so it says so rather than implying a trade.
+        */}
         <button
           type="button"
           onClick={() => dispatch({ type: 'SKIP_OFFER' })}
-          className="min-h-[44px] font-mono text-[10px] leading-none tracking-[0.14em] text-fg3"
+          className={`min-h-[44px] font-mono text-[10px] leading-none tracking-[0.14em] ${
+            goldInstead ? 'text-accent' : 'text-fg3'
+          }`}
         >
-          TAKE NOTHING
+          {goldInstead ? `TAKE ${goldInstead}g INSTEAD` : 'TAKE NOTHING'}
         </button>
       </div>
     </div>

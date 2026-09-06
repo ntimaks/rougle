@@ -26,7 +26,15 @@ export interface GameConfig {
   ledgerGoldPerLeftoverGuess: number;
   vaultCarryCap: number;
   emergencyCosts: readonly number[];
-  rewards: { word: readonly [number, number]; elite: number; boss: number };
+  rewards: {
+    /**
+     * R-025: a word node pays this INSTEAD of its relic, never as well. The
+     * player chooses. Elite and boss nodes grant both.
+     */
+    wordGoldInstead: number;
+    elite: number;
+    boss: number;
+  };
   minNetGuessesPerWord: number;
   preGuessRevealCap: number;
   consumableSlots: number;
@@ -59,7 +67,7 @@ export const CONFIG: Readonly<GameConfig> = Object.freeze({
   ledgerGoldPerLeftoverGuess: 15, // RL.24 The Ledger
   vaultCarryCap: 10, // RL.27 The Vault
   emergencyCosts: [25, 50, 100],
-  rewards: { word: [15, 25], elite: 40, boss: 60 },
+  rewards: { wordGoldInstead: 40, elite: 40, boss: 60 }, // MECHANICS.md §3.3, R-025
   minNetGuessesPerWord: 1, // MECHANICS.md §2.4 Rule A
   preGuessRevealCap: 2, // MECHANICS.md §6.3
   consumableSlots: 3,

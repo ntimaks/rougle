@@ -13,7 +13,7 @@ import '../words/all';
  */
 
 function ctx(code: string, relicState: Record<string, unknown> = {}, over: Partial<GameState> = {}): HookContext {
-  const self: RelicInstance = { instanceId: `${code}#1`, code, state: relicState, acquiredAt: 1 };
+  const self: RelicInstance = { instanceId: `${code}#1`, code, state: relicState, acquiredAt: 1, upgraded: false };
   return {
     state: { ...initialState('RELICSED', 'CH.01'), relics: [self], ...over },
     self,

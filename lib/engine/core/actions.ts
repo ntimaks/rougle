@@ -14,6 +14,11 @@ export type Action =
   | { type: 'SKIP_OFFER' }
   | { type: 'BUY_EMERGENCY' }
   | { type: 'BUY_REVEAL'; index: number }
+  | { type: 'BUY_STOCK'; slot: number }
+  | { type: 'LEAVE_NODE' }
+  | { type: 'FORGE_UPGRADE'; instanceId: string }
+  | { type: 'FORGE_CONVERT'; guesses: number }
+  | { type: 'CHOOSE_EVENT_OPTION'; key: string }
   | { type: 'DECLINE_EMERGENCY' }
   | { type: 'ADVANCE' }
   | { type: 'ABANDON_RUN' };
@@ -33,6 +38,13 @@ export type EngineErrorCode =
   | 'REVEAL_EXHAUSTED'
   | 'REVEAL_UNAVAILABLE'
   | 'POSITION_KNOWN'
+  | 'NO_SUCH_SLOT'
+  | 'SOLD_OUT'
+  | 'NO_OPERATIONS'
+  | 'NOT_UPGRADEABLE'
+  | 'ALREADY_UPGRADED'
+  | 'NO_SUCH_OPTION'
+  | 'REQUIREMENT_UNMET'
   | 'INVENTORY_FULL'
   | 'RUN_OVER';
 
@@ -71,6 +83,13 @@ export type GameEvent =
   | { type: 'EMERGENCY_OFFERED'; cost: number; affordable: boolean }
   | { type: 'EMERGENCY_BOUGHT'; cost: number }
   | { type: 'REVEAL_BOUGHT'; index: number; letter: string; cost: number; nth: number }
+  | { type: 'SHOP_OPENED'; nodeId: NodeId; slots: number }
+  | { type: 'STOCK_BOUGHT'; code: string; price: number }
+  | { type: 'FORGE_OPENED'; nodeId: NodeId; operations: number }
+  | { type: 'RELIC_UPGRADED'; code: string; instanceId: string }
+  | { type: 'GOLD_CONVERTED'; gold: number; guesses: number }
+  | { type: 'EVENT_OPENED'; nodeId: NodeId; code: string }
+  | { type: 'EVENT_RESOLVED'; code: string; option: string }
   | { type: 'ACT_ENDED'; actIndex: number; leftover: number; goldGained: number }
   | { type: 'OUROBOROS_TRIGGERED'; actIndex: number }
   | { type: 'RUN_ENDED'; outcome: 'WIN' | 'DEATH'; cause: string | null };

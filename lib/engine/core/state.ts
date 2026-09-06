@@ -48,6 +48,12 @@ export interface RelicInstance {
   state: Record<string, unknown>;
   /** Monotonic acquisition ordinal. Load-bearing for hook order and §6.3. */
   acquiredAt: number;
+  /**
+   * MK.II applied at a Forge (§6.7). Per instance, not per code: it is a thing
+   * that happened to this relic in this run, and it has to survive save/load
+   * and Ouroboros' act restart like any other run state.
+   */
+  upgraded: boolean;
 }
 
 export interface ConsumableInstance {
@@ -116,9 +122,49 @@ export interface WordState {
   poolSource: 'ACT' | 'GAUNTLET';
 }
 
+export interface ShopStockItem {
+  code: string;
+  price: number;
+  sold: boolean;
+}
+
+export interface ShopState {
+  nodeId: NodeId;
+  stock: ShopStockItem[];
+}
+
+export interface ForgeState {
+  nodeId: NodeId;
+  /** Decremented per operation. RL.09 The Anvil starts it at 2. */
+  operationsLeft: number;
+  /** Codes upgraded here, so the screen can show what it did. */
+  upgraded: string[];
+}
+
+export interface EventState {
+  nodeId: NodeId;
+  code: string;
+}
+
+export interface PendingChallenge {
+  /** Guesses the next word must fall within. null means "just clear it". */
+  limit: number | null;
+  source: string;
+  onSuccess: unknown[];
+  onFailure: unknown[];
+}
+
 export interface MapNode {
   id: NodeId;
   kind: NodeKind;
+  /**
+   * Which act generated this node. A word's boss, its deferral and its name
+   * were all looked up as `BOSSES[state.actIndex]`, which is only correct while
+   * the map and the act counter agree — and a screenshot of the Act II Twins
+   * labelled THE CIPHER, running the Cipher's 3-turn deferral over a Mirror
+   * word, is what happens when they do not. The node knows what it is.
+   */
+  actIndex: 0 | 1 | 2;
   row: number;
   col: number;
   next: NodeId[];
@@ -143,6 +189,12 @@ export interface Offer {
   sourceNodeId: NodeId;
   /** Boss relics are guaranteed, not chosen from three. */
   forced: boolean;
+  /**
+   * R-025. Gold the player gets INSTEAD of taking a relic, on a word node.
+   * null where the node already paid its gold (elite, boss), so refusing buys
+   * nothing and the screen must not pretend it is a trade.
+   */
+  goldInstead: number | null;
 }
 
 export interface RunStats {
@@ -181,6 +233,30 @@ export interface GameState {
   word: WordState | null;
   gauntlet: { pool: number; wordIndex: number } | null;
   pendingOffer: Offer | null;
+  /** Stock for the SHOP node being stood in. Rolled on entry, discarded on leaving. */
+  shop: ShopState | null;
+  /** The FORGE node being stood in. RL.09 The Anvil makes `operationsLeft` 2. */
+  forge: ForgeState | null;
+  /** The EVENT node being stood in (MECHANICS §6.8). */
+  event: EventState | null;
+  /**
+   * Events already drawn this run. §6.8 draws without replacement, so an event
+   * seen once cannot recur — which is what makes twelve enough.
+   */
+  seenEvents: string[];
+  /**
+   * An event's `word_challenge`, waiting for the next word to resolve against.
+   * It has to survive the map screen between the event node and the word, which
+   * is why it lives on run state rather than on the word.
+   */
+  pendingChallenge: PendingChallenge | null;
+  /**
+   * EV.08 The Undertaker. A one-shot revival at pool zero, distinct from RL.30
+   * Ouroboros: it restores this many guesses and continues the act rather than
+   * restarting it. Resolves AFTER the §2.3 emergency offer, so a player who can
+   * pay gold still pays gold first and keeps the revival.
+   */
+  actRevivalGuesses: number | null;
   /** Serialized state written at onActStart, for RL.30 Ouroboros. */
   actStartSnapshot: string | null;
   ouroborosSpent: boolean;

@@ -64,7 +64,8 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
   }, [submit, type, view.locked]);
 
   const spent = word.netGuessesSpent - word.refundsAppliedThisWord;
-  const isBoss = word.nodeId.endsWith('-boss');
+  const node = state.map.nodes[word.nodeId]!;
+  const isBoss = node.kind === 'BOSS';
   const guessCost = events.some((e) => e.type === 'GUESS_SUBMITTED');
   const refund = events.find((e) => e.type === 'REFUND_GRANTED');
 
@@ -77,7 +78,7 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
 
       <div className="flex flex-none items-center gap-2 border-b border-line-soft px-3 py-2">
         <span className="font-mono text-[9px] leading-none tracking-[0.18em] text-fg2">
-          {isBoss ? BOSSES[state.actIndex].name : `NODE ${word.nodeId.split('-n')[1] ?? '?'}`}
+          {isBoss ? BOSSES[node.actIndex].name : `NODE ${node.row + 1}`}
         </span>
         <span className="font-mono text-[9px] leading-none tracking-[0.14em] text-fg3">
           {/* The design's copy really does start with a double slash. */}

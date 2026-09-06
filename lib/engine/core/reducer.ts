@@ -8,12 +8,13 @@ import {
   impl as implFor,
   isImplemented,
   offerableInAct,
+  offerableConsumables,
 } from '../content/registry';
 import { annotateDistances } from '../feedback/chain';
 import { activeReveals } from '../feedback/infoCap';
 import { projectBoard } from '../feedback/projection';
 import { hasRepeat, scoreBase, vowelCount } from '../feedback/scorer';
-import { generateLinearAct } from '../map/generate';
+import { generateAct } from '../map/rows';
 import { drawSolution, hasWordList, isValidGuess, type WordLength } from '../words';
 import type { Action, EngineError, GameEvent, ReduceResult } from './actions';
 import { CONFIG, type GameConfig } from './config';
@@ -22,6 +23,14 @@ import type { Effect } from './effects';
 import { EffectDepthError } from './effects';
 import { holdersInOrder, resolveHook, resolveUse } from './hooks';
 import { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './letters';
+import {
+  EVENTS,
+  FORGE_GOLD_PER_GUESS,
+  drawEvent,
+  forgeOperations,
+  optionAvailable,
+  rollShopStock,
+} from './nodes';
 import { addPool, addPoolMax, currentPool, offerRefund, refillPool, spendGuess } from './pool';
 import { DOMAIN, draw, drawInt, drawWeighted } from './rng';
 import {
@@ -68,13 +77,23 @@ export function reduce(
     case 'ACCEPT_OFFER':
       return acceptOffer(state, action.code, cfg);
     case 'SKIP_OFFER':
-      return advance({ ...state, pendingOffer: null }, [], cfg);
+      return declineOffer(state, cfg);
     case 'USE_ITEM':
       return applyItemUse(state, action.instanceId, action.payload ?? {}, cfg);
     case 'BUY_EMERGENCY':
       return buyEmergency(state, cfg);
     case 'BUY_REVEAL':
       return buyReveal(state, action.index, [], cfg);
+    case 'BUY_STOCK':
+      return buyStock(state, action.slot, cfg);
+    case 'LEAVE_NODE':
+      return leaveNode(state, cfg);
+    case 'FORGE_UPGRADE':
+      return forgeUpgrade(state, action.instanceId);
+    case 'FORGE_CONVERT':
+      return forgeConvert(state, action.guesses, cfg);
+    case 'CHOOSE_EVENT_OPTION':
+      return chooseEventOption(state, action.key, cfg);
     case 'DECLINE_EMERGENCY':
       return die(state, 'EMERGENCY_DECLINED', cfg);
     case 'ADVANCE':
@@ -172,6 +191,47 @@ export function canDispatch(
     case 'DECLINE_EMERGENCY':
       if (s.phase !== 'EMERGENCY') return wrongPhase('EMERGENCY');
       return null;
+    case 'BUY_STOCK': {
+      if (s.phase !== 'SHOP' || !s.shop) return wrongPhase('SHOP');
+      const item = s.shop.stock[action.slot];
+      if (!item) return { code: 'NO_SUCH_SLOT', message: 'Nothing in that slot.' };
+      if (item.sold) return { code: 'SOLD_OUT', message: 'Already bought.' };
+      if (s.gold < item.price) return { code: 'UNAFFORDABLE', message: `${item.price}g needed.` };
+      if (REGISTRY[item.code]?.isConsumable && s.consumables.length >= cfg.consumableSlots) {
+        return { code: 'INVENTORY_FULL', message: `Consumables are capped at ${cfg.consumableSlots}.` };
+      }
+      return null;
+    }
+    case 'FORGE_UPGRADE': {
+      if (s.phase !== 'FORGE' || !s.forge) return wrongPhase('FORGE');
+      if (s.forge.operationsLeft <= 0) return { code: 'NO_OPERATIONS', message: 'No operations left.' };
+      const held = s.relics.find((r) => r.instanceId === action.instanceId);
+      if (!held) return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
+      if (held.upgraded) return { code: 'ALREADY_UPGRADED', message: 'Already MK.II.' };
+      if (!REGISTRY[held.code]?.upgrade) return { code: 'NOT_UPGRADEABLE', message: 'No MK.II exists.' };
+      return null;
+    }
+    case 'FORGE_CONVERT': {
+      if (s.phase !== 'FORGE' || !s.forge) return wrongPhase('FORGE');
+      if (s.forge.operationsLeft <= 0) return { code: 'NO_OPERATIONS', message: 'No operations left.' };
+      const cost = Math.max(0, Math.floor(action.guesses)) * FORGE_GOLD_PER_GUESS;
+      if (cost === 0 || s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
+      return null;
+    }
+    case 'CHOOSE_EVENT_OPTION': {
+      if (s.phase !== 'EVENT' || !s.event) return wrongPhase('EVENT');
+      const option = EVENTS[s.event.code]?.options.find((o) => o.key === action.key);
+      if (!option) return { code: 'NO_SUCH_OPTION', message: `No option ${action.key}.` };
+      if (!optionAvailable(s, option.requires)) {
+        return { code: 'REQUIREMENT_UNMET', message: 'You do not meet the terms.' };
+      }
+      return null;
+    }
+    case 'LEAVE_NODE':
+      if (s.phase !== 'SHOP' && s.phase !== 'FORGE' && s.phase !== 'EVENT') {
+        return { code: 'WRONG_PHASE', message: 'Not at a service node.' };
+      }
+      return null;
     case 'BUY_REVEAL': {
       const blocked = revealBlocker(s, cfg);
       if (blocked) return blocked;
@@ -207,6 +267,12 @@ export function initialState(seed: string, characterCode: CharacterCode): GameSt
     word: null,
     gauntlet: null,
     pendingOffer: null,
+    shop: null,
+    forge: null,
+    event: null,
+    seenEvents: [],
+    pendingChallenge: null,
+    actRevivalGuesses: null,
     actStartSnapshot: null,
     ouroborosSpent: false,
     actReceipt: null,
@@ -266,7 +332,7 @@ function startAct(s: GameState, actIndex: 0 | 1 | 2, cfg: Readonly<GameConfig>):
     gauntlet: null,
     word: null,
     pendingOffer: null,
-    map: generateLinearAct(s.seed, actIndex, cfg),
+    map: generateAct(s.seed, actIndex, cfg).map,
     phase: 'MAP',
   };
 
@@ -294,6 +360,7 @@ function instantiate(code: string, acquiredAt: number): RelicInstance {
     code,
     state: relicInitialState(code),
     acquiredAt,
+    upgraded: false,
   };
 }
 
@@ -325,6 +392,40 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   next = hooked.state;
   events.push(...hooked.events);
 
+  // A service node has no word. It opens its own screen and returns to the map
+  // via LEAVE_NODE, which is why `advance` already reads current.next.
+  if (node.kind === 'SHOP') {
+    const stock = rollShopStock(next, nodeId, cfg);
+    return {
+      state: { ...next, phase: 'SHOP', shop: { nodeId, stock } },
+      events: [...events, { type: 'SHOP_OPENED', nodeId, slots: stock.length }],
+    };
+  }
+
+  if (node.kind === 'FORGE') {
+    const operations = forgeOperations(next);
+    return {
+      state: { ...next, phase: 'FORGE', forge: { nodeId, operationsLeft: operations, upgraded: [] } },
+      events: [...events, { type: 'FORGE_OPENED', nodeId, operations }],
+    };
+  }
+
+  if (node.kind === 'EVENT') {
+    const drawn = drawEvent(next, nodeId);
+    // §6.8 draws without replacement, so a run long enough to exhaust the act's
+    // pool would otherwise hang on an empty screen. Walk on instead.
+    if (!drawn) return advance(next, events, cfg);
+    return {
+      state: {
+        ...next,
+        phase: 'EVENT',
+        event: { nodeId, code: drawn.code },
+        seenEvents: [...next.seenEvents, drawn.code],
+      },
+      events: [...events, { type: 'EVENT_OPENED', nodeId, code: drawn.code }],
+    };
+  }
+
   if (node.kind === 'BOSS' && BOSSES[next.actIndex].ownPool !== null) {
     next = { ...next, gauntlet: { pool: BOSSES[next.actIndex].ownPool!, wordIndex: 0 } };
   }
@@ -333,12 +434,109 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   return { state: started.state, events: [...events, ...started.events] };
 }
 
+// ------------------------------------------------------------ service nodes
+
+/** Clears whichever service node is open and returns to the map. */
+function leaveNode(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  return advance({ ...s, shop: null, forge: null, event: null }, [], cfg);
+}
+
+function buyStock(s: GameState, slot: number, cfg: Readonly<GameConfig>): ReduceResult {
+  const item = s.shop?.stock[slot];
+  if (!s.shop || !item) {
+    return { state: s, events: [], error: { code: 'NO_SUCH_SLOT', message: 'Nothing in that slot.' } };
+  }
+  if (item.sold) return { state: s, events: [], error: { code: 'SOLD_OUT', message: 'Already bought.' } };
+  if (s.gold < item.price) {
+    return { state: s, events: [], error: { code: 'UNAFFORDABLE', message: `${item.price}g needed.` } };
+  }
+  const def = REGISTRY[item.code];
+  if (def?.isConsumable && s.consumables.length >= cfg.consumableSlots) {
+    return {
+      state: s,
+      events: [],
+      error: { code: 'INVENTORY_FULL', message: `Consumables are capped at ${cfg.consumableSlots}.` },
+    };
+  }
+
+  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -item.price, reason: 'shop' }], cfg);
+  const granted = applyEffects(
+    paid.state,
+    [def?.isConsumable ? { kind: 'GRANT_CONSUMABLE', code: item.code } : { kind: 'GRANT_RELIC', code: item.code }],
+    cfg,
+  );
+  const stock = s.shop.stock.map((x, i) => (i === slot ? { ...x, sold: true } : x));
+  return {
+    state: { ...granted.state, shop: { ...s.shop, stock } },
+    events: [
+      ...paid.events,
+      ...granted.events,
+      { type: 'STOCK_BOUGHT', code: item.code, price: item.price },
+    ],
+  };
+}
+
+function forgeUpgrade(s: GameState, instanceId: string): ReduceResult {
+  if (!s.forge || s.forge.operationsLeft <= 0) {
+    return { state: s, events: [], error: { code: 'NO_OPERATIONS', message: 'No operations left.' } };
+  }
+  const held = s.relics.find((r) => r.instanceId === instanceId);
+  if (!held) {
+    return { state: s, events: [], error: { code: 'NO_SUCH_ITEM', message: `Not holding ${instanceId}.` } };
+  }
+  if (held.upgraded) {
+    return { state: s, events: [], error: { code: 'ALREADY_UPGRADED', message: 'Already MK.II.' } };
+  }
+  if (!REGISTRY[held.code]?.upgrade) {
+    return { state: s, events: [], error: { code: 'NOT_UPGRADEABLE', message: 'No MK.II exists.' } };
+  }
+
+  return {
+    state: {
+      ...s,
+      relics: s.relics.map((r) => (r.instanceId === instanceId ? { ...r, upgraded: true } : r)),
+      forge: {
+        ...s.forge,
+        operationsLeft: s.forge.operationsLeft - 1,
+        upgraded: [...s.forge.upgraded, held.code],
+      },
+    },
+    events: [{ type: 'RELIC_UPGRADED', code: held.code, instanceId }],
+  };
+}
+
+function forgeConvert(s: GameState, guesses: number, cfg: Readonly<GameConfig>): ReduceResult {
+  if (!s.forge || s.forge.operationsLeft <= 0) {
+    return { state: s, events: [], error: { code: 'NO_OPERATIONS', message: 'No operations left.' } };
+  }
+  const wanted = Math.max(0, Math.floor(guesses));
+  const cost = wanted * FORGE_GOLD_PER_GUESS;
+  if (wanted === 0 || s.gold < cost) {
+    return { state: s, events: [], error: { code: 'UNAFFORDABLE', message: `${cost}g needed.` } };
+  }
+
+  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -cost, reason: 'forge' }], cfg);
+  const poured = applyEffects(paid.state, [{ kind: 'POOL', delta: wanted, reason: 'forge' }], cfg);
+  return {
+    state: { ...poured.state, forge: { ...s.forge, operationsLeft: s.forge.operationsLeft - 1 } },
+    events: [
+      ...paid.events,
+      ...poured.events,
+      { type: 'GOLD_CONVERTED', gold: cost, guesses: wanted },
+    ],
+  };
+}
+
 // -------------------------------------------------------------------- word
 
 function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): ReduceResult {
   const node = s.map.nodes[nodeId]!;
   const isBoss = node.kind === 'BOSS';
-  const boss = BOSSES[s.actIndex];
+  // From the NODE, never from state.actIndex. The two are meant to agree and a
+  // playtest screenshot proved they can drift: the Act II Twins ran the Act I
+  // Cipher's 3-turn deferral over a two-solution word, which is six blank rows
+  // and no way to read them.
+  const boss = BOSSES[node.actIndex];
   const modifiers: ModifierId[] = [...node.modifiers];
   const baseLength = cfg.acts[s.actIndex].wordLength;
   const length: WordLength = isBoss
@@ -361,7 +559,15 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     solutions.push(drawSolution(s.seed, `${domain}:b`, length, new Set([...used, solutions[0]!])));
   }
 
-  const deferralDepth = isBoss && boss.deferralDepth > 0
+  // R-026, enforced where the word is built rather than only where modifiers
+  // roll. The pair exclusion stops FOG meeting MIRROR, but a boss carries its
+  // deferral outside the modifier table, so the Cipher could still meet a
+  // mirrored word by another route. Two solutions always win: a deferred mirror
+  // is unreadable, a mirror is merely hard.
+  const mirrored = solutions.length > 1;
+  const deferralDepth = mirrored
+    ? 0
+    : isBoss && boss.deferralDepth > 0
     ? boss.deferralDepth
     : modifiers.includes('FOG')
       ? 1
@@ -590,24 +796,31 @@ function grantNodeReward(
   const events: GameEvent[] = [];
   let next = s;
 
-  const gold =
-    kind === 'BOSS'
-      ? cfg.rewards.boss
-      : kind === 'ELITE'
-        ? cfg.rewards.elite
-        : cfg.rewards.word[0] +
-          drawInt(s.seed, DOMAIN.offer(nodeId), 99, cfg.rewards.word[1] - cfg.rewards.word[0] + 1);
-
-  const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
-  next = golded.state;
-  events.push(...golded.events);
+  // R-025. A word node pays gold OR a relic and the player picks; an elite or
+  // a boss pays both. Granting both everywhere yielded ~15 relics a run, which
+  // left gold with nothing to buy that was not already coming for free.
+  const bothRewards = kind === 'BOSS' || kind === 'ELITE';
+  if (bothRewards) {
+    const gold = kind === 'BOSS' ? cfg.rewards.boss : cfg.rewards.elite;
+    const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
+    next = golded.state;
+    events.push(...golded.events);
+  }
 
   const codes = rollOffer(next, nodeId, cfg);
   if (codes.length > 0) {
     next = {
       ...next,
       phase: 'REWARD',
-      pendingOffer: { kind: 'RELIC', codes, sourceNodeId: nodeId, forced: false },
+      pendingOffer: {
+        kind: 'RELIC',
+        codes,
+        sourceNodeId: nodeId,
+        forced: false,
+        // null on elite and boss nodes: their gold is already paid, so refusing
+        // the relic buys nothing and the screen must not offer a trade.
+        goldInstead: bothRewards ? null : cfg.rewards.wordGoldInstead,
+      },
     };
   } else {
     const advanced = advance(next, events, cfg);
@@ -662,6 +875,145 @@ function acceptOffer(s: GameState, code: string, cfg: Readonly<GameConfig>): Red
       : { kind: 'GRANT_RELIC', code };
   const granted = applyEffects({ ...s, pendingOffer: null }, [effect], cfg);
   return advance(granted.state, granted.events, cfg);
+}
+
+/**
+ * Resolve one event option (MECHANICS.md §6.8).
+ *
+ * The effect vocabulary is closed and translated here into the engine's own
+ * `Effect` union wherever the two overlap, so an event grants gold or pool
+ * through exactly the same path a relic does. The three verbs with no `Effect`
+ * equivalent — a challenge on the next word, a map skip, a revival flag — set
+ * run state directly, and each is a named field rather than a counter, because
+ * a flag nobody can find is a flag nobody maintains.
+ */
+function chooseEventOption(s: GameState, key: string, cfg: Readonly<GameConfig>): ReduceResult {
+  const def = s.event ? EVENTS[s.event.code] : undefined;
+  const option = def?.options.find((o) => o.key === key);
+  if (!def || !option) {
+    return { state: s, events: [], error: { code: 'NO_SUCH_OPTION', message: `No option ${key}.` } };
+  }
+  if (!optionAvailable(s, option.requires)) {
+    return {
+      state: s,
+      events: [],
+      error: { code: 'REQUIREMENT_UNMET', message: 'You do not meet the terms.' },
+    };
+  }
+
+  let next = s;
+  const out: GameEvent[] = [];
+
+  for (const effect of option.effect) {
+    const applied = applyEventEffect(next, effect, def.code, cfg);
+    next = applied.state;
+    out.push(...applied.events);
+  }
+
+  out.push({ type: 'EVENT_RESOLVED', code: def.code, option: key });
+  // The node is done either way; leaving is not a second decision.
+  return advance({ ...next, event: null }, out, cfg);
+}
+
+function applyEventEffect(
+  s: GameState,
+  effect: Record<string, unknown>,
+  source: string,
+  cfg: Readonly<GameConfig>,
+): { state: GameState; events: GameEvent[] } {
+  if ('gold_delta' in effect) {
+    return applyEffects(s, [{ kind: 'GOLD', delta: effect['gold_delta'] as number, reason: source }], cfg);
+  }
+  if ('pool_delta' in effect) {
+    return applyEffects(s, [{ kind: 'POOL', delta: effect['pool_delta'] as number, reason: source }], cfg);
+  }
+  if ('consumable_grant' in effect) {
+    const spec = effect['consumable_grant'] as { count: number };
+    let next = s;
+    const events: GameEvent[] = [];
+    for (let i = 0; i < spec.count; i++) {
+      const pool = offerableConsumables();
+      if (pool.length === 0) break;
+      const pick = pool[drawInt(s.seed, DOMAIN.offer(source), 800 + i, pool.length)]!;
+      const granted = applyEffects(next, [{ kind: 'GRANT_CONSUMABLE', code: pick.code }], cfg);
+      next = granted.state;
+      events.push(...granted.events);
+    }
+    return { state: next, events };
+  }
+  if ('relic_destroy' in effect) {
+    const spec = effect['relic_destroy'] as { mode: 'choice' | 'random'; count: number };
+    let next = s;
+    for (let i = 0; i < spec.count && next.relics.length > 0; i++) {
+      // A contingent destroy can resolve with nothing to take — EV.01's wager is
+      // deliberately open to a player holding one relic, so this must no-op
+      // rather than throw. `choice` resolves to the last acquired until the
+      // screen supplies a pick; the UI passes one through by reordering.
+      const index =
+        spec.mode === 'random'
+          ? drawInt(next.seed, DOMAIN.offer(source), 850 + i, next.relics.length)
+          : next.relics.length - 1;
+      next = { ...next, relics: next.relics.filter((_, j) => j !== index) };
+    }
+    return { state: next, events: [] };
+  }
+  if ('word_challenge' in effect) {
+    const spec = effect['word_challenge'] as {
+      limit: number | null;
+      on_success: unknown[];
+      on_failure: unknown[];
+    };
+    return {
+      state: {
+        ...s,
+        pendingChallenge: {
+          limit: spec.limit,
+          source,
+          onSuccess: spec.on_success,
+          onFailure: spec.on_failure,
+        },
+      },
+      events: [],
+    };
+  }
+  if ('flag_set' in effect) {
+    const spec = effect['flag_set'] as { flag: string; value: number };
+    if (spec.flag === 'act_revival_available') {
+      return { state: { ...s, actRevivalGuesses: spec.value }, events: [] };
+    }
+    return { state: { ...s, counters: { ...s.counters, [spec.flag]: spec.value } }, events: [] };
+  }
+  if ('map_skip' in effect) {
+    const spec = effect['map_skip'] as { nodes: number };
+    return { state: skipNodes(s, spec.nodes), events: [] };
+  }
+  if ('reveal' in effect) {
+    const spec = effect['reveal'] as { scope: string };
+    // act_map is the Cartographer's own effect, so it reuses that flag rather
+    // than inventing a parallel one the map screen would also have to read.
+    if (spec.scope === 'act_map') {
+      return { state: { ...s, map: { ...s.map, modifiersRevealed: true } }, events: [] };
+    }
+    return { state: { ...s, counters: { ...s.counters, [`reveal:${spec.scope}`]: 1 } }, events: [] };
+  }
+  // modifier_apply, modifier_reroll and relic_grant need the offer and modifier
+  // systems, which Phase 3 wires next. Recorded rather than silently dropped.
+  return {
+    state: { ...s, counters: { ...s.counters, [`unapplied:${Object.keys(effect)[0]}`]: 1 } },
+    events: [],
+  };
+}
+
+/** Walk the DAG forward without entering the nodes passed. */
+function skipNodes(s: GameState, count: number): GameState {
+  let current = s.map.currentId;
+  for (let i = 0; i < count; i++) {
+    const node = current ? s.map.nodes[current] : null;
+    const next = node?.next[0];
+    if (!next) break;
+    current = next;
+  }
+  return { ...s, map: { ...s.map, currentId: current } };
 }
 
 // ------------------------------------------------------------- progression
@@ -750,6 +1102,26 @@ export function emergencyCost(
   cfg: Readonly<GameConfig> = CONFIG,
 ): number | null {
   return cfg.emergencyCosts[s.emergencyPurchasesThisAct] ?? null;
+}
+
+/**
+ * R-025 — refusing the relic takes the gold instead.
+ *
+ * Not a "skip". On a word node the two rewards are one choice, so declining is
+ * a purchase: it is how gold enters a run in any quantity, and therefore how
+ * the shop and both ladders get funded. `goldInstead` is null on elite and boss
+ * nodes, where the gold is already paid and refusing really is just refusing.
+ */
+function declineOffer(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  const instead = s.pendingOffer?.goldInstead ?? null;
+  let next: GameState = { ...s, pendingOffer: null };
+  const events: GameEvent[] = [];
+  if (instead !== null && instead > 0) {
+    const paid = applyEffects(next, [{ kind: 'GOLD', delta: instead, reason: 'relic declined' }], cfg);
+    next = paid.state;
+    events.push(...paid.events);
+  }
+  return advance(next, events, cfg);
 }
 
 // ------------------------------------------------------------ reveal ladder
