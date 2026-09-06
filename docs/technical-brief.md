@@ -17,12 +17,13 @@ Three documents govern this project and they do not overlap.
 |---|---|---|
 | `MECHANICS.md` v1.0 | Game rules: resources, scoring, structure, relics, modifiers, bosses, balance targets | **Subordinate.** This brief never restates a rule and never contradicts one |
 | `relics.json` | Relic names, codes, rarity, archetype, hooks, rule text | **Subordinate.** Consumed as data, never transcribed into code |
+| `events.json` | Event content: prose, options, stakes, effect trees | **Subordinate.** Consumed as data, never transcribed into code. Added by R-022 |
 | `design_handoff_rougle/` | Presentation: layout, colour, type, motion, component states | **Subordinate.** This brief never specifies a visual value |
 | **This brief** (`docs/technical-brief.md`) | Engineering: architecture, types, algorithms, file layout, build order, test strategy | Authoritative on *how*, never on *what* |
 
 Where this brief appears to state a rule, it is quoting MECHANICS.md for context. If they disagree, MECHANICS.md wins and this brief is the bug.
 
-**§13 lists twenty-two engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, and two (I-21, I-22) from measuring it. **Nine are now ruled** — see MECHANICS.md §11 R-014 … R-019 — and the rest are marked with what they block. Read §13 before starting a ticket.
+**§13 lists twenty-four engineering problems.** Fourteen came from reading the specs, six (I-15 … I-20) from building Phase 1, two (I-21, I-22) from measuring it, and two (I-23, I-24) from the content the specs never contained. **Twelve are now ruled** — see MECHANICS.md §11 R-014 … R-023 — and the rest are marked with what they block. Read §13 before starting a ticket.
 
 ### 0.1 What changed from technical brief v1.0
 
@@ -83,6 +84,7 @@ Carried forward from v1.0 and still normative here: the pure-reducer architectur
       infoCap.ts           MECHANICS §6.3 pre-guess reveal cap
     /content
       registry.ts          loads + validates relics.json, builds the RelicDef map
+      events.ts            loads + validates events.json (R-022)
       impl/RL.01.ts …      one implementation module per relic code
       modifiers.ts
       bosses.ts
@@ -99,6 +101,7 @@ Carried forward from v1.0 and still normative here: the pure-reducer architectur
   design_system/           NIKOLASS tokens — imported by the app, never edited
 MECHANICS.md
 relics.json
+events.json
 ```
 
 ### 1.3 The boundary rule
@@ -835,6 +838,7 @@ because a run cannot proceed without a fix; the fix is stated so a ruling can
 overturn it.
 
 **I-15 · `RL.27` The Vault cannot be implemented as written.** The pool refills to `poolMax` at act start and `pool` never exceeds `poolMax`, so a carry has nowhere to go and a RARE relic does nothing. Needs a ruling on whether the carry raises that act's cap. Blocking C-05; `refillPool` deliberately takes no carry parameter.
+→ **Still open after R-021.** The rule text now reads "Does not raise the act cap", which restates the constraint rather than resolving it: with the cap unchanged and `refillPool` setting the pool absolutely, a carry still has nowhere to land. The only reading that leaves the relic doing anything is that `poolMax` governs the REFILL and is not a hard ceiling — the pool may sit above it while a carry is live. That is an engine change, not a copy change, so it is being made deliberately in Phase 3 rather than assumed here.
 
 **I-16 · Rule A truncation kills `RL.13` and `RL.19`.** Applied at the moment a refund fires, the floor truncates any refund on guess 1 to nothing — so Opening Gambit, whose whole rule is "your first guess is refunded", never refunds, and The Moth eats a letter for free. Rule A is stated per word, not per guess. → *Implemented provisionally:* the shortfall is queued on `WordState.pendingRefunds` and retried on later guesses of the same word. ADR-0005.
 
@@ -853,6 +857,12 @@ overturn it.
 **I-18 · RULED (R-014).** Generalised from R-003: no mechanic may remove a letter the current solution needs, by any route. A lock derived from feedback must rest on an honest, uncorrupted, unsuppressed observation.
 
 **I-19 · IMPLEMENTED, not ruled.** Pre-guess reveals describe solution A under Mirror, in the engine and in the solver's model.
+
+**I-23 · Forge upgrades did not exist.** The design showed per-relic upgrade text for three relics and `relics.json` had no field for it, so a Forge node had nothing to offer and R-08 could not be built.
+→ **Ruled (R-021).** MECHANICS.md §6.7. Every relic carries exactly one `MK.II`, in `relics.json` under `upgrade`, on one of five recorded axes. Consumables are not upgradeable.
+
+**I-24 · Events did not exist.** v0 named them only in the node-weight table; the design contained one. A node type with a single piece of content repeats inside one run, which the draw rule forbids.
+→ **Ruled (R-022).** MECHANICS.md §6.8 and `events.json`. Twelve events, drawn without replacement, `acts` gating eligibility and `requires` gating individual options.
 
 **I-20 · RESOLVED in favour of the data.** `isPreGuessReveal` covers relics, consumables and character innates alike; §6.3's prose list is what needs updating.
 

@@ -29,6 +29,10 @@ Phase 3 is deliberately not started. It is the largest phase in the brief, and
 building shops and branching routes on top of a core loop nobody has confirmed
 is tense would be building on an unverified bet.
 
+Content lives in two normative JSON files, never transcribed into TypeScript:
+`relics.json` (31 relics, 4 consumables, 3 characters, every `MK.II` upgrade) and
+`events.json` (12 events). Both are validated on every test run.
+
 See `docs/balance/002.json` for the latest measured numbers and
 `docs/decisions/` for what was decided along the way.
 

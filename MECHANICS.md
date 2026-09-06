@@ -1,9 +1,9 @@
 # Rougle — Mechanics Specification
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** Canonical
 **Supersedes:** `Roguelike Wordle Mechanics.md` (v0, the original brief) — that document is now historical and should be deleted from the repo or moved to `docs/archive/`.
-**Companion file:** `relics.json` — machine-readable relic registry, normative for all relic rules.
+**Companion files:** `relics.json` — machine-readable relic registry, normative for all relic rules, including every `MK.II` upgrade. `events.json` — event content, normative for §6.8.
 
 ---
 
@@ -356,6 +356,85 @@ Three rules the engine enforces, so no relic has to:
 Activations are used from the relic drawer, at any point where input is
 accepted — the same affordance as consumables (§6.5).
 
+### 6.7 Forge upgrades
+
+Every relic carries **exactly one** upgrade tier, `MK.II`, defined in `relics.json` under `upgrade`. One tier is enough to make routing to a Forge a decision, and two would need a second art state per relic.
+
+**Consumables are not upgradeable.** They are spent on use, so an upgrade tier would have nowhere to live.
+
+#### Forge operation
+
+A Forge node grants **one** operation, chosen by the player:
+
+- **A · Upgrade a held relic** — free. Applies `MK.II` permanently for the run.
+- **B · Convert gold to guesses** — 20g each, any quantity affordable.
+
+`RL.09` The Anvil grants two operations instead of one. Both may be upgrades, both conversions, or one of each.
+
+#### Upgrade constraints — normative
+
+An upgrade **never** changes a relic's `hook`, `archetype`, `rarity` or `code`. It changes only the rule. The card is the same object with an `MK.II` badge, so no relic needs a second art state.
+
+Every upgrade sits on one of five axes, recorded in `upgrade.axis`:
+
+| Axis | What it changes | Example |
+|---|---|---|
+| `magnitude` | A number goes up | Tin Cup: 5g → 8g a guess |
+| `duration` | Scope extends in time | Sieve: word → act |
+| `reach` | Applies in more situations | The Mask: also immune to Fog |
+| `reliability` | Variance drops | Wishbone: 1-in-2 → 2-in-3 |
+| `cost` | A drawback shrinks or disappears | The Auditor: he stamps free |
+
+Three hard rules:
+
+1. **No upgrade may introduce a `pre_guess_reveal` where the base relic has none.** Doing so would let the Forge push a player over the §6.3 cap of two, which they could not have anticipated when they routed to the node.
+2. **Refund magnitude upgrades are capped by the §2.4 floor.** Flywheel MK.II refunding 2 puts a 3-guess solve exactly on the floor of 1 net. A third would be dead value, and printing dead value on a card is worse than printing a smaller number.
+3. **Boss relics upgrade by shrinking their drawback, never by raising raw magnitude.** Where a boss relic has no drawback, upgrade on `reach`. Rosetta MK.II cuts the act pool by 1 instead of 3; Polyglot MK.II extends to Mirror and boss words.
+
+An upgrade to a relic that declares an `activation` (§6.6) changes the block, not the handler — The Auditor MK.II is `cost.gold: 0`, Shaved Coin MK.II is `usesPerWord: 2`. The engine still owns timing, cap and cost.
+
+#### Distribution
+
+Across 31 relics: `magnitude` is the plurality because it is the easiest axis to read on a card mid-run. If playtesting shows Forge choices feel samey, convert magnitude upgrades to `reliability` before adding a second tier — variance reduction is the harder read but the more interesting decision.
+
+---
+
+### 6.8 Events
+
+Content in `events.json`. Twelve events, `EV.01`–`EV.12`.
+
+#### Draw rules — normative
+
+- Events draw **without replacement within a run.** An event seen once cannot recur.
+- `acts` gates eligibility. `EV.09` The Liar's Bargain is Act III only; five others are Act II+.
+- `requires` gates an individual **option**, not the event. An option whose requirement is unmet renders disabled with the requirement stated, never hidden. The player should see the door they cannot afford.
+- Events draw from the run seed's event stream (§9).
+
+At an 8% node weight across 18 nodes, plus the §3.1 guarantee of at least one forge-or-event per act, a run sees roughly 2–5 events. Twelve gives variety across runs rather than within one, which is the correct target.
+
+#### Content rules — normative
+
+**Every event offers 2–3 options, and at least one is non-destructive.** Non-destructive does not mean free: `EV.06` The Glutton charges 40g to refuse, and that is the point of that event.
+
+**An event never hides its odds.** The `stake` line states the full consequence of an option including the failure branch. Events are decisions under stated risk, not under concealed risk. Corrupted or withheld information is what modifiers and relics are for; an event that lies breaks the contract that makes the other systems readable.
+
+**Events trade between the four currencies** — guesses, gold, relics, information. An event that only moves gold is a shop with worse copy.
+
+#### The effect vocabulary
+
+`events.json` defines a closed vocabulary in `effect_vocabulary`. Prose is display copy and carries no mechanical meaning; the `effect` array is normative.
+
+Two entries need engine work beyond a state delta:
+
+- `word_challenge` — a constraint attached to the *next* word, resolved on solve or fail. Needs a pending-challenge slot on run state that survives the map screen between the event and the word.
+- `flag_set { act_revival_available }` — `EV.08` The Undertaker grants a one-shot revival at pool zero, distinct from `RL.30` Ouroboros. It restores 6 guesses and continues the act rather than restarting it. It must resolve **after** the emergency-purchase offer (§2.3), so a player who can pay gold still pays gold first and keeps the revival.
+
+#### Balance note
+
+`EV.09` The Liar's Bargain hands a boss relic for a whole-act Liar Letter. That is deliberately the largest single swing in the event pool, and it is deliberately Act III only, where a player either holds `RL.29` The Mask and takes it for free or does not and pays properly for it. Watch its take-rate and post-take win-rate in simulation. If Mask-holders take it above 90% of the time and win above 60%, gate it behind not holding Mask, or drop the reward to RARE.
+
+---
+
 ## 7. Bosses
 
 ### 7.1 Act I — The Cipher
@@ -525,6 +604,15 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 
 
 ---
+
+**R-021 · Forge upgrade coverage.** The design showed per-relic upgrade text for three relics; `relics.json` had no field for it and the rest were undefined, which left the Forge a node with nothing to do.
+→ **Ruled:** §6.7. Every relic carries exactly one `MK.II` tier, defined in `relics.json`. The design's three examples are preserved verbatim (Sieve, Flywheel, Tin Cup). Consumables are explicitly not upgradeable. An upgrade to a relic with an `activation` (§6.6) changes the declared block, never the handler.
+
+**R-022 · Event content.** v0 mentioned events only in the node-weight table, and the design contained exactly one, `EV.01` The Wager. A node type with one piece of content is a node type that repeats within a single run.
+→ **Ruled:** §6.8 and `events.json`. Twelve events. `EV.01` preserved verbatim including its three option labels and stake lines.
+
+**R-023 · Relic count.** Referred to elsewhere as 31, taken from the highest code `RL.31`.
+→ **Clarification, not a rule change:** count the array, never the codes. Codes are opaque and non-sequential per R-011. The count was 29 when this was raised; R-020 assigned `RL.08` and `RL.17`, so it is now **31 relics and 4 consumables**, and it will move again. Any tooling that derives a count or an index from a code is a bug — which is precisely why the number in prose keeps going stale and the registry test asserts the rule instead.
 
 ## 12. Still open
 

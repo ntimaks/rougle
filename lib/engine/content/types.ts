@@ -148,6 +148,18 @@ export interface RelicDef {
    */
   offer_from_act?: number;
   /**
+   * The relic's single MK.II tier (§6.7). Every relic has exactly one; no
+   * consumable has any. `axis` is which of the five kinds of change it makes,
+   * recorded so the distribution can be audited rather than drifting toward
+   * "a number goes up" thirty-one times.
+   */
+  upgrade?: {
+    name: string;
+    axis: 'magnitude' | 'duration' | 'reach' | 'reliability' | 'cost';
+    rule: string;
+    engine_note?: string;
+  };
+  /**
    * Proportional discount on the §2.5 reveal ladder, 0–1. Declared as data
    * rather than as a hook because a price is a query, not a state change, and
    * `Effect` is the vocabulary of state change. `revealCost` reads this from
