@@ -30,11 +30,18 @@ export function ModifierBanner({
   /** ELITE or BOSS. Was a boolean that printed ELITE for both, which told a
    *  player facing a boss the wrong thing about what they were facing. */
   badge,
+  /**
+   * A boss's rule. Bosses carry no modifiers, so this strip rendered as a badge
+   * beside an empty amber bar while the rule itself scrolled past in a marquee
+   * — clipped at both edges and unreadable (R-033).
+   */
+  note,
 }: {
   modifiers: readonly ModifierId[];
   badge?: 'ELITE' | 'BOSS' | null;
+  note?: string | null;
 }) {
-  if (modifiers.length === 0 && !badge) return null;
+  if (modifiers.length === 0 && !badge && !note) return null;
   const label = (id: ModifierId) => MODIFIERS.find((m) => m.id === id)?.label ?? id;
 
   return (
@@ -69,7 +76,7 @@ export function ModifierBanner({
           // the modifier the least readable text on the screen.
           style={{ color: 'color-mix(in srgb, var(--term-amber) 80%, var(--term-fg))' }}
         >
-          {modifiers.map((id) => NOTES[id]).filter(Boolean).join(' · ')}
+          {[note, ...modifiers.map((id) => NOTES[id])].filter(Boolean).join(' · ')}
         </span>
       </div>
     </div>

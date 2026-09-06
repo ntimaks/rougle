@@ -80,7 +80,11 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
       {state.pendingChallenge && (
         <ChallengeBanner challenge={state.pendingChallenge} guessesUsed={word.history.length} />
       )}
-      <ModifierBanner modifiers={word.modifiers} badge={isBoss ? 'BOSS' : node.kind === 'ELITE' ? 'ELITE' : null} />
+      <ModifierBanner
+        modifiers={word.modifiers}
+        badge={isBoss ? 'BOSS' : node.kind === 'ELITE' ? 'ELITE' : null}
+        note={isBoss ? BOSSES[node.actIndex].rule : null}
+      />
 
       <StampedLetters word={word} />
 

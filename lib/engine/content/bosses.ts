@@ -11,6 +11,12 @@ export interface BossDef {
   name: string;
   /** Words to clear. The Twins is one word with two solutions, not two words. */
   words: number;
+  /**
+   * What this boss DOES, in the player's words. It lived inside the ticker
+   * component, which meant the only statement of a boss's rule was scrolling
+   * and clipped at both edges — see R-033.
+   */
+  rule: string;
   modifiers: ModifierId[];
   deferralDepth: number;
   /** The Gauntlet runs on its own pool, untouched by and untouching the act pool. */
@@ -36,6 +42,7 @@ export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
     actIndex: 0,
     code: 'CIPHER',
     name: 'THE CIPHER',
+    rule: 'NO ANSWER UNTIL THE THIRD GUESS',
     // Deferral at depth 3 instead of Fog's 1 — the identical mechanism.
     words: 1,
     modifiers: [],
@@ -46,6 +53,7 @@ export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
     actIndex: 1,
     code: 'TWINS',
     name: 'THE TWINS',
+    rule: 'TWO SOLUTIONS · ONE POOL',
     // Mirror: two solutions, one pool, each guess scored against both,
     // two independent results, no merging (R-005).
     words: 1,
@@ -57,6 +65,7 @@ export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
     actIndex: 2,
     code: 'GAUNTLET',
     name: 'THE GAUNTLET',
+    rule: 'FIVE WORDS · ITS OWN POOL OF 14',
     words: CONFIG.gauntlet.words,
     modifiers: [],
     deferralDepth: 0,
