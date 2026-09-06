@@ -10,6 +10,9 @@ import { BossTicker } from '@/components/screens/BossIntroScreen';
 import { DebugView } from '@/components/screens/DebugView';
 import { EmergencyScreen } from '@/components/screens/EmergencyScreen';
 import { MapScreen } from '@/components/screens/MapScreen';
+import { ShopScreen } from '@/components/screens/ShopScreen';
+import { ForgeScreen } from '@/components/screens/ForgeScreen';
+import { EventScreen } from '@/components/screens/EventScreen';
 import { OutcomeScreen } from '@/components/screens/OutcomeScreen';
 import { RewardScreen } from '@/components/screens/RewardScreen';
 import { TitleCard } from '@/components/screens/TitleCard';
@@ -99,6 +102,12 @@ function PhaseSwitch({ state, debug }: { state: GameState; debug: boolean }) {
         switch (state.phase) {
           case 'WORD':
             return <WordScreen state={state} batchId={batchId} />;
+          case 'SHOP':
+            return <ShopScreen state={state} />;
+          case 'FORGE':
+            return <ForgeScreen state={state} />;
+          case 'EVENT':
+            return <EventScreen state={state} />;
           case 'MAP':
             return <MapScreen state={state} />;
           case 'REWARD':

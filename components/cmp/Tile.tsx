@@ -36,11 +36,22 @@ export function Tile({
       aria-label={ariaFor(tile, typedLetter)}
     >
       {/*
-        R-002: the rangefinder tile renders its DISTANCE and no glyph. That is
-        the whole trade the relic makes — distance in exchange for identity —
-        and CMP.02's specimen still draws a character, which is the filed bug.
+        R-027. This drew the DISTANCE and no glyph, per R-002's reading of
+        "stop reporting which letter it is". The withholding was never real: the
+        keyboard falls back to the typed guess and so does the aria label, so
+        only the sighted player lost the letter — from a row they typed
+        themselves. That is a memory tax wearing a mechanic's clothes.
+        The letter stays; the distance rides along as a corner badge.
       */}
-      {tile.distance !== null ? tile.distance : (tile.letter ?? typedLetter ?? '')}
+      {tile.letter ?? typedLetter ?? ''}
+      {tile.distance !== null && (
+        <span
+          className="absolute right-[3px] top-[2px] font-mono text-[10px] font-bold leading-none text-accent"
+          aria-hidden
+        >
+          {tile.distance}
+        </span>
+      )}
 
       {!tile.trustworthy && (
         <>

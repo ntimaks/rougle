@@ -80,3 +80,15 @@ button {
     transition-duration: 1ms !important;
   }
 }
+
+/*
+ * A relic firing. Raised from playtest: relics were "very low feedback" — the
+ * only evidence one had worked was a counter that was going to move anyway.
+ * A short border-and-lift pulse, no colour transition, in keeping with the
+ * design's press behaviour.
+ */
+@keyframes rg-fire {
+  0% { transform: translate(0, 0); }
+  18% { transform: translate(0, -3px); }
+  40% { transform: translate(0, 0); }
+}
