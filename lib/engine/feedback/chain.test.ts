@@ -180,3 +180,47 @@ describe('annotateDistances', () => {
     expect(e.distance).toBe(4); // E at index 0 of the guess, index 4 of CRANE
   });
 });
+
+/**
+ * R-029 — Silent Start withholds rather than lies.
+ *
+ * It used to report GREY in place of YELLOW. Grey means "not in this word", so
+ * a present letter read absent, greyed on the keyboard, and stayed wrong for the
+ * rest of the word — which is also why R-014 had to exist, since RL.02 The Sieve
+ * could lock a letter the answer needed off the back of that false grey.
+ */
+describe('R-029 Silent Start', () => {
+  const SOLUTION = 'CRANE';
+
+  function firstGuess(guess: string) {
+    const w = word({ solutions: [SOLUTION], modifiers: ['SILENT_START'] });
+    return runChain({ state: state(), word: w, turn: 0, solutionIndex: 0 }, scoreBase(guess, SOLUTION));
+  }
+
+  it('a present-but-misplaced letter reads UNKNOWN, never GREY', () => {
+    // R is in CRANE at index 1; guessing it at index 0 is a yellow.
+    const out = firstGuess('RCANE');
+    expect(out.tiles[0]!.state, 'a withheld yellow must not claim absence').toBe('UNKNOWN');
+  });
+
+  it('a genuinely absent letter still reads GREY', () => {
+    // The modifier withholds the yellow signal. It does not stop the board
+    // telling you what is simply not there.
+    const out = firstGuess('TOWEL');
+    expect(out.tiles[0]!.state).toBe('GREY');
+  });
+
+  it('greens survive (R-028)', () => {
+    const out = firstGuess('CXXXX');
+    expect(out.tiles[0]!.state).toBe('GREEN');
+  });
+
+  it('only the first guess is suppressed', () => {
+    const w = word({ solutions: [SOLUTION], modifiers: ['SILENT_START'] });
+    const later = runChain(
+      { state: state(), word: w, turn: 1, solutionIndex: 0 },
+      scoreBase('RCANE', SOLUTION),
+    );
+    expect(later.tiles[0]!.state).toBe('YELLOW');
+  });
+});

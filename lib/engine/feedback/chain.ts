@@ -42,10 +42,21 @@ const VISIBLE_STATES: TileState[] = ['GREEN', 'YELLOW', 'GREY'];
  * Step 0 — suppression. Two sources withhold information before anything
  * interprets it:
  *
- * - Silent Start reports GREY in place of YELLOW, on the first guess only.
+ * - Silent Start withholds YELLOW on the first guess only.
  * - RL.20 Blindfold withholds a row the player chose to fly blind on.
  *
  * Both run first because everything downstream reads the reported state.
+ *
+ * R-029: Silent Start used to report GREY in place of YELLOW, which is a LIE
+ * rather than a withholding — grey means "not in this word", so a letter that
+ * was present read as absent, greyed on the keyboard, and stayed wrong for the
+ * rest of the word. It is also why R-014 had to exist: combined with RL.02 The
+ * Sieve that false grey could lock a letter the answer needs.
+ *
+ * UNKNOWN is the state that already means "no information here" (Decay uses
+ * it), and it ranks below GREY in the keyboard derivation, so the key is left
+ * untouched rather than marked absent. The modifier now denies you the yellow
+ * signal instead of inventing a grey one.
  */
 function suppression(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
   if (isBlindfolded(ctx.state, ctx.word.nodeId, ctx.turn)) {
@@ -60,7 +71,7 @@ function suppression(ctx: ChainContext, fb: FeedbackResult): FeedbackResult {
   }
   if (!hasModifier(ctx.word, 'SILENT_START') || ctx.turn !== 0) return fb;
   const out = cloneFeedback(fb);
-  for (const tile of out.tiles) if (tile.state === 'YELLOW') tile.state = 'GREY';
+  for (const tile of out.tiles) if (tile.state === 'YELLOW') tile.state = 'UNKNOWN';
   return out;
 }
 

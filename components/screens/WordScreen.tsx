@@ -11,6 +11,7 @@ import {
 } from '@/lib/engine';
 import { Grid } from '@/components/cmp/Grid';
 import { Keyboard } from '@/components/cmp/Keyboard';
+import { ChallengeBanner } from '@/components/cmp/ChallengeBanner';
 import { ModifierBanner } from '@/components/cmp/ModifierBanner';
 import { RevealBar } from '@/components/cmp/RevealBar';
 import { CRITICAL_AT } from '@/components/cmp/PoolMeter';
@@ -74,7 +75,11 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
       className="flex flex-1 flex-col overflow-hidden"
       style={critical && animate ? { animation: 'rg-flicker 5s steps(1,end) infinite' } : undefined}
     >
-      <ModifierBanner modifiers={word.modifiers} elite={isBoss} />
+      {/* Above the modifiers: a stake outranks a difficulty. */}
+      {state.pendingChallenge && (
+        <ChallengeBanner challenge={state.pendingChallenge} guessesUsed={word.history.length} />
+      )}
+      <ModifierBanner modifiers={word.modifiers} badge={isBoss ? 'BOSS' : node.kind === 'ELITE' ? 'ELITE' : null} />
 
       <div className="flex flex-none items-center gap-2 border-b border-line-soft px-3 py-2">
         <span className="font-mono text-[9px] leading-none tracking-[0.18em] text-fg2">

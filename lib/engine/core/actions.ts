@@ -90,6 +90,7 @@ export type GameEvent =
   | { type: 'GOLD_CONVERTED'; gold: number; guesses: number }
   | { type: 'EVENT_OPENED'; nodeId: NodeId; code: string }
   | { type: 'EVENT_RESOLVED'; code: string; option: string }
+  | { type: 'CHALLENGE_RESOLVED'; source: string; met: boolean }
   | { type: 'ACT_ENDED'; actIndex: number; leftover: number; goldGained: number }
   | { type: 'OUROBOROS_TRIGGERED'; actIndex: number }
   | { type: 'RUN_ENDED'; outcome: 'WIN' | 'DEATH'; cause: string | null };
