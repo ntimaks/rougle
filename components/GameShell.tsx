@@ -6,7 +6,6 @@ import { loadRun } from '@/lib/persistence/local';
 import { useGame } from '@/lib/store/useGame';
 import { Chrome } from '@/components/Chrome';
 import { ActEndScreen } from '@/components/screens/ActEndScreen';
-import { BossTicker } from '@/components/screens/BossIntroScreen';
 import { DebugView } from '@/components/screens/DebugView';
 import { EmergencyScreen } from '@/components/screens/EmergencyScreen';
 import { MapScreen } from '@/components/screens/MapScreen';
@@ -91,12 +90,10 @@ function PhaseSwitch({ state, debug }: { state: GameState; debug: boolean }) {
   if (debug) return <DebugView />;
 
   const terminal = state.phase === 'DEATH' || state.phase === 'VICTORY';
-  const atBoss = state.word?.nodeId.endsWith('-boss') ?? false;
 
   return (
     <>
       {!terminal && <Chrome state={state} batchId={batchId} />}
-      {atBoss && state.phase === 'WORD' && <BossTicker state={state} />}
 
       {(() => {
         switch (state.phase) {
