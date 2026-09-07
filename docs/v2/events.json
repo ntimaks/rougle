@@ -1,0 +1,362 @@
+{
+  "$schema_version": "2.0",
+  "_notes": {
+    "authority": "Normative for event content. Governed by MECHANICS.md v2.0 §3.1.",
+    "voice": "Second person, present tense, mercantile. The event describes a transaction someone is offering. It never describes your feelings about it. Option labels are imperative. Stakes are stated flatly and completely.",
+    "draw": "Events draw without replacement within a run, from the run seed's event stream. `acts` gates eligibility.",
+    "structure": "Every event offers 2-3 options. At least one is always non-destructive, but it need not be free.",
+    "no_hidden_odds": "An event never hides its odds. The `stake` line states the full consequence including the failure branch. Concealed risk is what modifiers and relics are for; an event that lies breaks the contract that makes the other systems readable.",
+    "v2_rescale": "All bankroll values rescaled for a run-long bankroll starting at 12, capped at 24. A swing of 3 bankroll is now large. Gold values rescaled against shop prices of 60/110/180.",
+    "slot_pressure": "With 5 relic slots, relic-destroy options are no longer purely punitive. A full board makes 'lose a relic' a cost the player may actively want to pay."
+  },
+
+  "effect_vocabulary": {
+    "gold_delta": "int. Negative costs, positive grants.",
+    "bankroll_delta": "int. Capped at 24. Cannot reduce below 1 outside of a lethal word failure.",
+    "relic_grant": "{ rarity, choose: bool, count: int }. Triggers the full-board destroy flow if slots are full.",
+    "relic_destroy": "{ mode: 'choice'|'random', count: int }",
+    "relic_upgrade": "{ mode: 'choice' } — a free Forge operation.",
+    "consumable_grant": "{ count: int, random: bool }",
+    "reveal": "{ scope: 'act_first_letters'|'act_map'|'shop_stock' }",
+    "modifier_apply": "{ modifier, scope: 'next_word'|'next_n_words'|'rest_of_act', n: int }",
+    "modifier_reroll": "{ scope: 'rest_of_act' }",
+    "word_challenge": "{ limit, on_success: effect[], on_failure: effect[] } — the next word must fall within `limit` guesses.",
+    "map_skip": "{ nodes: int } — skips nodes and their rewards, including their shops.",
+    "slot_delta": "int. Permanent change to relic slot count for the rest of the run.",
+    "flag_set": "{ flag, value }"
+  },
+
+  "events": [
+    {
+      "code": "EV.01",
+      "name": "THE WAGER",
+      "acts": [1, 2, 3],
+      "prose": "A ledger is pushed across the table. The next word is already chosen. Sign, and it must fall in two guesses.",
+      "options": [
+        {
+          "key": "A",
+          "label": "SIGN THE LEDGER",
+          "stake": "SOLVE IN 2 → +120g · FAIL → LOSE A RANDOM RELIC",
+          "effect": [{ "word_challenge": { "limit": 2, "on_success": [{ "gold_delta": 120 }], "on_failure": [{ "relic_destroy": { "mode": "random", "count": 1 } }] } }]
+        },
+        {
+          "key": "B",
+          "label": "PAY THE CLERK 60g",
+          "stake": "SEE THE FIRST LETTER OF EVERY REMAINING WORD THIS ACT",
+          "effect": [{ "gold_delta": -60 }, { "reveal": { "scope": "act_first_letters" } }],
+          "requires": { "gold_min": 60 }
+        },
+        {
+          "key": "C",
+          "label": "WALK AWAY",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.02",
+      "name": "THE PAWNBROKER",
+      "acts": [1, 2, 3],
+      "prose": "He does not ask what your relics do. He weighs them, quotes a number, and waits. The shelf behind him is covered.",
+      "options": [
+        {
+          "key": "A",
+          "label": "SELL ONE",
+          "stake": "CHOOSE A RELIC → +140g. BETTER THAN THE SHOP PAYS.",
+          "effect": [{ "relic_destroy": { "mode": "choice", "count": 1 } }, { "gold_delta": 140 }],
+          "requires": { "relics_min": 1 }
+        },
+        {
+          "key": "B",
+          "label": "BUY OFF THE SHELF",
+          "stake": "−140g → ONE RARE RELIC, UNSEEN UNTIL TAKEN",
+          "effect": [{ "gold_delta": -140 }, { "relic_grant": { "rarity": "RARE", "choose": false, "count": 1 } }],
+          "requires": { "gold_min": 140 }
+        },
+        {
+          "key": "C",
+          "label": "WALK AWAY",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.03",
+      "name": "THE FAST",
+      "acts": [1, 2, 3],
+      "prose": "There is a word here. You are permitted not to look at it. The permission has a price and the word has no reward.",
+      "options": [
+        {
+          "key": "A",
+          "label": "GO HUNGRY",
+          "stake": "−2 BANKROLL · THE NEXT WORD IS SKIPPED. NO GOLD, NO SHOP.",
+          "effect": [{ "bankroll_delta": -2 }, { "map_skip": { "nodes": 1 } }]
+        },
+        {
+          "key": "B",
+          "label": "EAT",
+          "stake": "SOLVE IT NORMALLY.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.04",
+      "name": "THE ARCHIVIST",
+      "acts": [2, 3],
+      "prose": "She will not trade. She will only burn. Give her something that works and she opens two drawers you have not earned.",
+      "options": [
+        {
+          "key": "A",
+          "label": "FEED THE FIRE",
+          "stake": "DESTROY ONE RELIC → DRAW 2 RARE, KEEP 1",
+          "effect": [{ "relic_destroy": { "mode": "choice", "count": 1 } }, { "relic_grant": { "rarity": "RARE", "choose": true, "count": 2 } }],
+          "requires": { "relics_min": 1 }
+        },
+        {
+          "key": "B",
+          "label": "KEEP WHAT WORKS",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.05",
+      "name": "THE INFIRMARY",
+      "acts": [1, 2, 3],
+      "prose": "Beds, and a board of names. The surgeon counts what you carry rather than what you are worth.",
+      "options": [
+        {
+          "key": "A",
+          "label": "GIVE UP ONE",
+          "stake": "DESTROY A CHOSEN RELIC → +6 BANKROLL",
+          "effect": [{ "relic_destroy": { "mode": "choice", "count": 1 } }, { "bankroll_delta": 6 }],
+          "requires": { "relics_min": 1 }
+        },
+        {
+          "key": "B",
+          "label": "PAY IN COIN",
+          "stake": "−100g → +3 BANKROLL",
+          "effect": [{ "gold_delta": -100 }, { "bankroll_delta": 3 }],
+          "requires": { "gold_min": 100 }
+        },
+        {
+          "key": "C",
+          "label": "DISCHARGE YOURSELF",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.06",
+      "name": "THE GLUTTON",
+      "acts": [2, 3],
+      "prose": "It has already chosen. It is telling you as a courtesy, and the courtesy is the only part you can decline.",
+      "options": [
+        {
+          "key": "A",
+          "label": "LET IT EAT",
+          "stake": "LOSE A RANDOM RELIC → +220g",
+          "effect": [{ "relic_destroy": { "mode": "random", "count": 1 } }, { "gold_delta": 220 }],
+          "requires": { "relics_min": 1 }
+        },
+        {
+          "key": "B",
+          "label": "REFUSE",
+          "stake": "−2 BANKROLL. IT TAKES SOMETHING.",
+          "effect": [{ "bankroll_delta": -2 }]
+        }
+      ]
+    },
+
+    {
+      "code": "EV.07",
+      "name": "THE MIRROR-MAKER",
+      "acts": [2, 3],
+      "prose": "Two words, one bankroll, and a rate of exchange he does not intend to repeat.",
+      "options": [
+        {
+          "key": "A",
+          "label": "TAKE BOTH",
+          "stake": "NEXT WORD IS A MIRROR → CLEAR IT FOR +180g AND A RARE RELIC",
+          "effect": [
+            { "modifier_apply": { "modifier": "MIRROR", "scope": "next_word" } },
+            { "word_challenge": { "limit": null, "on_success": [{ "gold_delta": 180 }, { "relic_grant": { "rarity": "RARE", "choose": true, "count": 1 } }], "on_failure": [] } }
+          ]
+        },
+        {
+          "key": "B",
+          "label": "TAKE ONE",
+          "stake": "SOLVE IT NORMALLY. NOTHING EXTRA.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.08",
+      "name": "THE UNDERTAKER",
+      "acts": [2, 3],
+      "prose": "He is early, and he says so. The arrangement is prepaid or it is not an arrangement.",
+      "options": [
+        {
+          "key": "A",
+          "label": "SETTLE THE ACCOUNT",
+          "stake": "−160g → THE NEXT TIME YOUR BANKROLL HITS ZERO, IT RETURNS TO 6. ONCE.",
+          "effect": [{ "gold_delta": -160 }, { "flag_set": { "flag": "undertaker_revival", "value": 6 } }],
+          "requires": { "gold_min": 160 },
+          "engine_note": "Resolves after the emergency-purchase offer and before RL.30 Ouroboros. A player holding both keeps both."
+        },
+        {
+          "key": "B",
+          "label": "TELL HIM YOU ARE FINE",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.09",
+      "name": "THE LIAR'S BARGAIN",
+      "acts": [3],
+      "prose": "Everything it tells you from here will be almost true. It is very clear about this, which is the only honest thing in the room.",
+      "options": [
+        {
+          "key": "A",
+          "label": "ACCEPT THE TERMS",
+          "stake": "LIAR LETTER ON EVERY WORD THIS ACT → ONE BOSS RELIC NOW",
+          "effect": [
+            { "modifier_apply": { "modifier": "LIAR_LETTER", "scope": "rest_of_act" } },
+            { "relic_grant": { "rarity": "BOSS", "choose": true, "count": 1 } }
+          ],
+          "balance_flag": "The largest single swing in the pool, deliberately. A player holding RL.29 The Mask takes it for free. Watch take-rate and post-take win-rate; if Mask-holders take it above 90% and win above 60%, gate it behind not holding Mask or drop the reward to RARE."
+        },
+        {
+          "key": "B",
+          "label": "REFUSE THE TERMS",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.10",
+      "name": "THE SHORTCUT",
+      "acts": [1, 2, 3],
+      "prose": "A door in the wall of the act. It opens onto the boss and nothing in between.",
+      "options": [
+        {
+          "key": "A",
+          "label": "TAKE THE DOOR",
+          "stake": "SKIP 2 NODES, THEIR GOLD AND THEIR SHOPS · KEEP THE BANKROLL YOU DID NOT SPEND",
+          "effect": [{ "map_skip": { "nodes": 2 } }]
+        },
+        {
+          "key": "B",
+          "label": "READ THE WALL",
+          "stake": "−40g → SEE THE REST OF THE ACT MAP IN FULL",
+          "effect": [{ "gold_delta": -40 }, { "reveal": { "scope": "act_map" } }],
+          "requires": { "gold_min": 40 }
+        },
+        {
+          "key": "C",
+          "label": "WALK THE LONG WAY",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.11",
+      "name": "THE FOUNDLING",
+      "acts": [1, 2, 3],
+      "prose": "A basket, three bottles, and a note explaining what the third one costs.",
+      "options": [
+        {
+          "key": "A",
+          "label": "TAKE ONE",
+          "stake": "ONE RANDOM CONSUMABLE. FREE.",
+          "effect": [{ "consumable_grant": { "count": 1, "random": true } }]
+        },
+        {
+          "key": "B",
+          "label": "TAKE ALL THREE",
+          "stake": "3 CONSUMABLES · LOCKED KEY ON YOUR NEXT 3 WORDS",
+          "effect": [
+            { "consumable_grant": { "count": 3, "random": true } },
+            { "modifier_apply": { "modifier": "LOCKED_KEY", "scope": "next_n_words", "n": 3 } }
+          ],
+          "engine_note": "Consumable slots cap at 2. A third grant overflows and is lost; the option text must say so at point of choice."
+        },
+        {
+          "key": "C",
+          "label": "LEAVE THE BASKET",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.12",
+      "name": "THE COMPOSITOR",
+      "acts": [2, 3],
+      "prose": "He resets the type for the rest of the act. He will not tell you whether the new setting is kinder, because he does not know either.",
+      "options": [
+        {
+          "key": "A",
+          "label": "RESET THE TYPE",
+          "stake": "REROLL EVERY MODIFIER ON THE REST OF THE ACT. IT MAY GET WORSE.",
+          "effect": [{ "modifier_reroll": { "scope": "rest_of_act" } }]
+        },
+        {
+          "key": "B",
+          "label": "PAY HIM TO STOP",
+          "stake": "−120g → CLEAR EVERY MODIFIER ON THE REST OF THE ACT",
+          "effect": [{ "gold_delta": -120 }, { "modifier_apply": { "modifier": "NONE", "scope": "rest_of_act" } }],
+          "requires": { "gold_min": 120 }
+        },
+        {
+          "key": "C",
+          "label": "LEAVE THE PRESS",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ]
+    },
+
+    {
+      "code": "EV.13",
+      "name": "THE SIXTH SHELF",
+      "acts": [2, 3],
+      "prose": "An empty shelf, already dusted, already yours if you want it. The dust is the price.",
+      "options": [
+        {
+          "key": "A",
+          "label": "TAKE THE SHELF",
+          "stake": "+1 RELIC SLOT, PERMANENTLY · −4 BANKROLL",
+          "effect": [{ "slot_delta": 1 }, { "bankroll_delta": -4 }]
+        },
+        {
+          "key": "B",
+          "label": "LEAVE IT EMPTY",
+          "stake": "NOTHING GAINED. NOTHING SPENT.",
+          "effect": []
+        }
+      ],
+      "design_note": "The only source of a sixth slot in the game. Deliberately expensive and deliberately singular — it makes the 5-slot cap feel like a rule with one exception rather than an arbitrary limit."
+    }
+  ]
+}

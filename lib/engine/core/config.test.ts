@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { LIVE_SPEC, tableAfter as tableIn } from '../../../test/spec';
 import { CONFIG } from './config';
 
 /**
@@ -12,28 +11,12 @@ import { CONFIG } from './config';
  * balance snapshot is expected to move; the point is not to freeze them but to
  * make moving one in code without writing it down fail here.
  */
-const SPEC = readFileSync(resolve(__dirname, '../../../MECHANICS.md'), 'utf8');
-
-/** The rows of the first markdown table following `heading`. */
-function tableAfter(heading: string): string[][] {
-  const start = SPEC.indexOf(heading);
-  expect(start, `MECHANICS.md is missing "${heading}"`).toBeGreaterThan(-1);
-  const lines = SPEC.slice(start).split('\n');
-  const rows: string[][] = [];
-  let seen = false;
-  for (const line of lines) {
-    if (!line.startsWith('|')) {
-      if (seen) break;
-      continue;
-    }
-    seen = true;
-    if (/^\|[\s-]*\|/.test(line.replace(/-/g, '-'))) {
-      if (/^\|\s*-+\s*\|/.test(line)) continue;
-    }
-    rows.push(line.split('|').slice(1, -1).map((c) => c.trim()));
-  }
-  return rows.slice(1); // drop the header row
-}
+/**
+ * Asserted against the ARCHIVED v1.3 spec, not `MECHANICS.md`, for as long as
+ * the engine implements v1.3 and the document is v2.0. See `test/spec.ts`.
+ */
+const SPEC = LIVE_SPEC;
+const tableAfter = (heading: string) => tableIn(heading, LIVE_SPEC);
 
 const gold = (cell: string): number => {
   const m = cell.match(/(\d+)g/);
@@ -41,7 +24,7 @@ const gold = (cell: string): number => {
   return Number(m![1]);
 };
 
-describe('config.ts matches MECHANICS.md', () => {
+describe('config.ts matches the spec the engine implements (v1.3)', () => {
   it('§2.2 — the act pools', () => {
     const rows = tableAfter('| Act | Pool | Solve nodes | Boss |');
     expect(rows).toHaveLength(3);

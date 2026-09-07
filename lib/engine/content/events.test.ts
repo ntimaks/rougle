@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { LIVE_SPEC } from '../../../test/spec';
 import { EFFECT_VERBS, EVENTS, EVENT_DEFS, eventsForAct, verbsIn } from './events';
 import { MODIFIERS } from './modifiers';
 import { RARITIES } from './registry';
@@ -217,7 +216,7 @@ describe('§6.8 draw rules', () => {
 
 describe('events.json and MECHANICS.md agree', () => {
   it('§6.8 names the right event count', () => {
-    const mechanics = readFileSync(resolve(__dirname, '../../../MECHANICS.md'), 'utf8');
+    const mechanics = LIVE_SPEC;
     expect(mechanics).toContain(`\`EV.01\`–\`EV.${String(EVENT_DEFS.length).padStart(2, '0')}\``);
   });
 });
