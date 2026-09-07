@@ -104,6 +104,14 @@ export interface BleedOptions {
   elites: readonly number[];
   /** Scales §3.3's node gold, to ask how much of the economy the refill valve is. */
   goldScale: number;
+  /** §4.1's per-shop refill limit. The spec's is 3. */
+  refillsPerShop: number;
+  /**
+   * A §2.3 payout bonus, as a relic would supply it. Stands in for a build:
+   * `RL.11` Flywheel MK.II is `(u) => (u <= 4 ? 2 : 0)`, measured at +1.61 a
+   * word. Subject to Clamp A like any other bonus.
+   */
+  payoutBonus: (guessesUsed: number) => number;
   solver: SolverConfig;
   cfg: Readonly<EconomyConfig>;
 }
@@ -133,7 +141,6 @@ export interface BleedResult {
 }
 
 const GOLD = { WORD: 40, ELITE: 70, BOSS: 120 } as const;
-const REFILLS_PER_SHOP = 3;
 
 /**
  * §11.2 — "doomed" means no reachable line of play reaches the next boss.
@@ -150,21 +157,25 @@ function stillReachable(
   remaining: readonly WordSlot[],
   emergenciesUsed: number,
   cfg: Readonly<EconomyConfig>,
+  opts: BleedOptions,
 ): boolean {
   let br = bankroll;
   let g = gold;
   let rungs = emergenciesUsed;
   for (const slot of remaining) {
     const best = 2;
-    br += basePayout(slot.length, best, cfg) - best;
+    const gross = basePayout(slot.length, best, cfg) + opts.payoutBonus(best);
+    br += Math.min(gross, best + cfg.maxNetGainPerWord) - best;
     if (slot.paysReward) {
       if (slot.kind === 'BOSS') br += cfg.bossBankroll;
       g += GOLD[slot.kind];
     }
     if (slot.shopAfter) {
-      while (g >= cfg.refillCost && br < cfg.bankrollCap) {
+      let n = 0;
+      while (n < opts.refillsPerShop && g >= cfg.refillCost && br < cfg.bankrollCap) {
         g -= cfg.refillCost;
         br += 1;
+        n += 1;
       }
     }
     while (br <= 0) {
@@ -198,7 +209,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]!;
 
-    if (doomedAt < 0 && !stillReachable(bankroll, gold, slots.slice(i), emergencies, cfg)) {
+    if (doomedAt < 0 && !stillReachable(bankroll, gold, slots.slice(i), emergencies, cfg, opts)) {
       doomedAt = i;
     }
 
@@ -229,8 +240,12 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
     if (diedAt >= 0) break;
 
     // §2.3 — the payout, and §2.1's cap with overflow to gold.
+    // §2.5 — the bonus goes through Clamp A on the word's net, then the boss's
+    // flat +4 is added outside it: §8 pays that for clearing the boss, not as
+    // part of the word's payout, so the clamp does not reach it.
+    const gross = basePayout(slot.length, used, cfg) + opts.payoutBonus(used);
     const payout =
-      basePayout(slot.length, used, cfg) +
+      Math.min(gross, used + cfg.maxNetGainPerWord) +
       (slot.kind === 'BOSS' && slot.paysReward ? cfg.bossBankroll : 0);
     const room = Math.max(0, cfg.bankrollCap - bankroll);
     const kept = Math.min(payout, room);
@@ -246,7 +261,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
 
     if (slot.shopAfter && opts.buyRefills) {
       let bought = 0;
-      while (bought < REFILLS_PER_SHOP && gold >= cfg.refillCost && bankroll < cfg.bankrollCap) {
+      while (bought < opts.refillsPerShop && gold >= cfg.refillCost && bankroll < cfg.bankrollCap) {
         gold -= cfg.refillCost;
         goldSpent += cfg.refillCost;
         bankroll += 1;
@@ -281,6 +296,8 @@ export const DEFAULT_BLEED: Omit<BleedOptions, 'start'> = {
   longWords: false,
   elites: [1, 2, 3],
   goldScale: 1,
+  refillsPerShop: 3,
+  payoutBonus: () => 0,
   solver: DEFAULT_SOLVER,
   cfg: ECONOMY,
 };

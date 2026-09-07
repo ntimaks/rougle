@@ -44,7 +44,16 @@ function row(label: string, rs: BleedResult[]): string {
 function main(): void {
   const runs = Number(process.argv[2] ?? 400);
   const solver = calibrated();
-  const base = { buyRefills: true, longWords: false, elites: [1, 2, 3], goldScale: 1, solver, cfg: ECONOMY };
+  const base = {
+    buyRefills: true,
+    longWords: false,
+    elites: [1, 2, 3],
+    goldScale: 1,
+    refillsPerShop: 3,
+    payoutBonus: () => 0,
+    solver,
+    cfg: ECONOMY,
+  };
 
   console.log(`ROUGLE v2.0 BLEED MODEL · ${runs} runs · MECHANICS.md §2.3, §11.2, §14 Phase 2`);
   console.log(`solver: suboptimality=${solver.suboptimality} vocabularyGap=${solver.vocabularyGap}`);
