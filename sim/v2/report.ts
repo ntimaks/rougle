@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { ECONOMY, withEconomy } from '../../lib/engine/economy/config';
 import { DEFAULT_SOLVER, type SolverConfig } from '../solver';
 import { playBleed, runStructure, type BleedResult } from './bleed';
+import { LOADOUTS, guessDistribution, guessSequence, valueOf } from './relicvalue';
 
 /** The calibrated handicap — a competent human at ~3.9 guesses/word, not the bot. */
 function calibrated(): SolverConfig {
@@ -112,6 +113,37 @@ function main(): void {
   );
   console.log(`\n§11.3 bankroll curve, mean by word index (start ${12}):`);
   console.log('  ' + byWord.map((b, i) => `${i + 1}:${b.toFixed(0)}`).join('  '));
+
+  // §14's other half: does buying a relic feel like relief?
+  const words = 1500;
+  const dist = guessDistribution(words, solver);
+  const seq = guessSequence(words, solver);
+  console.log(`\n§6.4 the impact test — what a §2.3 payout relic is worth`);
+  console.log(`  ${words} real solves, 5-letter, mean ${dist.mean.toFixed(2)} guesses`);
+  console.log(
+    '  ' +
+      dist.counts
+        .map((n, i) => (n ? `${i}:${pct(n / words)}` : null))
+        .filter(Boolean)
+        .join('  '),
+  );
+  console.log(
+    `  solves in three or fewer            ${pct(dist.fastShare)}   <- every one of them is gated on this`,
+  );
+  console.log('');
+  console.log('  loadout                            net/word  mean bonus  pays on');
+  const bleedNow = valueOf(LOADOUTS[0]!, seq).netPerWord;
+  for (const l of LOADOUTS) {
+    const v = valueOf(l, seq);
+    console.log(
+      `  ${v.label.padEnd(34)}` +
+        ` ${v.netPerWord.toFixed(2).padStart(6)}` +
+        `    ${v.meanBonus.toFixed(2).padStart(5)}` +
+        `      ${pct(v.hitRate).padStart(6)}`,
+    );
+  }
+  console.log(`\n  §2.3's bleed with nothing held is ${bleedNow.toFixed(2)} a word.`);
+  console.log(`  A relic must be worth ${(-bleedNow).toFixed(2)} a word just to reach break-even.`);
 
   const doomed = dead.filter((r) => r.doomedAtWord >= 0);
   console.log(`\n§11.2 the death spiral — the gating metric`);
