@@ -132,12 +132,19 @@ describe('E-07 — hooks fire in acquisition order', () => {
 });
 
 describe('E-10 — the emergency ladder', () => {
-  it('escalates 25 / 50 / 100 and then runs out', () => {
+  // The ladder's SHAPE, read off the config rather than three literals: three
+  // rungs, each at least double the last, then nothing. The prices themselves
+  // are balance and move with a snapshot; `config.test.ts` pins them against
+  // the §2.3 table so a tuning change still has to be written down.
+  it('escalates, doubles, and then runs out', () => {
     const s = start();
-    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: 0 }, CONFIG)).toBe(25);
-    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: 1 }, CONFIG)).toBe(50);
-    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: 2 }, CONFIG)).toBe(100);
-    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: 3 }, CONFIG)).toBeNull();
+    const rungs = CONFIG.emergencyCosts;
+    expect(rungs).toHaveLength(3);
+    rungs.forEach((cost, i) => {
+      expect(emergencyCost({ ...s, emergencyPurchasesThisAct: i }, CONFIG)).toBe(cost);
+      if (i > 0) expect(cost).toBeGreaterThanOrEqual(rungs[i - 1]! * 2);
+    });
+    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: rungs.length }, CONFIG)).toBeNull();
   });
 
   /** MECHANICS.md §2.3: the offer is mandatory, not optional UI. */
@@ -172,7 +179,7 @@ describe('E-10 — the emergency ladder', () => {
     const wrong = s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE';
     const offered = reduce(s, { type: 'SUBMIT_GUESS', guess: wrong }).state;
     const bought = reduce(offered, { type: 'BUY_EMERGENCY' }).state;
-    expect(bought.gold).toBe(offered.gold - 25);
+    expect(bought.gold).toBe(offered.gold - CONFIG.emergencyCosts[0]!);
     expect(bought.pool).toBe(1);
     expect(bought.phase).toBe('WORD');
   });

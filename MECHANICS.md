@@ -70,13 +70,13 @@ The brief was written before the design pass. The design pass renamed most relic
 
 | Act | Pool | Solve nodes | Boss | Measured need | Slack |
 |---|---|---|---|---|---|
-| I | 19 | 4 | Cipher (1 word, deferred) | 4 × 3.83 + 5.22 = **20.5** | −1.5 |
-| II | 12 | 4 | Twins (2 words) | 4 × 3.78 + 5.05 = **20.2** | −8.2 |
-| III | 14 | 4 (long) | Gauntlet (own pool) | 4 × 3.32 = **13.3** | +0.7 |
+| I | 19 | 4 | Cipher (1 word, deferred) | 4 × 3.84 + 5.27 = **20.6** | −1.6 |
+| II | 12 | 4 | Twins (2 words) | 4 × 3.60 + 4.79 = **19.2** | −7.2 |
+| III | 14 | 4 (long) | Gauntlet (own pool of 10) | 4 × 3.28 = **13.1** | +0.9 |
 
 **Derived from measurement, not from the 3.9 baseline.** "Measured need" is the
 gross cost of an act — its solve nodes at the act's own measured guesses/word,
-plus its boss — taken from balance snapshot 006. Slack is what the pool gives
+plus its boss — taken from balance snapshot 007. Slack is what the pool gives
 against that, and it is negative on purpose: refunds (§2.4), relics and the two
 ladders (§2.3, §2.5) close the gap, and closing it is the game.
 
@@ -87,9 +87,47 @@ being nominally the tightest act in the game.
 
 **Act III's pool is not a difficulty lever.** Verified flat from 17 down to 10:
 win rate moved 51%→50% and Act III deaths 14%→15%, inside noise. Its four solve
-nodes cost 13.3 and everything that kills in Act III is the Gauntlet, on its own
+nodes cost 13.1 and everything that kills in Act III is the Gauntlet, on its own
 pool. So Act III's pool is set to its measured need and nothing more — a number
 that means something rather than three guesses of dead headroom.
+
+**The Gauntlet's pool is the lever, and it is the only one that reaches the
+§10.3 band.** Measured at snapshot 007, on the full grid:
+
+| Lever | Floor it can reach | What stops it |
+|---|---|---|
+| Act pools alone | ~48% | Act I's death rate hits the 15% cap first |
+| Pools + the whole gold economy | ~38% | The sinks are rate-capped, so cutting income stops biting |
+| `gauntlet.pool` | anywhere | Nothing — and it does not touch Act I at all |
+
+Measured at 1000 runs each on the shipped economy, everything else held:
+
+| `gauntlet.pool` | 14 | 12 | 11 | **10** | 9 | 8 |
+|---|---|---|---|---|---|---|
+| win rate | 45.7% | 41.3% | 37.3% | **33.4%** | 28.2% | 25.0% |
+| died in act I | 9.3% | 9.3% | 9.3% | **9.3%** | 9.3% | 9.3% |
+| died in act II | 35.9% | 35.9% | 35.9% | **35.9%** | 35.9% | 35.9% |
+| died in act III | 9.1% | 13.5% | 17.5% | **21.4%** | 26.6% | 29.8% |
+
+Three to five points of win rate per guess, and the first two acts do not move
+by a tenth of a point — not approximately, identically. That is the property a
+final boss's budget should have and no act pool has: it is the last thing in
+the run, so it can only change how many runs finish, never who survives long
+enough to get there. Tuning here cannot break Act I's §10.3 cap or Act II's
+Gate 3 role, which is what makes it the lever of last resort rather than a
+number to reach for first.
+
+It is set to **10** against a measured need of 5 × 3.25 = 16.3. The slack is
+−6.3, the largest negative slack in the game, and deliberately so: the Gauntlet
+is the only place with no §2.3 ladder (§7.3), so the build is all there is. Two
+runs in three that reach it still clear it.
+
+This number had never been swept before snapshot 007 — not because nobody
+tried, but because `cfg.gauntlet.pool` was read from the frozen default config
+in two places instead of from the config passed in, so the harness's override
+did nothing and a sweep from 14 down to 8 returned six identical rows. Six
+identical rows read exactly like "not a difficulty lever". Technical brief §13
+I-31.
 
 The pools are **not monotone**, and should not be read as a difficulty ramp.
 Each act's pool answers that act's structure: Act I is sized to teach (its death
@@ -98,7 +136,7 @@ hits (§10.3's no-relic gate), and Act III is sized to its need because its boss
 is funded separately.
 
 Act III's words are 6- and 7-letter and cost more per word even with a good
-build. The Gauntlet runs on a **fixed, separate pool of 14** and does not draw
+build. The Gauntlet runs on a **fixed, separate pool of 10** and does not draw
 from the act pool.
 
 Baseline human performance is ~3.9 guesses/word on clean 5-letter words, ~3.5 for strong solvers, ~4.6 on 7-letter words. Every budget above sits below the relevant baseline. **A player with no relics should die in Act II.** This is the design intent and the primary thing simulation must confirm.
@@ -195,13 +233,15 @@ Copy must say twenty. The title screen currently says eighteen and the victory s
 
 | Node | Reward |
 |---|---|
-| Word | **Choose one:** a relic from 3 offered, **or** 40g |
+| Word | **Choose one:** a relic from 3 offered, **or** 20g |
 | Elite | 40g **and** a relic from 3, weighted uncommon/rare |
 | Boss | 60g **and** a guaranteed boss relic |
 
 The word node's two rewards are one choice, not two grants (R-025). The three relics stay on screen when the gold is taken: you should see what you are refusing.
 
 This is where gold comes from in any quantity, so it is also what funds the shop, the forge and both ladders. A run that takes the relic every time is a run that cannot buy anything — which is the intended shape of the decision, and the reason the acquisition curve is now a balance number rather than a constant (§10.1).
+
+**The word node pays 20g — one §2.5 reveal, exactly.** Declining a relic buys one look at one letter, and the exchange rate is meant to read that plainly. It paid 40g through snapshot 006, which bought a reveal *and* most of an emergency guess, so the gold was never really an alternative to the relic — it was strictly better, and the measured bot banked it every time it was offered. 40g was also just under half of all the gold in a run: the whole economy ran on refusing relics. Snapshot 007.
 
 ---
 
@@ -490,7 +530,9 @@ Solving one solution locks its row and continues the other. Both must be solved 
 
 ### 7.3 Act III — The Gauntlet
 
-Five words. **Fixed separate pool of 14.** No shop, forge or reward between them. Pure attrition against the assembled build.
+Five words. **Fixed separate pool of 10.** No shop, forge or reward between them. Pure attrition against the assembled build.
+
+**No emergency ladder.** §2.3 is not offered during the Gauntlet: its pool is the whole of what you get, and running it out ends the run with the gold still in your hand. This is why the Gauntlet's pool is the game's difficulty lever (§2.2) — it is the one budget gold cannot rescue — and why §10.1's "died holding the price of an out" excludes Gauntlet deaths.
 
 The act pool is untouched by the Gauntlet in either direction — it neither draws from it nor converts into it.
 

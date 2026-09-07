@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { CONFIG } from '../lib/engine';
 import { playRun, sweepSeed } from './runner';
 import { cleanBaseline } from './baseline';
-import { DEFAULT_SOLVER, type SolverConfig } from './solver';
+import { DEFAULT_SOLVER, resetSolverCaches, type SolverConfig } from './solver';
 import { buildReport } from './report';
 
 /**
@@ -25,13 +26,41 @@ describe('Gate 1 — determinism', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
+  const sweep = (n: number, cfg = CONFIG) =>
+    Array.from({ length: n }, (_, i) => playRun(sweepSeed('gate', i), 'CH.01', calibration.solver, cfg));
+
   it('a sweep is stable across repeats', () => {
-    const run = () =>
-      Array.from({ length: 25 }, (_, i) => playRun(sweepSeed('gate', i), 'CH.01', calibration.solver));
-    const first = run();
-    const second = run();
-    expect(first.map((r) => r.guessesSpent)).toEqual(second.map((r) => r.guessesSpent));
-    expect(first.map((r) => r.won)).toEqual(second.map((r) => r.won));
+    // Whole results, not just two fields: the leak this guards against moved
+    // gold and death causes long before it moved a guess count. 40 runs rather
+    // than a handful, because the solver's caches collide by chance and a
+    // sample too small to collide reports a determinism the harness lacks.
+    expect(sweep(40).map((r) => JSON.stringify(r))).toEqual(sweep(40).map((r) => JSON.stringify(r)));
+  });
+
+  it('a run does not depend on the runs executed before it', () => {
+    // The one that catches a solver cache keyed on too little. A run replayed
+    // on its own must match the same run inside a batch — if it does not, the
+    // bot is carrying something from an unrelated run and a sweep measures the
+    // order its configs happened to execute. §13 I-30.
+    const batch = sweep(40);
+    for (const i of [0, 7, 23, 39]) {
+      const alone = playRun(sweepSeed('gate', i), 'CH.01', calibration.solver);
+      expect(JSON.stringify(alone)).toBe(JSON.stringify(batch[i]));
+    }
+  });
+
+  it('the solver caches are memoization, not state', () => {
+    // The decisive one. A cache keyed on less than its answer depends on can
+    // stay consistent for a whole process and only diverge once something
+    // evicts — `narrowCache` needed 20k entries, about 150 runs, so a sweep of
+    // 40 saw nothing and a sweep of 600 measured the order its configs ran in.
+    // Clearing between runs makes every such key fail at once, at any size.
+    const warm = sweep(25);
+    const cold = Array.from({ length: 25 }, (_, i) => {
+      resetSolverCaches();
+      return playRun(sweepSeed('gate', i), 'CH.01', calibration.solver);
+    });
+    expect(cold.map((r) => JSON.stringify(r))).toEqual(warm.map((r) => JSON.stringify(r)));
   });
 
   it('different seeds produce different runs', () => {
@@ -96,5 +125,22 @@ describe('the report', () => {
     expect(report.meanGuessesPerWord).toBeGreaterThan(1);
     expect(report.deathsByAct).toHaveLength(3);
     expect(report.unimplemented.length).toBeGreaterThan(0);
+    // Absent unless the second sweep was actually run, so a report that did not
+    // measure the no-relic target cannot quietly print a 0% and pass it.
+    expect(report.noRelicWinRate).toBeNull();
+    expect(report.noRelicDeathsByAct).toBeNull();
+  });
+
+  it('reports §10.3\'s no-relic target when given the second sweep', () => {
+    const seeds = Array.from({ length: 20 }, (_, i) => sweepSeed('report', i));
+    const withRelics = seeds.map((s) => playRun(s, 'CH.01', calibration.solver));
+    const without = seeds.map((s) =>
+      playRun(s, 'CH.01', calibration.solver, CONFIG, { noRelics: true }),
+    );
+    const report = buildReport(withRelics, calibration.solver, without);
+    expect(report.noRelicWinRate).toBeLessThan(report.winRate);
+    expect(report.noRelicDeathsByAct).toHaveLength(3);
+    const total = report.noRelicDeathsByAct!.reduce((a, b) => a + b, 0);
+    expect(total + report.noRelicWinRate!).toBeCloseTo(1, 5);
   });
 });

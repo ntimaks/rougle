@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config';
+import { CONFIG, type GameConfig } from '../core/config';
 import type { ModifierId } from '../core/state';
 
 /**
@@ -65,10 +65,41 @@ export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
     actIndex: 2,
     code: 'GAUNTLET',
     name: 'THE GAUNTLET',
-    rule: 'FIVE WORDS · ITS OWN POOL OF 14',
+    rule: `FIVE WORDS · ITS OWN POOL OF ${CONFIG.gauntlet.pool}`,
     words: CONFIG.gauntlet.words,
     modifiers: [],
     deferralDepth: 0,
     ownPool: CONFIG.gauntlet.pool,
   },
 });
+
+/**
+ * A boss under a given config.
+ *
+ * `BOSSES` is frozen at import against the default CONFIG, so three numbers
+ * that MECHANICS.md states — the Gauntlet's own pool and word count, the
+ * Cipher's deferral depth — reached the engine as constants and ignored the
+ * harness's override entirely. A sweep of the Gauntlet pool from 14 down to 8
+ * therefore returned six byte-identical rows, which reads exactly like "not a
+ * difficulty lever" and is really "not wired up". §13 I-31.
+ *
+ * The engine takes every boss through here. `BOSSES` stays exported for the UI
+ * and the report, which only ever run on the default config and want the names
+ * and rule text.
+ */
+export function bossFor(actIndex: 0 | 1 | 2, cfg: Readonly<GameConfig> = CONFIG): BossDef {
+  const def = BOSSES[actIndex];
+  switch (def.code) {
+    case 'GAUNTLET':
+      return {
+        ...def,
+        words: cfg.gauntlet.words,
+        ownPool: cfg.gauntlet.pool,
+        rule: `FIVE WORDS · ITS OWN POOL OF ${cfg.gauntlet.pool}`,
+      };
+    case 'CIPHER':
+      return { ...def, deferralDepth: cfg.cipherDeferralDepth };
+    default:
+      return def;
+  }
+}

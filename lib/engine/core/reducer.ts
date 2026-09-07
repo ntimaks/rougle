@@ -1,4 +1,4 @@
-import { BOSSES } from '../content/bosses';
+import { bossFor } from '../content/bosses';
 import { lengthFor } from '../content/modifiers';
 import {
   CHARACTER_BY_CODE,
@@ -138,7 +138,7 @@ export function canDispatch(
       // them; projecting an unlockable board is pure cost.
       const canLock = s.word.lockedLetters.length > 0 || hasRelic(s, 'RL.02');
       if (canLock) {
-        const provenGrey = new Set(projectBoard(s, s.word).provenGrey);
+        const provenGrey = new Set(projectBoard(s, s.word, undefined, cfg).provenGrey);
         for (const letter of new Set(guess)) {
           if (!isLetterAvailable(s, s.word, letter, provenGrey)) {
             return { code: 'LETTER_LOCKED', message: `${letter} is locked this word.` };
@@ -442,8 +442,9 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     };
   }
 
-  if (node.kind === 'BOSS' && BOSSES[next.actIndex].ownPool !== null) {
-    next = { ...next, gauntlet: { pool: BOSSES[next.actIndex].ownPool!, wordIndex: 0 } };
+  const bossHere = bossFor(next.actIndex, cfg);
+  if (node.kind === 'BOSS' && bossHere.ownPool !== null) {
+    next = { ...next, gauntlet: { pool: bossHere.ownPool, wordIndex: 0 } };
   }
 
   const started = startWord(next, nodeId, cfg);
@@ -578,7 +579,7 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   // playtest screenshot proved they can drift: the Act II Twins ran the Act I
   // Cipher's 3-turn deferral over a two-solution word, which is six blank rows
   // and no way to read them.
-  const boss = BOSSES[node.actIndex];
+  const boss = bossFor(node.actIndex, cfg);
   const modifiers: ModifierId[] = [...node.modifiers];
   const baseLength = cfg.acts[s.actIndex].wordLength;
   const length: WordLength = isBoss

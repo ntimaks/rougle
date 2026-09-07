@@ -244,7 +244,7 @@ export function playRun(
 
         const buildView = (state: GameState): SolverView => {
           const w = state.word!;
-          const projected = projectBoard(state, w);
+          const projected = projectBoard(state, w, undefined, cfg);
           return {
             length: w.length,
             modifiers: w.modifiers,

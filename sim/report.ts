@@ -14,6 +14,15 @@ export interface Report {
   runs: number;
   solver: SolverConfig;
   winRate: number;
+  /**
+   * MECHANICS.md §10.3 sets a second win-rate target — under 5% with no relics
+   * taken — and nothing reported it. Gate 3 checked only that a relic-less run
+   * dies in ACT II, which it does emphatically while still winning 7.2%. Null
+   * when the harness was not asked for the second sweep.
+   */
+  noRelicWinRate: number | null;
+  /** Share of all no-relic runs ending in each act. Gate 3 wants the mode in II. */
+  noRelicDeathsByAct: number[] | null;
   deathsByAct: number[];
   deathsByCause: Record<string, number>;
   /** MECHANICS.md §10.3: deaths attributable to word-list luck, not decisions. */
@@ -60,7 +69,11 @@ const FLAGGED_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['RL.30', 'RL.21'],
 ];
 
-export function buildReport(results: readonly RunResult[], solver: SolverConfig): Report {
+export function buildReport(
+  results: readonly RunResult[],
+  solver: SolverConfig,
+  noRelic: readonly RunResult[] | null = null,
+): Report {
   const wins = results.filter((r) => r.won);
   const deaths = results.filter((r) => !r.won);
 
@@ -136,6 +149,13 @@ export function buildReport(results: readonly RunResult[], solver: SolverConfig)
     runs: results.length,
     solver,
     winRate: baseline,
+    noRelicWinRate: noRelic ? noRelic.filter((r) => r.won).length / Math.max(1, noRelic.length) : null,
+    noRelicDeathsByAct: noRelic
+      ? [0, 1, 2].map(
+          (i) =>
+            noRelic.filter((r) => !r.won && r.deathActIndex === i).length / Math.max(1, noRelic.length),
+        )
+      : null,
     deathsByAct,
     deathsByCause,
     wordLuckDeathRate: deaths.length ? luckDeaths / deaths.length : 0,
@@ -151,10 +171,22 @@ export function buildReport(results: readonly RunResult[], solver: SolverConfig)
     meanRevealsBought: mean(results.map((r) => r.revealsBought)),
     meanGoldSpent: mean(results.map((r) => r.goldSpent)),
     // R-020's pathology in one number: dying with the price of an out in hand.
+    //
+    // "The price of an out" is the ladder's first rung, read from the config
+    // rather than written as 25. Hardcoded, it stopped meaning that the moment
+    // §2.3's prices moved: at a 60g first rung it counted deaths holding 25g,
+    // which cannot buy anything, and so reported the pathology getting WORSE on
+    // a change that halved it. Same failure as the word-luck metric in §13
+    // I-29 — a metric whose threshold is a balance number has to read it.
     deathsHoldingGold: (() => {
-      const deaths = results.filter((r) => !r.won);
+      // Gauntlet deaths are excluded: §2.3's ladder is not offered during the
+      // Gauntlet at all, so gold in hand there was never an out that went
+      // unbought. Counting them made the metric worse every time the Gauntlet
+      // got harder, which is the opposite of what it is for.
+      const deaths = results.filter((r) => !r.won && r.deathCause !== 'GAUNTLET');
       if (deaths.length === 0) return 0;
-      return deaths.filter((r) => r.goldEarned - r.goldSpent >= 25).length / deaths.length;
+      const firstRung = CONFIG.emergencyCosts[0] ?? 0;
+      return deaths.filter((r) => r.goldEarned - r.goldSpent >= firstRung).length / deaths.length;
     })(),
     relicPickRate,
     coOccurrence,
@@ -195,6 +227,17 @@ export function formatReport(report: Report): string {
   push(
     `  median emergency purchases      ${String(report.medianEmergencyPurchases).padEnd(10)} >0            ${verdict(report.medianEmergencyPurchases > 0)}`,
   );
+  if (report.noRelicWinRate !== null) {
+    push(
+      `  win rate, no relics taken       ${pct(report.noRelicWinRate).padEnd(10)} <5%           ${verdict(report.noRelicWinRate < 0.05)}`,
+    );
+    const acts = report.noRelicDeathsByAct!;
+    const modal = acts.indexOf(Math.max(...acts));
+    push(
+      `  gate 3 — no-relic runs die in   ${`act ${['I', 'II', 'III'][modal]}`.padEnd(10)} act II        ${verdict(modal === 1)}` +
+        `   (I ${pct(acts[0]!)} II ${pct(acts[1]!)} III ${pct(acts[2]!)})`,
+    );
+  }
   push();
   push('Guesses per word');
   push(`  overall                         ${report.meanGuessesPerWord.toFixed(2)}`);
@@ -236,7 +279,10 @@ export function formatReport(report: Report): string {
   push(`  mean gold spent                 ${report.meanGoldSpent.toFixed(0)}`);
   push(`  mean gold unspent at end        ${report.meanFinalGold.toFixed(0)}`);
   push(`  mean §2.5 reveals bought        ${report.meanRevealsBought.toFixed(2)}`);
-  push(`  deaths holding 25g or more      ${pct(report.deathsHoldingGold)}   ← R-020, was 99.1%`);
+  push(
+    `  deaths holding the ${String(CONFIG.emergencyCosts[0]).padEnd(3)} out       ` +
+      `${pct(report.deathsHoldingGold)}   ← R-020, was 99.1%`,
+  );
   push(`  median words reached            ${report.medianWordsReached}`);
   push();
   push('Relic pick rate (offered-and-taken / runs)');

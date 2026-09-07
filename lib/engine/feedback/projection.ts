@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config';
+import { CONFIG, type GameConfig } from '../core/config';
 import { ALPHABET } from '../core/letters';
 import type { GameState, WordState } from '../core/state';
 import { hasModifier, hasRelic } from '../core/state';
@@ -92,6 +92,7 @@ export function projectBoard(
   state: Readonly<GameState>,
   w: Readonly<WordState>,
   turnNow: number = w.history.length,
+  cfg: Readonly<GameConfig> = CONFIG,
 ): BoardView {
   const decaying = hasModifier(w, 'DECAY');
 
@@ -113,7 +114,7 @@ export function projectBoard(
           const held = withhold(fb);
           return { ...held, meta: { ...held.meta, revealsIn: revealsIn(w, turn, turnNow) } };
         }
-        if (applyDecay && decaying && turn < turnNow - CONFIG.decayTurns) return decayGreens(fb);
+        if (applyDecay && decaying && turn < turnNow - cfg.decayTurns) return decayGreens(fb);
         return fb;
       }),
     }));
