@@ -58,31 +58,35 @@ describe('the model plays the economy it says it does', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it('never exceeds the §2.1 cap', () => {
-    for (let i = 0; i < 40; i++) {
-      const r = playBleed(`CAP${i}`, { ...DEFAULT_BLEED, start: 12 });
-      for (const b of r.bankrollByWord) expect(b).toBeLessThanOrEqual(ECONOMY.bankrollCap);
-    }
-  });
-
-  it('never buys more emergency rungs than §2.4 has', () => {
-    for (let i = 0; i < 40; i++) {
-      const r = playBleed(`RUNG${i}`, { ...DEFAULT_BLEED, start: 12, buyRefills: false });
-      expect(r.emergenciesBought).toBeLessThanOrEqual(ECONOMY.emergencyCosts.length);
-    }
-  });
-
-  it('buys at most three refills per shop across twelve shops', () => {
-    for (let i = 0; i < 40; i++) {
-      const r = playBleed(`REFILL${i}`, { ...DEFAULT_BLEED, start: 12 });
-      expect(r.refillsBought).toBeLessThanOrEqual(3 * 12);
-    }
-  });
-
-  it('a run that survives played all twenty words', () => {
-    for (let i = 0; i < 40; i++) {
-      const r = playBleed(`FULL${i}`, { ...DEFAULT_BLEED, start: 12 });
-      if (r.survived) expect(r.bankrollByWord).toHaveLength(20);
+  // One pass over a handful of seeds rather than five separate 40-run loops.
+  // Every run here solves twenty words with the real entropy solver, so this
+  // suite is the slowest thing in the repo by an order of magnitude and the
+  // invariants are all cheap to check together. Ten seeds catch a broken bound;
+  // two hundred only cost CI four minutes.
+  it('respects every §2 and §4 bound it is modelling', () => {
+    for (let i = 0; i < 10; i++) {
+      for (const buyRefills of [true, false]) {
+        const r = playBleed(`BOUND${i}`, { ...DEFAULT_BLEED, start: 12, buyRefills });
+        for (const b of r.bankrollByWord) {
+          expect(b, '§2.1 cap').toBeLessThanOrEqual(ECONOMY.bankrollCap);
+          expect(b, 'bankroll never negative').toBeGreaterThanOrEqual(0);
+        }
+        expect(r.emergenciesBought, '§2.4 rungs').toBeLessThanOrEqual(
+          ECONOMY.emergencyCosts.length,
+        );
+        // Per shop, not just the total: the total stays under 36 on its own
+        // because the §2.1 cap and running out of gold both bite first, so it
+        // cannot see a broken per-shop limit at all.
+        expect(r.refillsByShop.length, '§4 twelve shops').toBeLessThanOrEqual(12);
+        for (const n of r.refillsByShop) expect(n, '§4.1 three a shop').toBeLessThanOrEqual(3);
+        if (!buyRefills) {
+          expect(r.refillsBought).toBe(0);
+          expect(r.refillsByShop.every((n) => n === 0)).toBe(true);
+        }
+        // A run either played all twenty words or stopped at the one it died on.
+        expect(r.bankrollByWord.length).toBe(r.survived ? 20 : r.diedAtWord + 1);
+        expect(r.guessesByWord.length).toBe(r.survived ? 20 : r.diedAtWord + 1);
+      }
     }
   });
 });

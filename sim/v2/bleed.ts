@@ -121,6 +121,12 @@ export interface BleedResult {
   goldEarned: number;
   goldSpent: number;
   refillsBought: number;
+  /**
+   * Refills bought at each shop in order. The total alone cannot see a broken
+   * per-shop limit — the §2.1 cap and running out of gold hold it under 36
+   * anyway — so the bound §4.1 actually states needs the per-shop numbers.
+   */
+  refillsByShop: number[];
   emergenciesBought: number;
   /** Total bankroll a relic-less run ends up short by. The relic budget. */
   deficit: number;
@@ -182,6 +188,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
   let goldEarned = 0;
   let goldSpent = 0;
   let refills = 0;
+  const refillsByShop: number[] = [];
   let emergencies = 0;
   const bankrollByWord: number[] = [];
   const guessesByWord: number[] = [];
@@ -246,6 +253,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
         bought += 1;
         refills += 1;
       }
+      refillsByShop.push(bought);
     }
     bankrollByWord.push(bankroll);
   }
@@ -261,6 +269,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
     goldEarned,
     goldSpent,
     refillsBought: refills,
+    refillsByShop,
     emergenciesBought: emergencies,
     // What relics would have had to supply. Zero for a run that finished.
     deficit: survived ? 0 : slots.length - diedAt,
