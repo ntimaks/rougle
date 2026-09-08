@@ -74,8 +74,10 @@ payout = max(0, base(length) − guesses_used)
 | Word length | base | Break-even |
 |---|---|---|
 | 5 | 6 | 3 guesses |
-| 6 | 7 | 3.5 guesses |
-| 7 | 8 | 4 guesses |
+| 6 | 6 | 3 guesses |
+| 7 | 6 | 3 guesses |
+
+**The base is flat across lengths.** It used to rise by 1 a letter, which made §7's two "difficulty" modifiers the most profitable thing in the game — longer words take *fewer* guesses, not more, so a rising base compounded an advantage instead of compensating a cost. See §7.
 
 Net effect on the bankroll for a 5-letter word:
 
@@ -99,13 +101,16 @@ The only valve against a death spiral. Offered automatically at bankroll 0 with 
 
 | Purchase | Cost | Grants |
 |---|---|---|
-| 1st | 25g | +3 bankroll |
-| 2nd | 50g | +3 bankroll |
-| 3rd | 100g | +3 bankroll |
-| 4th | 200g | +3 bankroll |
-| 5th+ | Unavailable | |
+| 1st | 80g | +3 bankroll |
+| 2nd | 160g | +3 bankroll |
+| 3rd | 320g | +3 bankroll |
+| 4th+ | Unavailable | |
 
 The offer is mandatory UI. The player must always see the exit they did or did not buy.
+
+**Why +3 and why 80.** Under a per-act pool, +1 finished the word in front of you. Under a run-long bankroll where the median word costs 1.8 net, +1 puts you back at zero inside one word and you buy again — a bad loop. +3 buys about a word and a half of runway, which is the size the valve should be.
+
+The price is set against that grant. It was 25/50/100 while the grant tripled, which put the first purchase at **8.3g per bankroll** — the cheapest bankroll in the game, below a refill and a third of relic parity. That makes the last resort the best deal on the board, and rewards running yourself to zero deliberately. At 80 the first rung is ~27g per bankroll, roughly relic parity, and it doubles from there. A player with no gold dies, which is correct.
 
 ### 2.5 Gain clamps
 
@@ -170,7 +175,7 @@ This is what makes gold matter continuously and what makes relic acquisition an 
 Each shop rolls:
 - **3 relics**, weighted by archetype (§6.6)
 - **1 consumable**
-- **Guess refills** — 25g each, maximum 3 per shop
+- **Guess refills** — **one per shop**, on a ladder that escalates across the run: 40 / 60 / 80 / 100 / 120 / 140g. **Six in a run, hard cap.**
 
 ### 4.2 Prices
 
@@ -180,9 +185,13 @@ Each shop rolls:
 | Uncommon relic | 110g |
 | Rare relic | 180g |
 | Consumable | 40g |
-| Guess refill (+1 bankroll) | 25g |
+| Guess refill (+1 bankroll) | 40 / 60 / 80 / 100 / 120 / 140g, escalating across the run |
 | Reroll stock | 20g, +10g per reroll within the same shop |
 | Sell a held relic | 50% of price, rounded down |
+
+**The refill valve is deliberately worse than a relic.** It was three refills a shop at a flat 25g: across twelve shops that is **36 purchasable bankroll against a non-relic economy of 24** (12 start + 12 from boss clears) — one and a half times the entire base economy, carried over from a per-act pool without redoing the multiplication for a twelve-shop run.
+
+The rate was backwards too. 25g bought one bankroll; an uncommon relic at 110g closing ~0.4 a word over ten remaining words is worth ~4 bankroll, about **27g each**. Gold bought survival more cheaply than it bought a build. **Gold should buy builds, and buy survival only at a penalty.** The ladder above is 540g for 6 bankroll — 90g each, comfortably worse than relic efficiency, and a quarter of the base economy rather than one and a half times it.
 
 Income runs roughly 300g per act. That funds about two relic purchases per act before rerolls, refills and consumables. A player cannot buy everything, which is the point.
 
@@ -291,6 +300,39 @@ v1.1 failed this badly. The Metronome paid 10g for solving in exactly three. The
 
 Seven relics were cut on this test or made obsolete by the refill removal: Metronome, Concordance, Ledger, Insurance, Pilgrim, Vault, Wishbone. Any new relic must pass it before entering the registry.
 
+#### The value budget — normative
+
+The impact test says what a relic must *do*. This says how much it may be *worth*, because v2.0 set relic power by feel and there was nothing for "too strong" to mean.
+
+A full board of five should close the §2.3 bleed and leave a well-played run slightly positive. Against §2.3's own stated baseline — 3.9 guesses a word, so `6 − 2 × 3.9 = −1.8` bankroll a word:
+
+| Rarity | Bankroll per word |
+|---|---|
+| `COMMON` | 0.20 |
+| `UNCOMMON` | 0.30 |
+| `RARE` | 0.40 |
+| `BOSS` | 0.50 |
+
+Two rules on top:
+
+**A board of five may total no more than 1.2 × the bleed (2.16).** This is the one that matters, and it is what set the table above. A per-relic budget does not constrain the thing §11.5 measures, because §6.2 gives the player five slots. The first draft of this table read 0.25 / 0.4 / 0.7 / 0.9, and under it a board of two uncommons, two rares and a boss totals **3.10** against a 1.8 bleed — +1.3 a word, which balance snapshot `v2-001.md` measured as unloseable. Working backwards from the board is what produced 0.20 / 0.30 / 0.40 / 0.50:
+
+| Board | at 0.25/0.4/0.7/0.9 | at 0.20/0.30/0.40/0.50 |
+|---|---|---|
+| 5 common | 1.25 · dies | 1.00 · dies |
+| 3 common + 2 uncommon | 1.55 · in band | 1.20 · dies |
+| 2 uncommon + 3 rare | 2.90 · **immortal** | 1.80 · in band |
+| 2 uncommon + 2 rare + 1 boss | 3.10 · **immortal** | 1.90 · in band |
+| 1 uncommon + 2 rare + 2 boss | 3.60 · **immortal** | 2.10 · in band |
+
+**No single relic may exceed the boss allowance, 0.50, whatever its rarity.** An `MK.II` is judged against that ceiling rather than its base rarity — an upgrade is a Forge investment and is *supposed* to be worth more than the relic it upgrades. A base relic is judged against its tier.
+
+**A payout bonus cannot be COMMON or UNCOMMON on a "solve in three" trigger.** That trigger fires on 43.3% of words, so the smallest integer bonus on it is worth **0.43** — the boss allowance — however small the bonus. The next tighter trigger, solving in two, fires on 7.7%: +2 there is 0.15, and +3 is 0.23. There is nothing in between, so a payout relic is either boss-tier or it is gated on a two-guess solve. `RL.11` Flywheel is COMMON and therefore reads "solve in two or fewer and the payout rises by 2"; `CH.02` The Gambler keeps the three-guess trigger and is valued at the boss allowance, because a character innate is held for the whole run.
+
+Stated against the spec's 3.9 rather than a measured sample on purpose: a budget that moves every time someone re-runs the harness is not a budget. The calibrated solver measures 3.868 over 5000 clean solves, close enough that the distinction does not change a tier.
+
+Relics that change **guesses per word** (`RL.01` Lexicon, `RL.02` The Sieve, `RL.03` Palimpsest, `RL.26` The Lantern) or **gold** (`RL.14`, `RL.22`, `RL.23`) are not yet valued against this table — they need the engine rather than arithmetic over the guess distribution. Sixteen of the twenty-two are in that position. The budget binds them all the same; it just cannot check them yet.
+
 ### 6.5 Scaling — normative
 
 **Six relics carry a run-long counter and get stronger the longer they are held.** They are marked `scaling` in the registry and their current counter value is always visible on the card.
@@ -359,6 +401,16 @@ Modifiers attach to words and are the entire difficulty curve.
 | Stacked | III | Elites roll 2 modifiers |
 
 **Exclusions:** Fog and Cipher cannot co-occur. Silent Start and Fog cannot co-occur.
+
+**⚠ Long Word and Longer Word are currently rewards, not difficulty.** §2.3's base rises by 1 per length while the guess count *falls* — longer words carry more constraints per guess, so a solver narrows faster. Measured over 800 real solves per length:
+
+| Length | Base | Guesses/word | Net = base − 2g |
+|---|---|---|---|
+| 5 | 6 | 3.77 | **−1.54** |
+| 6 (Long Word, II+) | 7 | 3.47 | **+0.07** |
+| 7 (Longer Word, III) | 8 | 3.10 | **+1.80** |
+
+A 7-letter word is worth **+1.80 bankroll** where a 5-letter word costs 1.54, so Act III's headline difficulty modifier is the single most profitable thing in the game. Either the base stops rising with length (a flat 6 makes a 7-letter word net −0.2, still the hardest), or these two stop being described as difficulty. Same failure as the refill valve: a number carried across a redesign without redoing the arithmetic underneath it. Unresolved; §13.
 
 ---
 
@@ -532,6 +584,32 @@ The originals, and what v2.0 does to each, are in §12.1.
 
 **Phase 5 — Balance.** Simulation against §11.5, with §11.2 as the gating metric.
 
+
+**R-042 · Gold buys builds; it buys survival at a penalty.** §4.1 sold three guess refills a shop at a flat 25g. Across twelve shops that is **36 purchasable bankroll against a non-relic economy of 24** — one and a half times the whole base economy, carried from a per-act pool into a twelve-shop run without redoing the multiplication. The rate was backwards as well: 25g a bankroll against an uncommon relic's ~27g, so gold bought survival more cheaply than it bought a build.
+→ **Ruled:** one refill a shop, on a ladder escalating across the run at 40/60/80/100/120/140g, six in a run, hard cap. 540g for 6 bankroll — 90g each, comfortably worse than relic efficiency, and a quarter of the base economy rather than 1.5×. Measured: a relic-less run falls from 91.0% to 34.3%.
+
+**R-043 · A valve's price follows its grant.** §2.4's grant tripled from +1 to +3 in the v2.0 redesign — correctly, because under a run-long bankroll +1 puts you back at zero inside one word — and the price stayed at 25/50/100. That put the first purchase at **8.3g per bankroll**, the cheapest bankroll in the game, below a refill and a third of relic parity. The last resort became the best deal on the board, and optimal play became running yourself to zero on purpose.
+→ **Ruled:** 80/160/320, +3 each, three rungs. The first is ~27g a bankroll, roughly relic parity, and it doubles. A player with no gold dies, which is correct. The standing rule: **whenever a grant changes size, its price is re-derived, not inherited.**
+
+**R-044 · Relic power is a budget, not a feel.** v2.0 set relic values by judgement and never checked them against §2.3, so "too strong" had no meaning. Measured, nine of the ten relics that move bankroll or payout exceeded half the bleed, and `RL.19` The Moth paid **2.50 a word** — more than the entire bleed, on an UNCOMMON — because it paid +2 at *every* word start rather than on the gorge.
+→ **Ruled:** §6.4 carries an explicit allowance by rarity and a hard ceiling of half the bleed. Every relic that moves bankroll or payout carries a measured `value_note` in the registry. `RL.11`, `RL.12`, `RL.13`, `RL.15`, `RL.19` and `CH.02` retuned to fit. Sixteen relics change guesses-per-word or gold instead and cannot be valued until the engine migrates; the budget binds them, it just cannot check them yet.
+
+**R-045 · Silent Start was already ruled, twice.** Raised again in review as unruled, on the grounds that the log ends at R-021. It ends there in *this document*, which was drafted from v1.1; the repository shipped v1.2 and v1.3, and **R-028** (greens survive) and **R-029** (suppressed tiles report `UNKNOWN`, not `GREY`) both rule it. The diagnosis offered in review — that a false `GREY` would feed `RL.02` The Sieve and lock a solution letter — is exactly R-029's reasoning, and R-029 closed it.
+→ **Ruled:** R-028 and R-029 stand. The review's one substantive change, rendering the suppressed yellow `HIDDEN` rather than `UNKNOWN`, is **rejected**: `HIDDEN` already means *this whole row is unread* (Fog, the Cipher), and the solver bails on the entire row when it sees one — so a per-tile `HIDDEN` would throw away the greens and greys on the same row, and with them the deduction that a blank tile on a Silent Start row *is* a withheld yellow. That inference was worth 21 points of measured win rate (§13 I-27). `UNKNOWN` already ranks below `GREY` in the keyboard derivation, so the Sieve is untouched either way, and neither state needs `trustworthy: false` — the concern about The Mask covering a tier-one modifier applies to `GREY` alone. If `UNKNOWN` carrying both "decayed green" and "withheld yellow" is judged too overloaded, the answer is a **new** `TileState`, not the one Fog owns.
+
+**R-046 · One ladder, wherever you buy bankroll.** §6.7 operation B sold bankroll at a flat 20g, "any quantity affordable", with a forge guaranteed every act. After R-042 and R-043 repriced the other two valves that made the forge the cheapest bankroll in the game and the only uncapped one: switching it on took a relic-less run from 34.3% to 63.5%, undoing most of both fixes. Pricing it separately would have re-opened the arbitrage the moment either number moved again.
+→ **Ruled:** the forge draws from the **same §4.1 ladder** the shop sells from. A run buys at most six bankroll however it splits them between shop and forge. Measured: the forge row is now identical to the no-forge row. The standing rule: **two shops selling the same thing share one ladder, or the cheaper one is the only one.**
+
+**R-047 · The payout base is flat across lengths.** §2.3's base rose by 1 a letter. Longer words take *fewer* guesses, not more — more letters means more constraints per guess — so a rising base compounded an advantage instead of compensating a cost. Measured over 800 solves per length, net was **−1.54** at five letters, **+0.07** at six and **+1.80** at seven: Act III's headline difficulty modifier was the single most profitable thing in the game.
+→ **Ruled:** base 6 at every length. Long Word and Longer Word are now −0.94 and −0.20, still easier than a five-letter word but no longer profitable. The residue is not the payout's fault — §10's six- and seven-letter solution lists are ~800 and ~500 against ~1500, so there is simply less to disambiguate — and closing it is a curation job. Flattening the base also removed Clamp A's one bite on unassisted play: a 7-letter hole-in-one used to net +7 and be clamped to +5, so the luckiest guess in the game was the only thing the clamp punished.
+
+**R-048 · The board is the budget, not the relic.** R-044 set an allowance per relic. §6.2 gives the player **five slots**, so a per-relic budget does not constrain what §11.5 measures. Under R-044's table a board of two uncommons, two rares and a boss totalled **3.10** against a 1.8 bleed — +1.3 a word, which `v2-001.md` measured as unloseable.
+→ **Ruled:** a board of five may total no more than **1.2 × the bleed**, and the tier table is derived from that rather than chosen: 0.20 / 0.30 / 0.40 / 0.50. The per-relic ceiling falls from 0.9 to 0.50 — the boss allowance, 28% of the bleed rather than half. An `MK.II` is judged against the ceiling, a base relic against its tier, because an upgrade is a Forge investment and is supposed to be worth more than what it upgrades.
+
+One consequence is worth stating outright: **a payout bonus cannot be COMMON or UNCOMMON on a "solve in three" trigger.** That trigger fires on 43.3% of words, so the smallest integer bonus on it is 0.43 — the boss allowance — however small the bonus. The next tighter trigger fires on 7.7%. There is nothing in between, so a payout relic is either boss-tier or gated on a two-guess solve.
+
+**R-049 · A calibration probes at the size it reports.** §11.4's handicap is tuned until `cleanBaseline` reads 3.9, and it probed 400 words. At n=400 that estimator carries about ±0.05 from two sources — which words are drawn, and which vocabulary slice the seed produces — so the search stopped at 3.893 while the converged value was **3.84**, six hundredths under target, and the test guarding it probed at the same 400 and passed throughout.
+→ **Ruled:** the calibration probes 2500 and records `wordsPerProbe` in `calibration.json`; the Gate 1 test reads that field rather than hardcoding a size, so the two cannot drift apart. Re-derived, `vocabularyGap` moves 0.0938 → 0.1125 and the converged baseline is 3.868. The standing rule: **a search that stops inside its estimator's noise band has not converged, and a test at the same sample size cannot tell.**
 
 ### 12.1 Carried forward from v1.3
 

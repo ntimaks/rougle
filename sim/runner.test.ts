@@ -17,7 +17,7 @@ import { buildReport } from './report';
 
 const calibration = JSON.parse(
   readFileSync(resolve(__dirname, 'calibration.json'), 'utf8'),
-) as { solver: SolverConfig; target: number; measured: number };
+) as { solver: SolverConfig; target: number; measured: number; wordsPerProbe?: number };
 
 describe('Gate 1 — determinism', () => {
   it('the same seed plays the same run', () => {
@@ -76,7 +76,13 @@ describe('H-01 — the solver', () => {
   });
 
   it('the committed calibration still reproduces its measurement', () => {
-    const measured = cleanBaseline(400, calibration.solver, 5);
+    // At the sample size the calibration actually used. This probed 400 for a
+    // long time, which is where the estimator's own noise is about ±0.05 —
+    // wide enough that the calibration could stop 0.06 short of its target and
+    // this test would still pass. `wordsPerProbe` is recorded in the file so
+    // the check and the calibration cannot drift apart again.
+    const n = calibration.wordsPerProbe ?? 400;
+    const measured = cleanBaseline(n, calibration.solver, 5);
     expect(measured).toBeCloseTo(calibration.measured, 1);
     expect(Math.abs(measured - calibration.target)).toBeLessThan(0.06);
   });

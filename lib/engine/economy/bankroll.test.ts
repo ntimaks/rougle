@@ -42,10 +42,9 @@ describe('§2.3 — the payout table', () => {
     for (const used of [7, 9, 20]) expect(basePayout(5, used)).toBe(0);
   });
 
-  it('break-even is three guesses on a five, and net is base − 2 × guesses', () => {
-    expect(breakEven(5)).toBe(3);
-    expect(breakEven(6)).toBe(3.5);
-    expect(breakEven(7)).toBe(4);
+  it('break-even is three guesses at every length, and net is base − 2 × guesses', () => {
+    // Flat base: a longer word is not worth more, because it does not cost more.
+    for (const len of [5, 6, 7] as WordLength[]) expect(breakEven(len)).toBe(3);
     for (const len of [5, 6, 7] as WordLength[]) {
       for (const used of [1, 2, 3, 4]) {
         expect(basePayout(len, used) - used).toBe(ECONOMY.payoutBase[len] - 2 * used);
@@ -87,22 +86,19 @@ describe('§2.5 — the clamps', () => {
     expect(out.payout - 2).toBe(ECONOMY.maxNetGainPerWord);
   });
 
-  it('Clamp A binds on exactly one unassisted solve: a seven in one guess', () => {
-    // Worth knowing, because §2.5 introduces Clamp A as a rule about relics
-    // stacking. It is not only that. A 7-letter word pays base 8, so a
-    // hole-in-one nets +7 with no relic involved at all and the clamp holds it
-    // to +5. Every other unassisted solve at every length is under the ceiling,
-    // so this is the whole of the clamp's reach on unaided play — deliberate
-    // as far as the spec goes ("NO word may add more than 5"), but it means the
-    // luckiest possible guess in the game is the one case the clamp punishes.
+  it('Clamp A no longer touches unassisted play at any length', () => {
+    // It used to bind on exactly one case: a 7-letter word paid base 8, so an
+    // unassisted hole-in-one netted +7 and the clamp held it to +5 — the
+    // luckiest possible guess was the one thing the clamp punished. Flattening
+    // the base to 6 removed that, so Clamp A is now purely the anti-stacking
+    // rule §2.5 introduces it as.
     const bound: string[] = [];
     for (const len of [5, 6, 7] as WordLength[]) {
       for (let used = 1; used <= 8; used++) {
         if (payoutFor(len, used).clamped) bound.push(`${len}/${used}`);
       }
     }
-    expect(bound).toEqual(['7/1']);
-    expect(payoutFor(7, 1).payout - 1).toBe(ECONOMY.maxNetGainPerWord);
+    expect(bound).toEqual([]);
   });
 });
 
@@ -153,10 +149,10 @@ describe('§2.4 — the emergency ladder', () => {
   });
 
   it('charges the rung and does not consume one it could not pay for', () => {
-    const priced = buyEmergency(at(0, 25))!;
+    const priced = buyEmergency(at(0, ECONOMY.emergencyCosts[0]!))!;
     expect(priced.state.gold).toBe(0);
     expect(priced.state.emergencyPurchases).toBe(1);
-    expect(buyEmergency(at(0, 24))).toBeNull();
+    expect(buyEmergency(at(0, ECONOMY.emergencyCosts[0]! - 1))).toBeNull();
     expect(buyEmergency(at(0, 9999, ECONOMY.emergencyCosts.length))).toBeNull();
   });
 });
