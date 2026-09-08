@@ -127,7 +127,7 @@ export function offerRefund(
     amount,
     cfg,
   );
-  const applied = granted > 0 ? applyRefund(s, granted, source) : { state: s, events: [] };
+  const applied = granted > 0 ? applyRefund(s, granted, source, cfg) : { state: s, events: [] };
   const remainder = amount - granted;
   if (remainder <= 0) return applied;
 
@@ -160,7 +160,7 @@ export function drainPendingRefunds(
       cfg,
     );
     if (granted > 0) {
-      const applied = applyRefund(next, granted, p.source);
+      const applied = applyRefund(next, granted, p.source, cfg);
       next = applied.state;
       events.push(...applied.events);
     }
@@ -176,12 +176,17 @@ export function drainPendingRefunds(
  * call this; it enforces the poolMax ceiling and nothing else, because the §2.4
  * floor has already been applied by the time a refund reaches it.
  */
-export function applyRefund(s: GameState, amount: number, source: string): PoolResult {
+export function applyRefund(
+  s: GameState,
+  amount: number,
+  source: string,
+  cfg: Readonly<GameConfig> = CONFIG,
+): PoolResult {
   if (amount <= 0) return { state: s, events: [] };
   if (!s.word) return addPool(s, amount, `refund:${source}`);
 
   const usesGauntletPool = s.word.poolSource === 'GAUNTLET' && s.gauntlet !== null;
-  const ceiling = usesGauntletPool ? CONFIG.gauntlet.pool : s.poolMax;
+  const ceiling = usesGauntletPool ? cfg.gauntlet.pool : s.poolMax;
   const before = currentPool(s);
   const after = Math.min(ceiling, before + amount);
   const delta = after - before;

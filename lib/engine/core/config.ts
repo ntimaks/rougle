@@ -5,15 +5,21 @@
  * The harness overrides this object wholesale, which is why it is a plain frozen
  * value rather than a module of consts.
  *
- * The act pools in `acts` are MEASURED (balance snapshot 006, MECHANICS.md
- * §2.2) rather than derived from the 3.9 baseline the v1.0 numbers came from.
- * `gauntlet` is still provisional — it has never been swept.
+ * The act pools in `acts`, the economy and `gauntlet.pool` are all MEASURED
+ * (balance snapshot 007, MECHANICS.md §2.2) rather than derived from the 3.9
+ * baseline the v1.0 numbers came from.
  *
- * Do not tune the game by nudging these without a report. Two findings from the
- * sweep that produced them are worth knowing before you try:
- * Act III's pool is NOT a difficulty lever (flat from 17 down to 10), and the
- * win rate cannot be brought into §10.3's band by pools alone — the legal floor
- * with Act I's death rate under 15% is about 48%.
+ * Do not tune the game by nudging these without a report. Four findings from
+ * the sweeps that produced them are worth knowing before you try:
+ *
+ * - Act III's pool is NOT a difficulty lever (flat from 17 down to 10). Its
+ *   four solve nodes cost 13.3 and everything that kills there is the Gauntlet,
+ *   which is funded separately.
+ * - Pools alone cannot reach §10.3's band. With Act I's death rate under 15%
+ *   they floor at about 48%.
+ * - Neither can pools plus the economy: that pair floors at about 38%.
+ * - `gauntlet.pool` is the lever that closes the gap, and the only one that
+ *   moves the win rate without touching Act I's death rate at all.
  */
 export interface ActConfig {
   /** MEASURED — MECHANICS.md §2.2, balance snapshot 006. */
@@ -67,12 +73,15 @@ export const CONFIG: Readonly<GameConfig> = Object.freeze({
     { pool: 14, solveNodes: 4, mapNodes: 6, maxElites: 3, wordLength: 6 },
   ],
   // A separate pool that never touches the act pool, in either direction.
-  gauntlet: { pool: 14, words: 5, wordLength: 5 },
+  gauntlet: { pool: 10, words: 5, wordLength: 5 },
   goldPerLeftoverGuess: 10,
   ledgerGoldPerLeftoverGuess: 15, // RL.24 The Ledger
   vaultCarryCap: 10, // RL.27 The Vault
   emergencyCosts: [25, 50, 100],
-  rewards: { wordGoldInstead: 40, elite: 40, boss: 60 }, // MECHANICS.md §3.3, R-025
+  // 20 is one §2.5 reveal exactly: declining a relic buys one look at a letter.
+  // At 40 it bought that AND most of an emergency guess, which is why the gold
+  // was never a real alternative to the relic. MECHANICS.md §3.3, R-025.
+  rewards: { wordGoldInstead: 20, elite: 40, boss: 60 },
   minNetGuessesPerWord: 1, // MECHANICS.md §2.4 Rule A
   preGuessRevealCap: 2, // MECHANICS.md §6.3
   consumableSlots: 3,

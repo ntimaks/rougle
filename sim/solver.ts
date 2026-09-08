@@ -203,9 +203,52 @@ function packObserved(
  * always runs against the whole solution list, so without this the same 1000+
  * comparisons are redone every single guess. Keyed on the row prefix, so each
  * turn pays only for the row it just added.
+ *
+ * The cache outlives a run, so its key has to name everything the narrowing
+ * depends on — every input, not just the rows. It once named the vocabulary by
+ * its WORD COUNT, and `vocabularyGap` gives different runs different lists of
+ * the same size perfectly often, so a run would narrow against a vocabulary
+ * belonging to some earlier run in the same process. 346 of 400 runs changed
+ * outcome between two passes of an identical config, which is Gate 1 — a run
+ * is a pure function of (seed, character, solver config) — quietly failing.
+ * See §13 I-30. `poolId` gives each distinct list a stable identity instead.
  */
 const narrowCache = new Map<string, readonly string[]>();
 const NARROW_CACHE_LIMIT = 20_000;
+
+/**
+ * A serial number per distinct vocabulary array, so the cache key can name a
+ * word list without hashing a thousand strings on every lookup. Weak, so a
+ * finished run's vocabulary is collectable.
+ *
+ * Identity, not contents: two runs that happen to know exactly the same words
+ * get separate ids and recompute. That costs a little time and cannot cost
+ * correctness, which is the right way round for a cache that decides what the
+ * bot believes.
+ */
+const poolIds = new WeakMap<readonly string[], number>();
+let nextPoolId = 0;
+
+function poolId(pool: readonly string[]): number {
+  const seen = poolIds.get(pool);
+  if (seen !== undefined) return seen;
+  const id = nextPoolId++;
+  poolIds.set(pool, id);
+  return id;
+}
+
+/**
+ * Empties every cache in this file. Exists for the Gate 1 test, which asserts
+ * the property these caches are supposed to have: they are memoization, so
+ * clearing one can cost time and cannot change an answer. A cache keyed on
+ * less than the answer depends on fails that immediately, whereas it can hide
+ * from a plain repeat-the-sweep check for as long as the process never evicts.
+ */
+export function resetSolverCaches(): void {
+  narrowCache.clear();
+  openerCache.clear();
+  nextPoolId = 0;
+}
 
 function rowSignature(guess: string, observed: number | null, tiles: readonly { state: TileState; distance: number | null; trustworthy: boolean }[]): string {
   if (observed !== null) return `${guess}:${observed}`;
@@ -233,7 +276,12 @@ export function filterCandidates(view: SolverView, pool: readonly string[]): str
     view.revealed.hasRepeat !== null ||
     view.revealed.letters.length > 0;
 
-  let key = `${view.length}:${pool.length}:${view.solutionIndex}`;
+  // Every input to the narrowing below, not just the rows: `silentStart` and
+  // `rangefinder` change how a row is read, and two boards can carry identical
+  // tiles under different modifiers.
+  let key =
+    `${view.length}:${poolId(pool)}:${view.solutionIndex}` +
+    `:${silentStart ? 's' : ''}${rangefinder ? 'r' : ''}`;
   let candidates: readonly string[] = pool;
 
   if (revealsApply && hasReveals) {
@@ -339,18 +387,27 @@ export function rankGuesses(
 /**
  * The fixed opener, computed once per length and cached for the process.
  *
- * Cached by LENGTH, not by candidate set: the full-list computation is O(n²)
- * (~1.1M scorings at length 5) and keying it on the candidate set would recompute
- * it on every word that opens with a reveal, which is most of them once the
- * player holds Lexicon. Narrowed openings use the ordinary search instead.
+ * Computed from the WHOLE solution list rather than from the calling run's
+ * vocabulary, which is what makes caching it by length correct. It used to take
+ * the caller's candidate set and cache the result under the length alone, so
+ * the opener every run played was the one the process's FIRST run derived —
+ * the same shape of bug as §13 I-30 below, and unlike that one it never moved
+ * a number: the best opener is the same word over almost any 90% slice of the
+ * list, so the Gate 1 test does not catch this and did not need to. Removing
+ * the parameter is the fix; there is nothing left to key wrongly.
+ *
+ * A player's opener is a habit, not a fresh derivation, so a fixed word is the
+ * right model — but it has to be a word THIS player knows. The caller checks
+ * that and falls through to the ordinary search when they do not.
  */
-export function opener(length: WordLength, pool: readonly string[]): string {
+export function opener(length: WordLength): string {
   const key = String(length);
   const cached = openerCache.get(key);
   if (cached) return cached;
 
   // Full entropy over the whole list is O(n²) and only paid once per process.
-  const best = rankGuesses(pool, pool, length)[0]!.guess;
+  const all = wordList(length).solutions;
+  const best = rankGuesses(all, all, length)[0]!.guess;
   openerCache.set(key, best);
   return best;
 }
@@ -427,10 +484,13 @@ export function chooseGuess(
     return { guess: candidates[0]!, candidatesRemaining: candidates.length, lostTheAnswer };
   }
 
-  // An unconstrained opening is the same every time; take the precomputed one.
+  // An unconstrained opening is the same every time; take the precomputed one,
+  // but only if it is a word this run's vocabulary actually contains.
   if (view.board.rows.length === 0 && candidates.length === vocab.preferred.length) {
-    const first = opener(view.length, candidates);
-    if (legal(first)) return { guess: first, candidatesRemaining: candidates.length, lostTheAnswer };
+    const first = opener(view.length);
+    if (legal(first) && candidates.includes(first)) {
+      return { guess: first, candidatesRemaining: candidates.length, lostTheAnswer };
+    }
   }
 
   // The handicap: a human plays a word they think might be the answer rather

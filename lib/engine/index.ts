@@ -97,7 +97,7 @@ export {
   type RelicImpl,
 } from './content/types';
 export { MODIFIERS, availableModifiers, canStack, lengthFor, rollModifiers } from './content/modifiers';
-export { BOSSES, type BossDef } from './content/bosses';
+export { BOSSES, bossFor, type BossDef } from './content/bosses';
 
 // Words
 export {

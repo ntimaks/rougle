@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { LIVE_SPEC } from '../../../test/spec';
 import {
   CHARACTERS,
   PENDING_IMPLEMENTATION,
@@ -125,7 +124,8 @@ describe('registry validation', () => {
   });
 
   it('8. every ruling reference resolves to a MECHANICS.md §11 entry', () => {
-    const mechanics = readFileSync(resolve(__dirname, '../../../MECHANICS.md'), 'utf8');
+    // The v1.3 spec: these are v1.3 relics citing v1.3 rulings. See test/spec.ts.
+    const mechanics = LIVE_SPEC;
     for (const d of RELIC_DEFS) {
       if (!d.ruling) continue;
       expect(mechanics, `${d.code} cites ${d.ruling}`).toContain(`**${d.ruling} ·`);
