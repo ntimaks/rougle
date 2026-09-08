@@ -24,7 +24,16 @@ export interface EconomyConfig {
   payoutBase: Readonly<Record<WordLength, number>>;
   /** §2.5 Clamp A — no word may ADD more than this to the bankroll. */
   maxNetGainPerWord: number;
-  /** §2.4 — escalates across the RUN, not the act. Off the end is unavailable. */
+  /**
+   * §2.4 — escalates across the RUN, not the act. Off the end is unavailable.
+   *
+   * Repriced from 25/50/100. The grant tripled from +1 to +3 in v2.0 and the
+   * price did not move, which put the first purchase at 8.3g per bankroll —
+   * the cheapest bankroll in the game, below refills and a third of relic
+   * parity. That makes the last resort the best deal on the board and rewards
+   * running yourself to zero on purpose. At 80 the first rung is ~27g per
+   * bankroll, roughly relic parity, and it doubles from there.
+   */
   emergencyCosts: readonly number[];
   /** §2.4 — every rung grants the same. */
   emergencyGrant: number;
@@ -32,8 +41,22 @@ export interface EconomyConfig {
   bossBankroll: number;
   /** §6.7 — Forge operation B converts gold to bankroll at this rate. */
   forgeGoldPerBankroll: number;
-  /** §4.2 — a shop guess refill. */
-  refillCost: number;
+  /**
+   * §4.1/§4.2 — the guess-refill ladder, escalating across the RUN.
+   *
+   * Was a flat 25g, three a shop, twelve shops: 36 purchasable bankroll against
+   * a non-relic economy of 24 (12 start + 12 from boss clears). The valve was
+   * one and a half times the base economy, and at 25g per bankroll it was also
+   * priced better than relics — an uncommon at 110g closing ~0.4 a word over
+   * ten words is ~27g per bankroll. Gold bought survival more cheaply than it
+   * bought a build, which is backwards.
+   *
+   * Its length is the run cap; `refillsPerShop` is the per-shop cap. 540g for 6
+   * bankroll, 90g each, comfortably worse than relic efficiency.
+   */
+  refillCosts: readonly number[];
+  /** §4.1 — how many refills one shop will sell. */
+  refillsPerShop: number;
 }
 
 export const ECONOMY: Readonly<EconomyConfig> = Object.freeze({
@@ -42,11 +65,12 @@ export const ECONOMY: Readonly<EconomyConfig> = Object.freeze({
   overflowGoldPerGuess: 10,
   payoutBase: Object.freeze({ 5: 6, 6: 7, 7: 8 }),
   maxNetGainPerWord: 5,
-  emergencyCosts: [25, 50, 100, 200],
+  emergencyCosts: [80, 160, 320],
   emergencyGrant: 3,
   bossBankroll: 4,
   forgeGoldPerBankroll: 20,
-  refillCost: 25,
+  refillCosts: [40, 60, 80, 100, 120, 140],
+  refillsPerShop: 1,
 } as const);
 
 /** Harness override. Returns a new frozen config; never mutates ECONOMY. */

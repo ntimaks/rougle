@@ -153,10 +153,10 @@ describe('§2.4 — the emergency ladder', () => {
   });
 
   it('charges the rung and does not consume one it could not pay for', () => {
-    const priced = buyEmergency(at(0, 25))!;
+    const priced = buyEmergency(at(0, ECONOMY.emergencyCosts[0]!))!;
     expect(priced.state.gold).toBe(0);
     expect(priced.state.emergencyPurchases).toBe(1);
-    expect(buyEmergency(at(0, 24))).toBeNull();
+    expect(buyEmergency(at(0, ECONOMY.emergencyCosts[0]! - 1))).toBeNull();
     expect(buyEmergency(at(0, 9999, ECONOMY.emergencyCosts.length))).toBeNull();
   });
 });

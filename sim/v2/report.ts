@@ -49,7 +49,7 @@ function main(): void {
     longWords: false,
     elites: [1, 2, 3],
     goldScale: 1,
-    refillsPerShop: 3,
+    useForge: false,
     guessCost: 1,
     payoutBonus: () => 0,
     solver,
@@ -71,16 +71,28 @@ function main(): void {
   console.log(row('start 12 · long words', sweep(runs, { ...base, start: 12, longWords: true })));
   console.log(row('start 12 · no elites (poorest)', sweep(runs, { ...base, start: 12, elites: [0, 0, 0] })));
 
-  console.log(`\n§4.1 sells a guess refill at ${ECONOMY.refillCost}g, 3 a shop, 12 shops.`);
-  console.log(`That is 36 bankroll for ${36 * ECONOMY.refillCost}g against ~900g of income.\n`);
+  const ladder = ECONOMY.refillCosts;
+  const ladderTotal = ladder.reduce((a, b) => a + b, 0);
+  console.log(
+    `\n§4.1 sells ${ECONOMY.refillsPerShop} refill a shop, ${ladder.length} in a run, at ${ladder.join('/')}g.`,
+  );
+  console.log(
+    `That is ${ladder.length} bankroll for ${ladderTotal}g (${(ladderTotal / ladder.length).toFixed(0)}g each) against ~900g of income.\n`,
+  );
   console.log(
     '  setting                          win  died@  g/word   gold  refl  emerg  d2d',
   );
-  for (const refillCost of [25, 50, 75, 100, 150]) {
+  for (const [label, costs] of [
+    ['flat 25g x36 (was)', Array(36).fill(25)],
+    ['40/60/80/100/120/140', [...ECONOMY.refillCosts]],
+    ['none', []],
+  ] as Array<[string, number[]]>) {
     console.log(
-      row(`refill ${refillCost}g`, sweep(runs, { ...base, start: 12, cfg: withEconomy({ refillCost }) })),
+      row(`refill ${label}`, sweep(runs, { ...base, start: 12, cfg: withEconomy({ refillCosts: costs, refillsPerShop: costs.length > 6 ? 3 : 1 }) })),
     );
   }
+  console.log('');
+  console.log(row('+ §6.7 forge at 20g, uncapped', sweep(runs, { ...base, start: 12, useForge: true })));
   // §7 makes modifiers "the entire difficulty curve" and this model has none,
   // so 3.93 guesses/word is a FLOOR. A worse solver stands in for harder words:
   // the question is how much harder the game has to get before a relic-less run

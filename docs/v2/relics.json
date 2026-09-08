@@ -6,21 +6,44 @@
     "retired": "RL.05 Concordance, RL.08 The Fence, RL.10 Metronome, RL.16 Pilgrim, RL.17 The Holdout, RL.18 Wishbone, RL.24 Ledger, RL.25 Insurance, RL.27 Vault. Cut in v2.0 under the MECHANICS.md §6.4 impact test, or made obsolete by the removal of act refills or of the paid reveal ladder (RL.08, RL.17). Nine codes, matching §12 R-011. Codes are not reused.",
     "impact_test": "A relic must change what you would type, when you would route, or what you would risk. If it only changes a number after the fact, it is a shop item or it is deleted.",
     "scaling": "Six relics carry a run-long counter. `scaling.counter` names it, `scaling.increments_on` states when it ticks, `scaling.effect` states what it does. Counter value must be visible on the card at all times.",
-    "upgrades": "Every relic carries exactly one MK.II tier applied at a Forge. Consumables are not upgradeable. An upgrade never changes hook, archetype, rarity or code. A scaling relic's upgrade accelerates the counter, never replaces it with a flat bonus."
+    "upgrades": "Every relic carries exactly one MK.II tier applied at a Forge. Consumables are not upgradeable. An upgrade never changes hook, archetype, rarity or code. A scaling relic's upgrade accelerates the counter, never replaces it with a flat bonus.",
+    "value_budget": "Every relic that moves bankroll or payout carries a `value_note` giving its measured worth in bankroll per word over a 20-word run. MECHANICS.md §6.5 sets the allowance by rarity and a hard ceiling of half the §2.3 bleed. Relics that change guesses-per-word or gold instead are not yet valued — they need the engine, not arithmetic."
   },
-
   "archetypes": {
-    "INFO": { "label": "INFORMATION", "summary": "Maximise data extracted per guess." },
-    "TEMPO": { "label": "TEMPO", "summary": "Rewarded for solving fast." },
-    "RISK": { "label": "RISK", "summary": "High variance. Wagers and corrupted information." },
-    "GREED": { "label": "GREED", "summary": "Converts play patterns into gold." },
-    "ROUTE": { "label": "ROUTING", "summary": "Changes how the map is navigated rather than how a word is solved." }
+    "INFO": {
+      "label": "INFORMATION",
+      "summary": "Maximise data extracted per guess."
+    },
+    "TEMPO": {
+      "label": "TEMPO",
+      "summary": "Rewarded for solving fast."
+    },
+    "RISK": {
+      "label": "RISK",
+      "summary": "High variance. Wagers and corrupted information."
+    },
+    "GREED": {
+      "label": "GREED",
+      "summary": "Converts play patterns into gold."
+    },
+    "ROUTE": {
+      "label": "ROUTING",
+      "summary": "Changes how the map is navigated rather than how a word is solved."
+    }
   },
-
-  "rarities": ["COMMON", "UNCOMMON", "RARE", "BOSS", "CONSUMABLE"],
-
-  "prices": { "COMMON": 60, "UNCOMMON": 110, "RARE": 180, "CONSUMABLE": 40 },
-
+  "rarities": [
+    "COMMON",
+    "UNCOMMON",
+    "RARE",
+    "BOSS",
+    "CONSUMABLE"
+  ],
+  "prices": {
+    "COMMON": 60,
+    "UNCOMMON": 110,
+    "RARE": 180,
+    "CONSUMABLE": 40
+  },
   "relics": [
     {
       "code": "RL.01",
@@ -29,7 +52,11 @@
       "rarity": "COMMON",
       "hook": "onWordStart",
       "rule": "Before your first guess, learn how many vowels the answer holds.",
-      "upgrade": { "name": "LEXICON MK.II", "axis": "magnitude", "rule": "Also learn whether the answer repeats a letter." }
+      "upgrade": {
+        "name": "LEXICON MK.II",
+        "axis": "magnitude",
+        "rule": "Also learn whether the answer repeats a letter."
+      }
     },
     {
       "code": "RL.02",
@@ -39,9 +66,15 @@
       "hook": "onFeedbackTransform",
       "rule": "Grey letters fall out of the keyboard and stay out for the rest of the word.",
       "engine_note": "Locked keys must be unfocusable so a physical keyboard cannot bypass the lock.",
-      "anti_synergy": ["RL.04"],
+      "anti_synergy": [
+        "RL.04"
+      ],
       "anti_synergy_reason": "Rangefinder withholds letter identity, so there is nothing for the Sieve to eliminate.",
-      "upgrade": { "name": "THE SIEVE MK.II", "axis": "duration", "rule": "Greys lock out for the whole act, not just the word." }
+      "upgrade": {
+        "name": "THE SIEVE MK.II",
+        "axis": "duration",
+        "rule": "Greys lock out for the whole act, not just the word."
+      }
     },
     {
       "code": "RL.03",
@@ -56,7 +89,11 @@
         "increments_on": "every word solved",
         "effect": "Hit rate rises naturally with the counter. No thresholds — the memory is the scaling."
       },
-      "upgrade": { "name": "PALIMPSEST MK.II", "axis": "magnitude", "rule": "It reveals two shared letters instead of one." }
+      "upgrade": {
+        "name": "PALIMPSEST MK.II",
+        "axis": "magnitude",
+        "rule": "It reveals two shared letters instead of one."
+      }
     },
     {
       "code": "RL.04",
@@ -67,9 +104,16 @@
       "rule": "Yellow tiles report how many positions off the letter sits, and stop reporting which letter it is.",
       "flavor": "Distance, not identity.",
       "transform_order": 3,
-      "anti_synergy": ["RL.02"],
+      "anti_synergy": [
+        "RL.02"
+      ],
       "engine_note": "Sets Tile.letter to null and Tile.distance to an integer. Where trustworthy === false, emit a random distance drawn from the values legal for the reported state. See MECHANICS.md §5.4.",
-      "upgrade": { "name": "RANGEFINDER MK.II", "axis": "magnitude", "rule": "Yellows report direction as well as distance. Two places left reads differently from two places right.", "engine_note": "Populates Tile.direction." }
+      "upgrade": {
+        "name": "RANGEFINDER MK.II",
+        "axis": "magnitude",
+        "rule": "Yellows report direction as well as distance. Two places left reads differently from two places right.",
+        "engine_note": "Populates Tile.direction."
+      }
     },
     {
       "code": "RL.06",
@@ -78,7 +122,11 @@
       "rarity": "UNCOMMON",
       "hook": "onNodeEnter",
       "rule": "See the modifiers on every node in the act before choosing a path.",
-      "upgrade": { "name": "CARTOGRAPHER MK.II", "axis": "reach", "rule": "Also see the rarity of the relics each shop will stock." }
+      "upgrade": {
+        "name": "CARTOGRAPHER MK.II",
+        "axis": "reach",
+        "rule": "Also see the rarity of the relics each shop will stock."
+      }
     },
     {
       "code": "RL.07",
@@ -88,9 +136,15 @@
       "hook": "onGuessSubmit",
       "rule": "Once per word, at any time, name one untried letter and pay 15g. He stamps it PRESENT or ABSENT. If you cannot pay, he does not answer.",
       "flavor": "Never wrong. Never free.",
-      "synergy": ["RL.02"],
+      "synergy": [
+        "RL.02"
+      ],
       "ruling": "R-001",
-      "upgrade": { "name": "THE AUDITOR MK.II", "axis": "cost", "rule": "He stamps free." }
+      "upgrade": {
+        "name": "THE AUDITOR MK.II",
+        "axis": "cost",
+        "rule": "He stamps free."
+      }
     },
     {
       "code": "RL.09",
@@ -99,7 +153,11 @@
       "rarity": "UNCOMMON",
       "hook": "onNodeEnter",
       "rule": "Forge nodes give you two operations instead of one. Your bankroll starts 2 lower.",
-      "upgrade": { "name": "THE ANVIL MK.II", "axis": "cost", "rule": "The bankroll penalty is refunded the moment you first use a Forge." }
+      "upgrade": {
+        "name": "THE ANVIL MK.II",
+        "axis": "cost",
+        "rule": "The bankroll penalty is refunded the moment you first use a Forge."
+      }
     },
     {
       "code": "RL.11",
@@ -107,10 +165,18 @@
       "archetype": "TEMPO",
       "rarity": "COMMON",
       "hook": "onPayout",
-      "rule": "Solve in three or fewer and the payout rises by 2.",
-      "payout_bonus": { "amount": 2, "trigger": "solve_lte_3" },
-      "upgrade": { "name": "FLYWHEEL MK.II", "axis": "reach", "rule": "Solve in four or fewer and the payout rises by 2." },
-      "engine_note": "Subject to MECHANICS.md §2.5 Clamp B — largest payout bonus only, never summed."
+      "rule": "Solve in three or fewer and the payout rises by 1.",
+      "payout_bonus": {
+        "amount": 1,
+        "trigger": "solve_lte_3"
+      },
+      "upgrade": {
+        "name": "FLYWHEEL MK.II",
+        "axis": "reach",
+        "rule": "Solve in four or fewer and the payout rises by 1."
+      },
+      "engine_note": "Subject to MECHANICS.md §2.5 Clamp B — largest payout bonus only, never summed.",
+      "value_note": "0.43 bankroll/word base, 0.80 upgraded. MECHANICS.md §6.5."
     },
     {
       "code": "RL.12",
@@ -118,15 +184,21 @@
       "archetype": "TEMPO",
       "rarity": "UNCOMMON",
       "hook": "onPayout",
-      "rule": "Each consecutive solve in three or fewer adds 1 to the payout, cumulatively. A solve of four or more resets it to zero.",
+      "rule": "Each consecutive solve in three or fewer adds 1 to the payout, cumulatively, up to +3. A solve of four or more resets it to zero.",
       "flavor": "It only asks that you never slow down.",
       "scaling": {
         "counter": "STREAK",
         "increments_on": "every solve in 3 or fewer",
         "resets_on": "any solve of 4 or more",
-        "effect": "payout_bonus = counter"
+        "effect": "payout_bonus = min(counter, 3)",
+        "cap": 3
       },
-      "upgrade": { "name": "HOT STREAK MK.II", "axis": "reliability", "rule": "A slow solve halves the streak instead of clearing it, rounded down." }
+      "upgrade": {
+        "name": "HOT STREAK MK.II",
+        "axis": "reliability",
+        "rule": "The streak caps at +5 instead of +3, and a slow solve halves it rather than clearing it."
+      },
+      "value_note": "0.71 bankroll/word capped at +3. Uncapped it had no ceiling at all. MECHANICS.md §6.5."
     },
     {
       "code": "RL.13",
@@ -134,9 +206,14 @@
       "archetype": "TEMPO",
       "rarity": "UNCOMMON",
       "hook": "onPayout",
-      "rule": "If your first guess of a word held four or more unique letters, the payout is calculated as though you used one fewer guess.",
-      "engine_note": "Modifies the guess count used in the payout formula. It does not refund a guess — the bankroll still ticks down on submit.",
-      "upgrade": { "name": "OPENING GAMBIT MK.II", "axis": "reliability", "rule": "Three unique letters is enough." }
+      "rule": "If your first guess of a word held four or more unique letters AND you solve in three or fewer, the payout is calculated as though you used one fewer guess.",
+      "engine_note": "Modifies the guess count used in the payout formula. It does not refund a guess — the bankroll still ticks down on submit. The solve-count gate exists because a strong opener has four unique letters essentially always, so without it the relic was an unconditional +1 (0.98 bankroll/word).",
+      "upgrade": {
+        "name": "OPENING GAMBIT MK.II",
+        "axis": "reliability",
+        "rule": "Three unique letters is enough, and four guesses is enough."
+      },
+      "value_note": "0.43 bankroll/word. MECHANICS.md §6.5."
     },
     {
       "code": "RL.14",
@@ -151,7 +228,11 @@
         "increments_on": "every payout at 2 guesses or fewer",
         "effect": "gold_payout = 40 + (20 × counter)"
       },
-      "upgrade": { "name": "THE GUILLOTINE MK.II", "axis": "magnitude", "rule": "Every head is worth 30g instead of 20g. It still takes 30g for a slow solve." }
+      "upgrade": {
+        "name": "THE GUILLOTINE MK.II",
+        "axis": "magnitude",
+        "rule": "Every head is worth 30g instead of 20g. It still takes 30g for a slow solve."
+      }
     },
     {
       "code": "RL.15",
@@ -159,8 +240,13 @@
       "archetype": "ROUTE",
       "rarity": "UNCOMMON",
       "hook": "onWordSolved",
-      "rule": "Clearing an elite pays 3 bankroll. Elites pay you no gold.",
-      "upgrade": { "name": "BLOODHOUND MK.II", "axis": "magnitude", "rule": "Clearing an elite pays 5 bankroll. They still pay no gold." }
+      "rule": "Clearing an elite pays 1 bankroll. Elites pay you no gold.",
+      "upgrade": {
+        "name": "BLOODHOUND MK.II",
+        "axis": "magnitude",
+        "rule": "Clearing an elite pays 2 bankroll. They still pay no gold."
+      },
+      "value_note": "0.30 bankroll/word at six elites, 0.60 upgraded. MECHANICS.md §6.5."
     },
     {
       "code": "RL.19",
@@ -168,16 +254,21 @@
       "archetype": "RISK",
       "rarity": "UNCOMMON",
       "hook": "onWordStart",
-      "rule": "At every word start it eats one letter off your keyboard and pays you 2 bankroll. Every fourth word it eats two and pays 4. It never eats a letter present in the solution.",
+      "rule": "Every fourth word it eats two letters off your keyboard and pays you 2 bankroll. It never eats a letter present in the solution.",
       "flavor": "It eats the alphabet, not the word.",
       "scaling": {
         "counter": "WORDS SURVIVED",
         "increments_on": "every word start",
-        "effect": "On counter % 4 === 0, letters eaten and bankroll paid both double."
+        "effect": "Pays on counter % 4 === 0. The counter is the schedule, not a multiplier."
       },
       "ruling": "R-003",
       "engine_note": "Uses the shared eligibleLettersForRemoval(solution) helper. Unit-test that an eaten letter is never in the solution.",
-      "upgrade": { "name": "THE MOTH MK.II", "axis": "magnitude", "rule": "The gorging comes every third word instead of every fourth." }
+      "upgrade": {
+        "name": "THE MOTH MK.II",
+        "axis": "magnitude",
+        "rule": "The gorging comes every third word instead of every fourth."
+      },
+      "value_note": "0.50 bankroll/word, 0.67 upgraded. It used to pay +2 EVERY word start and +4 on the fourth — 2.50 a word, more than the entire §2.3 bleed, on an UNCOMMON. MECHANICS.md §6.5."
     },
     {
       "code": "RL.20",
@@ -186,7 +277,11 @@
       "rarity": "UNCOMMON",
       "hook": "onGuessSubmit",
       "rule": "Choose to take no feedback on a guess. If that guess was within one letter of the solution, gain 4 bankroll. Otherwise nothing.",
-      "upgrade": { "name": "BLINDFOLD MK.II", "axis": "reliability", "rule": "Within two letters is enough." }
+      "upgrade": {
+        "name": "BLINDFOLD MK.II",
+        "axis": "reliability",
+        "rule": "Within two letters is enough."
+      }
     },
     {
       "code": "RL.21",
@@ -197,7 +292,11 @@
       "rule": "Before a word, wager any number of guesses. Solve within that count and gain the same number back. Fail and lose all of them.",
       "balance_flag": "Pairs degenerately with anything that removes uncertainty about your own solve count. Watch co-occurrence with RL.04 and RL.07 in simulation.",
       "engine_note": "Subject to MECHANICS.md §2.5 Clamp A — net gain per word capped at +5.",
-      "upgrade": { "name": "ALL IN MK.II", "axis": "cost", "rule": "A lost wager costs half of what you staked, rounded down." }
+      "upgrade": {
+        "name": "ALL IN MK.II",
+        "axis": "cost",
+        "rule": "A lost wager costs half of what you staked, rounded down."
+      }
     },
     {
       "code": "RL.22",
@@ -206,7 +305,11 @@
       "rarity": "BOSS",
       "hook": "onWordSolved",
       "rule": "Six- and seven-letter words pay double gold, and the shop that follows them stocks one rarity tier higher.",
-      "upgrade": { "name": "POLYGLOT MK.II", "axis": "reach", "rule": "Also applies to Mirror words and boss words." }
+      "upgrade": {
+        "name": "POLYGLOT MK.II",
+        "axis": "reach",
+        "rule": "Also applies to Mirror words and boss words."
+      }
     },
     {
       "code": "RL.23",
@@ -223,7 +326,11 @@
         "effect": "gold_per_guess = counter"
       },
       "engine_note": "The gold must land on the same frame as the bankroll decrement, or the two counters compete for attention.",
-      "upgrade": { "name": "THE TIN CUP MK.II", "axis": "magnitude", "rule": "The rate rises by 2g each time instead of 1g." }
+      "upgrade": {
+        "name": "THE TIN CUP MK.II",
+        "axis": "magnitude",
+        "rule": "The rate rises by 2g each time instead of 1g."
+      }
     },
     {
       "code": "RL.26",
@@ -238,7 +345,11 @@
         "increments_on": "every time it lights",
         "effect": "letters_lit = 1 + floor(counter / 3)"
       },
-      "upgrade": { "name": "THE LANTERN MK.II", "axis": "reliability", "rule": "It lights after one failed guess, not two." }
+      "upgrade": {
+        "name": "THE LANTERN MK.II",
+        "axis": "reliability",
+        "rule": "It lights after one failed guess, not two."
+      }
     },
     {
       "code": "RL.28",
@@ -249,7 +360,11 @@
       "rule": "Once per word, re-roll which positions report truthfully. You do not get to see the roll.",
       "flavor": "Heads it tells you. Tails it does not.",
       "transform_order": 1,
-      "upgrade": { "name": "SHAVED COIN MK.II", "axis": "magnitude", "rule": "Twice per word. You still do not see the roll." }
+      "upgrade": {
+        "name": "SHAVED COIN MK.II",
+        "axis": "magnitude",
+        "rule": "Twice per word. You still do not see the roll."
+      }
     },
     {
       "code": "RL.29",
@@ -259,7 +374,11 @@
       "hook": "onFeedbackTransform",
       "rule": "Fully immune to the Liar Letter modifier. Corruption transforms are skipped entirely.",
       "transform_order": 2,
-      "upgrade": { "name": "THE MASK MK.II", "axis": "reach", "rule": "Also immune to Fog." }
+      "upgrade": {
+        "name": "THE MASK MK.II",
+        "axis": "reach",
+        "rule": "Also immune to Fog."
+      }
     },
     {
       "code": "RL.30",
@@ -270,7 +389,11 @@
       "rule": "The first time your bankroll would hit zero, it returns to 8 instead. Once per run, then it is spent.",
       "engine_note": "Resolves after the emergency-purchase offer, so a player who can pay gold pays gold first and keeps this.",
       "balance_flag": "Removes the downside of any wager. Watch co-occurrence with RL.20 and RL.21 in simulation.",
-      "upgrade": { "name": "OUROBOROS MK.II", "axis": "magnitude", "rule": "It returns you to 12 instead of 8." }
+      "upgrade": {
+        "name": "OUROBOROS MK.II",
+        "axis": "magnitude",
+        "rule": "It returns you to 12 instead of 8."
+      }
     },
     {
       "code": "RL.31",
@@ -281,10 +404,14 @@
       "rule": "Every word opens with one green already carved. In exchange every payout is 1 lower.",
       "flavor": "Older than the language it breaks.",
       "transform_order": 4,
-      "upgrade": { "name": "ROSETTA SLAB MK.II", "axis": "cost", "rule": "The payout penalty is lifted." }
+      "upgrade": {
+        "name": "ROSETTA SLAB MK.II",
+        "axis": "cost",
+        "rule": "The payout penalty is lifted."
+      },
+      "value_note": "-1.00 bankroll/word from the payout penalty alone. The free green is an INFO effect that lowers guesses per word and is not yet valued, so the true figure is higher and unknown. MECHANICS.md §6.5."
     }
   ],
-
   "consumables": [
     {
       "code": "CN.01",
@@ -319,7 +446,6 @@
       "upgradeable": false
     }
   ],
-
   "characters": [
     {
       "code": "CH.01",
@@ -333,9 +459,12 @@
       "name": "THE GAMBLER",
       "archetype": "RISK",
       "bankroll_start": 9,
-      "innate": "Solve in three or fewer and the payout rises by 3.",
-      "payout_bonus": { "amount": 3, "trigger": "solve_lte_3" },
-      "engine_note": "Under Clamp B this does not stack with RL.11 Flywheel. A Gambler holding Flywheel who solves in three gets +3, not +5."
+      "innate": "Solve in three or fewer and the payout rises by 2.",
+      "payout_bonus": {
+        "amount": 2,
+        "trigger": "solve_lte_3"
+      },
+      "engine_note": "Under Clamp B this does not stack with RL.11 Flywheel. A Gambler holding Flywheel who solves in three gets +2, not +3. Valued at the boss allowance (0.87 against 0.90) because a character innate is held for the whole run."
     },
     {
       "code": "CH.03",
