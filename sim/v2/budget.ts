@@ -19,8 +19,19 @@ export interface Budget {
   UNCOMMON: number;
   RARE: number;
   BOSS: number;
-  /** No single relic may exceed half the bleed, whatever its rarity. */
+  /**
+   * The per-relic ceiling, as a fraction of the bleed.
+   *
+   * Review set it at half the bleed with tiers of 0.25/0.4/0.7/0.9. Those are a
+   * per-RELIC budget, and §6.2 gives the player FIVE slots, so they do not
+   * constrain the thing §11.5 actually measures. Under them a board of two
+   * uncommons, two rares and a boss totals 3.10 against a 1.8 bleed — +1.3 a
+   * word, which `v2-001.md` measured as unloseable. The tiers had to come down
+   * until a strong board lands in band rather than over it.
+   */
   ceilingFraction: number;
+  slots: number;
+  boardMultiple: number;
   /**
    * The bleed the budget is stated against: §2.3's own arithmetic at its own
    * stated human baseline of 3.9 guesses/word, `6 - 2 x 3.9 = -1.8`.
@@ -37,16 +48,32 @@ export interface Budget {
 }
 
 export const BUDGET: Readonly<Budget> = Object.freeze({
-  COMMON: 0.25,
-  UNCOMMON: 0.4,
-  RARE: 0.7,
-  BOSS: 0.9,
-  ceilingFraction: 0.5,
+  COMMON: 0.2,
+  UNCOMMON: 0.3,
+  RARE: 0.4,
+  BOSS: 0.5,
+  ceilingFraction: 0.5 / 1.8, // the boss tier, as a fraction of the bleed
   bleed: 1.8,
+  /** §6.2 — a legal board is five relics. */
+  slots: 5,
+  /** A full board may total no more than this multiple of the bleed. */
+  boardMultiple: 1.2,
 });
 
-/** The hard ceiling any relic must sit under, whatever its rarity. */
+/**
+ * The hard ceiling any relic must sit under, whatever its rarity — the boss
+ * allowance, 0.50, which is 28% of the bleed rather than the 50% review
+ * proposed. Five slots is what forced it down: see `ceilingFraction`.
+ */
 export const CEILING = BUDGET.bleed * BUDGET.ceilingFraction;
+
+/** §6.5 — what five relics may be worth together. */
+export const BOARD_CEILING = BUDGET.bleed * BUDGET.boardMultiple;
+
+/** What a board of these rarities totals, for the §6.5 board check. */
+export function boardValue(rarities: readonly Rarity[]): number {
+  return rarities.reduce((a, r) => a + BUDGET[r], 0);
+}
 
 export type Rarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'BOSS';
 
@@ -57,15 +84,18 @@ export interface Valuation {
   /** Bankroll per word this is worth over a 20-word run. */
   value: number;
   budget: number;
-  /** Over the rarity's allowance, or over the half-bleed ceiling. */
+  /** An MK.II. Judged against the ceiling only — see §6.5. */
+  isUpgrade: boolean;
+  /** Over the rarity's allowance. Expected of an upgrade, not of a base relic. */
   overBudget: boolean;
   overCeiling: boolean;
   note: string;
 }
 
-/** §3.2 — twenty words a run, and §3.1 allows at most 1+2+3 = 6 elites. */
+/** §3.2 — twenty words a run, §3.1 allows at most 1+2+3 = 6 elites, 3 bosses. */
 const WORDS = 20;
 const ELITES = 6;
+const BOSSES = 3;
 
 /**
  * The measured 5-letter guess distribution, as shares: 1500 real solves at the
@@ -143,73 +173,99 @@ export function valuations({
       code: 'RL.11',
       name: 'FLYWHEEL',
       rarity: 'COMMON',
-      value: pv((u) => (u <= 3 ? 1 : 0)),
-      note: '+1 at <=3 guesses (was +2, worth 0.87)',
+      isUpgrade: false,
+      value: pv((u) => (u <= 2 ? 2 : 0)),
+      note: '+2 at <=2 guesses. A <=3 trigger is 0.43 — boss-tier — whatever the bonus.',
     },
     {
       code: 'RL.11+',
       name: 'FLYWHEEL MK.II',
       rarity: 'COMMON',
-      value: pv((u) => (u <= 4 ? 1 : 0)),
-      note: '+1 at <=4 — 4 is the modal guess count, so the threshold is the upgrade',
+      isUpgrade: true,
+      value: pv((u) => (u <= 2 ? 3 : 0)),
+      note: '+3 at <=2',
     },
     {
       code: 'RL.12',
       name: 'HOT STREAK',
       rarity: 'UNCOMMON',
-      value: pv((u, s) => (u <= 3 ? Math.min(s, 3) : 0), true),
-      note: 'cumulative streak capped at +3 (was uncapped, so it had no ceiling at all)',
+      isUpgrade: false,
+      value: pv((u, s) => (u <= 2 ? Math.min(s, 3) : 0), true),
+      note: 'consecutive <=2 solves, capped at +3 (was uncapped, on a <=3 trigger)',
+    },
+    {
+      code: 'RL.12+',
+      name: 'HOT STREAK MK.II',
+      rarity: 'UNCOMMON',
+      isUpgrade: true,
+      value: pv((u, s) => (u <= 2 ? Math.min(s, 5) : 0), true),
+      note: 'cap +5, and a slow solve halves the streak rather than clearing it',
     },
     {
       code: 'RL.13',
       name: 'OPENING GAMBIT',
       rarity: 'UNCOMMON',
+      isUpgrade: false,
+      value: pv((u) =>
+        u <= 2 ? basePayout(5, Math.max(1, u - 1), cfg) - basePayout(5, u, cfg) : 0,
+      ),
+      note: 'as if one fewer guess, gated on solving in <=2',
+    },
+    {
+      code: 'RL.13+',
+      name: 'OPENING GAMBIT MK.II',
+      rarity: 'UNCOMMON',
+      isUpgrade: true,
       value: pv((u) =>
         u <= 3 ? basePayout(5, Math.max(1, u - 1), cfg) - basePayout(5, u, cfg) : 0,
       ),
-      note: 'as if one fewer guess, now gated on solving in <=3 (the opener condition is ~always met)',
+      note: 'the gate moves to <=3',
     },
     {
       code: 'RL.15',
       name: 'BLOODHOUND',
       rarity: 'UNCOMMON',
+      isUpgrade: false,
       value: (1 * ELITES) / WORDS,
-      note: `+1 bankroll x ${ELITES} elites, less the elite gold it forfeits (was +3)`,
+      note: `+1 bankroll x ${ELITES} elites, less the elite gold it forfeits`,
     },
     {
       code: 'RL.15+',
       name: 'BLOODHOUND MK.II',
       rarity: 'UNCOMMON',
-      value: (2 * ELITES) / WORDS,
-      note: `+2 bankroll x ${ELITES} elites (was +5, worth 1.50)`,
+      isUpgrade: true,
+      value: (1 * (ELITES + BOSSES)) / WORDS,
+      note: 'bosses count as well; +2 an elite would be 0.60, over the ceiling',
     },
     {
       code: 'RL.19',
       name: 'THE MOTH',
       rarity: 'UNCOMMON',
-      // Now pays only on the gorge word. It used to pay +2 at EVERY word start
-      // and +4 on the fourth, which is 2.50 a word — more than the whole bleed.
-      value: (2 * Math.floor(WORDS / 4)) / WORDS,
-      note: '+2 on every fourth word only (was +2 every word, worth 2.50)',
+      isUpgrade: false,
+      value: (1 * Math.floor(WORDS / 4)) / WORDS,
+      note: '+1 on every fourth word (was +2 EVERY word, worth 2.50)',
     },
     {
       code: 'RL.19+',
       name: 'THE MOTH MK.II',
       rarity: 'UNCOMMON',
-      value: (2 * Math.floor(WORDS / 3)) / WORDS,
+      isUpgrade: true,
+      value: (1 * Math.floor(WORDS / 3)) / WORDS,
       note: 'gorging every third word',
     },
     {
       code: 'CH.02',
       name: 'THE GAMBLER (innate)',
       rarity: 'BOSS',
-      value: pv((u) => (u <= 3 ? 2 : 0)),
-      note: 'character innate, judged at the boss allowance because it is held all run (was +3)',
+      isUpgrade: false,
+      value: pv((u) => (u <= 3 ? 1 : 0)),
+      note: 'held all run, so judged at the boss allowance',
     },
     {
       code: 'RL.31',
       name: 'ROSETTA SLAB',
       rarity: 'BOSS',
+      isUpgrade: false,
       value: -1,
       note: 'payout -1 every word; the free green is an INFO effect, unmeasured',
     },

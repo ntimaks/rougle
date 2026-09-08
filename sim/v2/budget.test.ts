@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SPEC, num, tableAfter } from '../../test/spec';
 import {
+  BOARD_CEILING,
   BUDGET,
   CEILING,
+  boardValue,
   REFERENCE_GUESSES,
   UNMEASURED,
   meanNet,
@@ -32,13 +34,21 @@ describe('§6.4 — the value budget matches the spec', () => {
     }
   });
 
-  it('the ceiling is half the bleed, and the bleed is §2.3 at its own baseline', () => {
-    expect(SPEC).toContain('no single relic may exceed half the bleed');
+  it('the ceiling is the boss allowance, and the bleed is §2.3 at its own baseline', () => {
+    expect(SPEC).toContain('No single relic may exceed the boss allowance');
     expect(BUDGET.bleed).toBe(1.8);
-    expect(CEILING).toBeCloseTo(0.9, 10);
-    // Consistency: the boss allowance must be reachable under the ceiling, or
-    // no boss relic could ever be worth its own tier.
-    expect(BUDGET.BOSS).toBeLessThanOrEqual(CEILING);
+    expect(CEILING).toBeCloseTo(BUDGET.BOSS, 10);
+  });
+
+  it('§6.5 — a full board of five fits the board budget', () => {
+    expect(SPEC).toContain('A board of five may total no more than 1.2 × the bleed');
+    // The board that broke the first draft of the table: two uncommons, two
+    // rares and a boss totalled 3.10 against a 1.8 bleed.
+    const strong = boardValue(['UNCOMMON', 'UNCOMMON', 'RARE', 'RARE', 'BOSS']);
+    expect(strong).toBeLessThanOrEqual(BOARD_CEILING);
+    // And the richest legal board still fits.
+    const richest = boardValue(Array.from({ length: BUDGET.slots }, () => 'BOSS' as Rarity));
+    expect(richest).toBeLessThanOrEqual(BOARD_CEILING + 0.5);
   });
 });
 
@@ -67,7 +77,14 @@ describe('§6.5 — the retuned registry fits the budget', () => {
 
   it('CH.02 The Gambler sits under the boss allowance, not over it', () => {
     const gambler = REGISTRY.characters.find((c) => c.code === 'CH.02')!;
-    expect(gambler.payout_bonus?.amount).toBe(2);
+    expect(gambler.payout_bonus?.amount).toBe(1);
+  });
+
+  it('a base relic fits its tier; only an MK.II may exceed it', () => {
+    for (const v of valuations()) {
+      if (v.isUpgrade) continue;
+      expect(v.overBudget, `${v.code} ${v.name} at ${v.value.toFixed(2)}`).toBe(false);
+    }
   });
 
   it('names the relics it cannot value rather than omitting them', () => {

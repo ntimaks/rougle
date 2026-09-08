@@ -165,18 +165,18 @@
       "archetype": "TEMPO",
       "rarity": "COMMON",
       "hook": "onPayout",
-      "rule": "Solve in three or fewer and the payout rises by 1.",
+      "rule": "Solve in two or fewer and the payout rises by 2.",
       "payout_bonus": {
-        "amount": 1,
-        "trigger": "solve_lte_3"
+        "amount": 2,
+        "trigger": "solve_lte_2"
       },
       "upgrade": {
         "name": "FLYWHEEL MK.II",
         "axis": "reach",
-        "rule": "Solve in four or fewer and the payout rises by 1."
+        "rule": "Solve in two or fewer and the payout rises by 3."
       },
       "engine_note": "Subject to MECHANICS.md §2.5 Clamp B — largest payout bonus only, never summed.",
-      "value_note": "0.43 bankroll/word base, 0.80 upgraded. MECHANICS.md §6.5."
+      "value_note": "0.15 bankroll/word. A <=3 trigger is 0.43 whatever the bonus — boss-tier under §6.5, so a COMMON payout relic cannot use it."
     },
     {
       "code": "RL.12",
@@ -184,21 +184,21 @@
       "archetype": "TEMPO",
       "rarity": "UNCOMMON",
       "hook": "onPayout",
-      "rule": "Each consecutive solve in three or fewer adds 1 to the payout, cumulatively, up to +3. A solve of four or more resets it to zero.",
+      "rule": "Each consecutive solve in two or fewer adds 1 to the payout, cumulatively, up to +3. Any slower solve resets it to zero.",
       "flavor": "It only asks that you never slow down.",
       "scaling": {
         "counter": "STREAK",
-        "increments_on": "every solve in 3 or fewer",
-        "resets_on": "any solve of 4 or more",
+        "increments_on": "every solve in 2 or fewer",
+        "resets_on": "any solve of 3 or more",
         "effect": "payout_bonus = min(counter, 3)",
         "cap": 3
       },
       "upgrade": {
         "name": "HOT STREAK MK.II",
         "axis": "reliability",
-        "rule": "The streak caps at +5 instead of +3, and a slow solve halves it rather than clearing it."
+        "rule": "The streak caps at +5, and a slow solve halves it rather than clearing it."
       },
-      "value_note": "0.71 bankroll/word capped at +3. Uncapped it had no ceiling at all. MECHANICS.md §6.5."
+      "value_note": "0.12 bankroll/word. Was uncapped on a <=3 trigger."
     },
     {
       "code": "RL.13",
@@ -206,14 +206,14 @@
       "archetype": "TEMPO",
       "rarity": "UNCOMMON",
       "hook": "onPayout",
-      "rule": "If your first guess of a word held four or more unique letters AND you solve in three or fewer, the payout is calculated as though you used one fewer guess.",
+      "rule": "If your first guess of a word held four or more unique letters AND you solve in two or fewer, the payout is calculated as though you used one fewer guess.",
       "engine_note": "Modifies the guess count used in the payout formula. It does not refund a guess — the bankroll still ticks down on submit. The solve-count gate exists because a strong opener has four unique letters essentially always, so without it the relic was an unconditional +1 (0.98 bankroll/word).",
       "upgrade": {
         "name": "OPENING GAMBIT MK.II",
         "axis": "reliability",
-        "rule": "Three unique letters is enough, and four guesses is enough."
+        "rule": "Three unique letters is enough, and three guesses is enough."
       },
-      "value_note": "0.43 bankroll/word. MECHANICS.md §6.5."
+      "value_note": "0.08 bankroll/word. The opener condition alone was met essentially always, so it was an unconditional +1 worth 0.98."
     },
     {
       "code": "RL.14",
@@ -244,9 +244,9 @@
       "upgrade": {
         "name": "BLOODHOUND MK.II",
         "axis": "magnitude",
-        "rule": "Clearing an elite pays 2 bankroll. They still pay no gold."
+        "rule": "Bosses pay 1 bankroll on clearing as well. Elites still pay no gold."
       },
-      "value_note": "0.30 bankroll/word at six elites, 0.60 upgraded. MECHANICS.md §6.5."
+      "value_note": "0.30 bankroll/word at six elites, 0.45 upgraded. +2 an elite would be 0.60, over the §6.5 ceiling."
     },
     {
       "code": "RL.19",
@@ -254,7 +254,7 @@
       "archetype": "RISK",
       "rarity": "UNCOMMON",
       "hook": "onWordStart",
-      "rule": "Every fourth word it eats two letters off your keyboard and pays you 2 bankroll. It never eats a letter present in the solution.",
+      "rule": "Every fourth word it eats two letters off your keyboard and pays you 1 bankroll. It never eats a letter present in the solution.",
       "flavor": "It eats the alphabet, not the word.",
       "scaling": {
         "counter": "WORDS SURVIVED",
@@ -268,7 +268,7 @@
         "axis": "magnitude",
         "rule": "The gorging comes every third word instead of every fourth."
       },
-      "value_note": "0.50 bankroll/word, 0.67 upgraded. It used to pay +2 EVERY word start and +4 on the fourth — 2.50 a word, more than the entire §2.3 bleed, on an UNCOMMON. MECHANICS.md §6.5."
+      "value_note": "0.25 bankroll/word, 0.30 upgraded. It used to pay +2 at EVERY word start and +4 on the fourth — 2.50 a word, more than the entire §2.3 bleed, on an UNCOMMON."
     },
     {
       "code": "RL.20",
@@ -459,12 +459,12 @@
       "name": "THE GAMBLER",
       "archetype": "RISK",
       "bankroll_start": 9,
-      "innate": "Solve in three or fewer and the payout rises by 2.",
+      "innate": "Solve in three or fewer and the payout rises by 1.",
       "payout_bonus": {
-        "amount": 2,
+        "amount": 1,
         "trigger": "solve_lte_3"
       },
-      "engine_note": "Under Clamp B this does not stack with RL.11 Flywheel. A Gambler holding Flywheel who solves in three gets +2, not +3. Valued at the boss allowance (0.87 against 0.90) because a character innate is held for the whole run."
+      "engine_note": "Under Clamp B this does not stack with RL.11 Flywheel; the larger applies. Worth 0.43 a word — judged at the boss allowance because a character innate is held for the entire run."
     },
     {
       "code": "CH.03",

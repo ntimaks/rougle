@@ -20,7 +20,21 @@ export interface EconomyConfig {
   bankrollCap: number;
   /** §2.1 — the rate that overflow converts at. */
   overflowGoldPerGuess: number;
-  /** §2.3 — `payout = max(0, base(length) − guesses_used)`. */
+  /**
+   * §2.3 — `payout = max(0, base(length) − guesses_used)`.
+   *
+   * FLAT across lengths. It used to rise by 1 per letter, which made §7's two
+   * "difficulty" modifiers the most profitable thing in the game: longer words
+   * take FEWER guesses, not more, so a rising base compounded an advantage
+   * instead of compensating a cost. Measured net was -1.54 at five letters,
+   * +0.07 at six and +1.80 at seven.
+   *
+   * Flat leaves them easier than a five-letter word (-1.54 / -0.94 / -0.20)
+   * but no longer profitable. The residue is not the payout's fault: §10's
+   * six- and seven-letter solution lists are ~800 and ~500 against ~1500, so
+   * there is simply less to disambiguate. Closing it the rest of the way is a
+   * curation job, not an economy one.
+   */
   payoutBase: Readonly<Record<WordLength, number>>;
   /** §2.5 Clamp A — no word may ADD more than this to the bankroll. */
   maxNetGainPerWord: number;
@@ -39,8 +53,20 @@ export interface EconomyConfig {
   emergencyGrant: number;
   /** §3.3 — a boss pays this on top of its words' payouts. */
   bossBankroll: number;
-  /** §6.7 — Forge operation B converts gold to bankroll at this rate. */
-  forgeGoldPerBankroll: number;
+  /**
+   * §6.7 B — the forge converts gold to bankroll off the SAME §4.1 ladder the
+   * shop sells from, rather than at its own flat rate.
+   *
+   * It used to be a flat 20g with no cap at all ("any quantity affordable"),
+   * which after the §4.1 and §2.4 repricings made it the cheapest and only
+   * uncapped bankroll in the game — switching it on took a relic-less run from
+   * 34.3% to 63.5%, undoing most of both fixes. Pricing it separately would
+   * have re-opened the arbitrage the moment either number moved again.
+   *
+   * One ladder, one run cap, wherever you buy it. This flag exists only so the
+   * harness can measure the difference; the rule is the shared ladder.
+   */
+  forgeUsesRefillLadder: true;
   /**
    * §4.1/§4.2 — the guess-refill ladder, escalating across the RUN.
    *
@@ -63,12 +89,12 @@ export const ECONOMY: Readonly<EconomyConfig> = Object.freeze({
   bankrollStart: 12,
   bankrollCap: 24,
   overflowGoldPerGuess: 10,
-  payoutBase: Object.freeze({ 5: 6, 6: 7, 7: 8 }),
+  payoutBase: Object.freeze({ 5: 6, 6: 6, 7: 6 }),
   maxNetGainPerWord: 5,
   emergencyCosts: [80, 160, 320],
   emergencyGrant: 3,
   bossBankroll: 4,
-  forgeGoldPerBankroll: 20,
+  forgeUsesRefillLadder: true,
   refillCosts: [40, 60, 80, 100, 120, 140],
   refillsPerShop: 1,
 } as const);

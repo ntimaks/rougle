@@ -92,7 +92,7 @@ function main(): void {
     );
   }
   console.log('');
-  console.log(row('+ §6.7 forge at 20g, uncapped', sweep(runs, { ...base, start: 12, useForge: true })));
+  console.log(row('+ §6.7 forge (shared ladder)', sweep(runs, { ...base, start: 12, useForge: true })));
   // §7 makes modifiers "the entire difficulty curve" and this model has none,
   // so 3.93 guesses/word is a FLOOR. A worse solver stands in for harder words:
   // the question is how much harder the game has to get before a relic-less run

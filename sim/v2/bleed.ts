@@ -306,12 +306,16 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
       refillsByShop.push(bought);
     }
 
-    // §6.7 B — one forge an act, converting at a flat rate with no cap at all.
-    if (opts.useForge && slot.forgeAfter) {
-      while (gold >= cfg.forgeGoldPerBankroll && bankroll < cfg.bankrollCap) {
-        gold -= cfg.forgeGoldPerBankroll;
-        goldSpent += cfg.forgeGoldPerBankroll;
+    // §6.7 B — the forge draws from the SAME §4.1 ladder, so a run buys at most
+    // `refillCosts.length` bankroll however it splits them between shop and
+    // forge. `useForge: false` measures the counterfactual, not a second rule.
+    if (opts.useForge && slot.forgeAfter && bankroll < cfg.bankrollCap) {
+      const price = cfg.refillCosts[refills];
+      if (price !== undefined && gold >= price) {
+        gold -= price;
+        goldSpent += price;
         bankroll += 1;
+        refills += 1;
         forged += 1;
       }
     }
