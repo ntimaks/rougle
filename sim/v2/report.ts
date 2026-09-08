@@ -50,6 +50,7 @@ function main(): void {
     elites: [1, 2, 3],
     goldScale: 1,
     refillsPerShop: 3,
+    guessCost: 1,
     payoutBonus: () => 0,
     solver,
     cfg: ECONOMY,

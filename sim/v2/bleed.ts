@@ -107,6 +107,13 @@ export interface BleedOptions {
   /** §4.1's per-shop refill limit. The spec's is 3. */
   refillsPerShop: number;
   /**
+   * What one guess costs the bankroll. §2.1 says 1. Raising it alongside the
+   * payout base and every budget scales the whole economy without changing its
+   * ratios, which is the only way to ask whether a FIXED relic bonus can be
+   * made a smaller fraction of the dial while staying an integer on the card.
+   */
+  guessCost: number;
+  /**
    * A §2.3 payout bonus, as a relic would supply it. Stands in for a build:
    * `RL.11` Flywheel MK.II is `(u) => (u <= 4 ? 2 : 0)`, measured at +1.61 a
    * word. Subject to Clamp A like any other bonus.
@@ -165,7 +172,7 @@ function stillReachable(
   for (const slot of remaining) {
     const best = 2;
     const gross = basePayout(slot.length, best, cfg) + opts.payoutBonus(best);
-    br += Math.min(gross, best + cfg.maxNetGainPerWord) - best;
+    br += Math.min(gross, best * opts.guessCost + cfg.maxNetGainPerWord) - best * opts.guessCost;
     if (slot.paysReward) {
       if (slot.kind === 'BOSS') br += cfg.bossBankroll;
       g += GOLD[slot.kind];
@@ -222,7 +229,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
     // covers it; running out mid-word is what the ladder is for.
     let spent = 0;
     while (spent < used) {
-      if (bankroll <= 0) {
+      if (bankroll < opts.guessCost) {
         const cost = cfg.emergencyCosts[emergencies];
         if (cost === undefined || gold < cost) {
           diedAt = i;
@@ -234,7 +241,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
         emergencies += 1;
         bankroll += cfg.emergencyGrant;
       }
-      bankroll -= 1;
+      bankroll -= opts.guessCost;
       spent += 1;
     }
     if (diedAt >= 0) break;
@@ -245,7 +252,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
     // part of the word's payout, so the clamp does not reach it.
     const gross = basePayout(slot.length, used, cfg) + opts.payoutBonus(used);
     const payout =
-      Math.min(gross, used + cfg.maxNetGainPerWord) +
+      Math.min(gross, used * opts.guessCost + cfg.maxNetGainPerWord) +
       (slot.kind === 'BOSS' && slot.paysReward ? cfg.bossBankroll : 0);
     const room = Math.max(0, cfg.bankrollCap - bankroll);
     const kept = Math.min(payout, room);
@@ -297,6 +304,7 @@ export const DEFAULT_BLEED: Omit<BleedOptions, 'start'> = {
   elites: [1, 2, 3],
   goldScale: 1,
   refillsPerShop: 3,
+  guessCost: 1,
   payoutBonus: () => 0,
   solver: DEFAULT_SOLVER,
   cfg: ECONOMY,
