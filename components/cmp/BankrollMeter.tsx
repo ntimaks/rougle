@@ -3,17 +3,19 @@
 import { useMotion } from '@/lib/store/useMotion';
 
 /**
- * CMP.01 — the pool meter. The health bar, and the most-read object on screen.
+ * CMP.01 — the bankroll meter. §2.1: "the health bar, the clock and the score
+ * at once. It must never leave the screen."
  *
  * Number AND pips, per the design's own Q1: the number is the exact value a
  * player budgets against, the pip row is the shape of the loss. It is never a
- * smooth percentage bar — 24 discrete segments because the resource is
- * discrete, and a player must be able to count what is left at a glance.
+ * smooth percentage bar — discrete segments because the resource is discrete,
+ * and a player must be able to count what is left at a glance.
  *
- * `max` is a prop and the pip row is genuinely elastic (§13 I-13): acts run at
- * 22, 19 and 17, characters shift it further, and rendering that many pips
- * costs nothing. Whether 17 pips *read* the same as 24 is a question for the
- * built component, which is now built.
+ * `max` is the §2.1 cap of 24 and no longer varies by act — which settles §13
+ * I-13, the open question of whether a 17-pip row reads the same as a 24-pip
+ * one. There is one row for the whole run now, so a pip is always the same
+ * width and the shape of the loss is comparable from word 1 to word 20. That is
+ * §2.2's argument rendered: a signal every word requires a stake that persists.
  *
  * Crossing 5 downward turns the whole meter vermillion and starts the screen
  * flicker; crossing upward clears both immediately. The tension is chromatic,
@@ -21,7 +23,7 @@ import { useMotion } from '@/lib/store/useMotion';
  */
 export const CRITICAL_AT = 5;
 
-export function PoolMeter({
+export function BankrollMeter({
   value,
   max,
   batchId,
@@ -49,7 +51,7 @@ export function PoolMeter({
   return (
     <div className="flex w-full min-w-0 flex-col gap-[2px]">
       <span className="font-mono text-[9px] leading-none tracking-[0.2em] text-fg2">
-        GUESS POOL
+        BANKROLL
       </span>
       <div className="flex items-baseline gap-[6px]">
         <span
@@ -62,35 +64,28 @@ export function PoolMeter({
           {value}
         </span>
         <span className="font-mono text-[11px] leading-none text-fg3">/{max}</span>
-        {value > max && (
-          <span className="font-mono text-[9px] font-bold leading-none tracking-[0.14em] text-accent">
-            +{value - max} CARRIED
-          </span>
-        )}
         {critical && (
           <span className="ml-2 flex items-center gap-[5px] font-mono text-[9px] font-bold leading-none tracking-[0.14em] text-red">
             <span
               className={`h-[6px] w-[6px] bg-red ${animate ? 'animate-[rg-pulse_0.7s_steps(1,end)_infinite]' : ''}`}
               aria-hidden
             />
-            POOL CRITICAL
+            BANKROLL CRITICAL
           </span>
         )}
         {trailing && <div className="ml-auto">{trailing}</div>}
       </div>
 
       {!compact && (
-        // R-024 lets the pool sit ABOVE poolMax, so the row is as long as
-        // whichever is larger. Carried guesses get the accent rather than the
-        // normal fill: without that the row simply reads "full" and the player
-        // never learns that the forge, the Decanter or the Vault did anything.
+        // §2.1 is a HARD cap — anything over it converts to gold immediately —
+        // so the row is exactly `max` long and the value can never exceed it.
+        // v1.3's R-024 let the pool overflow and the row grew to match; there
+        // is nothing to carry now, and the overflow shows as a gold event.
         <div className="mt-[4px] flex h-[11px] gap-[2px]" aria-hidden>
-          {Array.from({ length: Math.max(value, max) }, (_, i) => (
+          {Array.from({ length: max }, (_, i) => (
             <div
               key={i}
-              className={`flex-1 border ${
-                i >= max ? 'border-accent bg-accent' : i < value ? pipOn : 'border-dark3 bg-transparent'
-              }`}
+              className={`flex-1 border ${i < value ? pipOn : 'border-dark3 bg-transparent'}`}
             />
           ))}
         </div>

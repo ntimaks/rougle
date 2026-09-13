@@ -29,7 +29,9 @@ Breaking any of these breaks the ability to balance the game, which is the whole
 
 3. **All state changes go through `reduce(state, action)`.** The UI never computes a rule. If a component needs to know something, add a pure selector to `lib/engine/index.ts`.
 
-4. **`lib/engine/core/pool.ts` is the only module that changes `state.pool`.** MECHANICS.md §2.4's refund floor is implemented there, once, not in individual relics. Refunds are `REFUND` effects, never `POOL` effects — a `POOL` delta bypasses the floor.
+4. **`lib/engine/core/bank.ts` is the only module that changes `state.bankroll`.** MECHANICS.md §2.5's two clamps are implemented in `economy/bankroll.ts`, once, not in individual relics. A payout-modifying relic returns a `PAYOUT_BONUS` bid, never a `BANKROLL` grant — a grant bypasses both clamps.
+
+   (Until v2.0 this read `pool.ts` and `state.pool`, and the rule it protected was §2.4's refund floor. The floor is gone with the per-act pool; the shape of the rule is not.)
 
 5. **`relics.json` is never transcribed into TypeScript.** It is loaded and validated. One implementation module per code, keyed by code. Eight validation tests in technical brief §6 keep the data and the code from drifting. A code you are not building yet goes in `PENDING_IMPLEMENTATION` with a reason naming a §13 item or a phase — a code with neither an implementation nor an entry fails CI (ADR-0002).
 
@@ -41,12 +43,12 @@ Breaking any of these breaks the ability to balance the game, which is the whole
 
 9. **Design values are imported, never redeclared.** NIKOLASS tokens are the single source of colour, type, spacing and motion. A hex literal in `/components` is a review rejection. `data-theme="dark"` is pinned; there is no light mode and no toggle.
 
-10. **Terminology is fixed** — pool, act, relic, modifier, consumable, transform, hook, effect. In code and in commits. No `hp`, no `lives`, no `powerup`. Relic codes (`RL.xx`) are opaque string keys: never sort by them, never assume contiguity.
+10. **Terminology is fixed** — bankroll, act, relic, modifier, consumable, transform, hook, effect. In code and in commits. No `hp`, no `lives`, no `powerup`, and no `pool`: v2.0 replaced the per-act pool with a run-long bankroll and the two must never be used as synonyms. Relic codes (`RL.xx`) are opaque string keys: never sort by them, never assume contiguity.
 
 ## 3. Testing
 
-- **Port the scorer, do not rewrite it.** MECHANICS.md §4.3: the prototype's `score()` is fuzzed over 200k cases with zero mismatches. Differential-test your port against the original over the same regime before trusting it.
-- The refund floor gets its five cases (technical brief §3) before any refund relic is implemented.
+- **Port the scorer, do not rewrite it.** MECHANICS.md §5.3: the prototype's `score()` is fuzzed over 200k cases with zero mismatches. Differential-test your port against the original over the same regime before trusting it.
+- §2.5's two clamps get their cases before any payout relic is implemented.
 - Every relic gets a unit test firing its hook. Every modifier gets one. Composed modifiers get an integration test that plays to a solve.
 - Determinism test: same seed + same action list → byte-identical serialized state. Exists by end of Phase 1, never skipped.
 - Invariant test: after Sieve, Locked Key and The Moth have all applied, every solution letter is still typable.
@@ -58,9 +60,12 @@ Breaking any of these breaks the ability to balance the game, which is the whole
 peer set; the flag is the workaround, not a statement about the dependency tree.
 
 `npm test` runs with the dev server stopped, by design. `npm run sim -- --runs
-1000` takes about twenty seconds and prints the §10.3 report; it is also the CI
-canary for the engine boundary, because it runs under plain `tsx` with no Next
-build.
+1000` prints the §11.5 report; it is also the CI canary for the engine boundary,
+because it runs under plain `tsx` with no Next build.
+
+`node scripts/registry.mjs` regenerates the root `relics.json` from
+`docs/v2/relics.json` plus the engine-facing fields the design document does not
+carry. Edit the v2 file or the script, never the generated one.
 
 ## 4. Working method
 

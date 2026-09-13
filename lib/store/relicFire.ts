@@ -3,9 +3,9 @@ import { REGISTRY, type GameEvent } from '@/lib/engine';
 /**
  * Which relics fired in this event batch, and what each of them did.
  *
- * Raised from playtest: relics are "very low feedback". Tin Cup pays 5g a guess
- * and the only evidence is a gold counter that was going to move anyway; the
- * Moth eats a letter and hands back a guess and the pool just... looks
+ * Raised from playtest: relics are "very low feedback". Tin Cup pays gold a
+ * guess and the only evidence is a counter that was going to move anyway; the
+ * Moth eats a letter and pays a guess and the bankroll just... looks
  * different. A player who cannot see a relic fire cannot learn what it does,
  * and a build they cannot read is a build they cannot make on purpose.
  *
@@ -44,12 +44,12 @@ function labelFor(event: GameEvent): string | null {
   switch (event.type) {
     case 'GOLD_CHANGED':
       return `${signed(event.delta)}g`;
-    case 'POOL_CHANGED':
-      return `${signed(event.delta)} guess${Math.abs(event.delta) === 1 ? '' : 'es'}`;
-    case 'REFUND_GRANTED':
-      return `+${event.amount} refunded`;
-    case 'POOL_MAX_CHANGED':
-      return `${signed(event.delta)} max`;
+    case 'BANKROLL_CHANGED':
+      return event.kind === 'PAYOUT'
+        ? `+${event.delta} paid out`
+        : event.kind === 'OVERFLOW_TO_GOLD'
+          ? `+${event.delta}g over the cap`
+          : `${signed(event.delta)} guess${Math.abs(event.delta) === 1 ? '' : 'es'}`;
     case 'LETTER_LOCKED':
       return `${event.letter} locked`;
     case 'TILE_PRESET':

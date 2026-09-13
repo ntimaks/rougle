@@ -5,7 +5,6 @@ import type { GameState } from '@/lib/engine';
 import { loadRun } from '@/lib/persistence/local';
 import { useGame } from '@/lib/store/useGame';
 import { Chrome } from '@/components/Chrome';
-import { ActEndScreen } from '@/components/screens/ActEndScreen';
 import { DebugView } from '@/components/screens/DebugView';
 import { EmergencyScreen } from '@/components/screens/EmergencyScreen';
 import { MapScreen } from '@/components/screens/MapScreen';
@@ -111,8 +110,8 @@ function PhaseSwitch({ state, debug }: { state: GameState; debug: boolean }) {
             return <RewardScreen state={state} />;
           case 'EMERGENCY':
             return <EmergencyScreen state={state} />;
-          case 'ACT_END':
-            return <ActEndScreen state={state} />;
+          case 'REPLACE':
+            return <RewardScreen state={state} />;
           case 'DEATH':
           case 'VICTORY':
             return <OutcomeScreen state={state} />;

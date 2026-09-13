@@ -9,7 +9,11 @@ export interface BossDef {
   actIndex: 0 | 1 | 2;
   code: 'TWINS' | 'CIPHER' | 'GAUNTLET';
   name: string;
-  /** Words to clear. The Twins is one word with two solutions, not two words. */
+  /**
+   * Words to clear. The Twins is one word with two solutions, not two words —
+   * §3.2's "bosses contain 2, 1 and 5 words" counts its two SOLUTIONS, which
+   * §2.3 pays separately, so the run is 20 payouts across 16 words.
+   */
   words: number;
   /**
    * What this boss DOES, in the player's words. It lived inside the ticker
@@ -19,27 +23,40 @@ export interface BossDef {
   rule: string;
   modifiers: ModifierId[];
   deferralDepth: number;
-  /** The Gauntlet runs on its own pool, untouched by and untouching the act pool. */
-  ownPool: number | null;
 }
 
 /**
- * Act order, R-019. The Cipher opens; the Twins is the Act II wall.
+ * Act order: the Twins opens, the Cipher is the Act II wall.
  *
- * The Twins was the Act I boss and accounted for 20.5% of ALL runs ending —
- * half of every death in the game, against 4.3% for the next worst node. Not
- * because Mirror is broken: two solutions for 5.20 guesses beats the ~7.8 two
- * independent words would cost, exactly as §13 I-10 predicted. The problem is
- * variance landing on a hard wall at the end of the shortest act, with the
- * fewest relics to absorb it. Raising Act I's pool to 28 barely moved it.
+ * v1.3's R-019 swapped them, on measurement — the Twins in Act I ended 20.5% of
+ * ALL runs, half of every death in the game against 4.3% for the next worst
+ * node. Not because Mirror is broken: two solutions for 5.20 guesses beats the
+ * ~7.8 two independent words would cost. The problem was variance landing on a
+ * hard wall at the END OF THE SHORTEST ACT, with the fewest relics to absorb it
+ * and a refill waiting on the other side that a dead run never reached.
  *
- * The Cipher is the better opener despite costing more when cleared (6.53 vs
- * 5.20): its cost is nearly fixed — commit three guesses, read three rows — so
- * it teaches the pool's arithmetic instead of gambling with it.
+ * v2.0 puts the Twins back in Act I, and §12.1 rules that the engine ships that
+ * order: a run-long bankroll removes the act boundary the ruling was about, and
+ * §2.3 makes a Mirror word TWO payouts rather than one, so a competent solver
+ * is paid twice for 5.20 guesses. It changes in the other direction too — there
+ * is no refill afterwards to recover from it — which is precisely why it is a
+ * thing to measure rather than assert. Watch the Act I death rate against
+ * §11.5's 10-20%.
  */
 export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
   0: {
     actIndex: 0,
+    code: 'TWINS',
+    name: 'THE TWINS',
+    rule: 'TWO SOLUTIONS · ONE BANKROLL',
+    // Mirror: two solutions, one bankroll, each guess scored against both,
+    // two independent results, no merging (R-005). Each pays out separately.
+    words: 1,
+    modifiers: ['MIRROR'],
+    deferralDepth: 0,
+  },
+  1: {
+    actIndex: 1,
     code: 'CIPHER',
     name: 'THE CIPHER',
     rule: 'NO ANSWER UNTIL THE THIRD GUESS',
@@ -47,41 +64,26 @@ export const BOSSES: Readonly<Record<0 | 1 | 2, BossDef>> = Object.freeze({
     words: 1,
     modifiers: [],
     deferralDepth: CONFIG.cipherDeferralDepth,
-    ownPool: null,
-  },
-  1: {
-    actIndex: 1,
-    code: 'TWINS',
-    name: 'THE TWINS',
-    rule: 'TWO SOLUTIONS · ONE POOL',
-    // Mirror: two solutions, one pool, each guess scored against both,
-    // two independent results, no merging (R-005).
-    words: 1,
-    modifiers: ['MIRROR'],
-    deferralDepth: 0,
-    ownPool: null,
   },
   2: {
     actIndex: 2,
     code: 'GAUNTLET',
     name: 'THE GAUNTLET',
-    rule: `FIVE WORDS · ITS OWN POOL OF ${CONFIG.gauntlet.pool}`,
+    rule: 'FIVE WORDS · NO SHOP BETWEEN THEM',
     words: CONFIG.gauntlet.words,
     modifiers: [],
     deferralDepth: 0,
-    ownPool: CONFIG.gauntlet.pool,
   },
 });
 
 /**
  * A boss under a given config.
  *
- * `BOSSES` is frozen at import against the default CONFIG, so three numbers
- * that MECHANICS.md states — the Gauntlet's own pool and word count, the
- * Cipher's deferral depth — reached the engine as constants and ignored the
- * harness's override entirely. A sweep of the Gauntlet pool from 14 down to 8
- * therefore returned six byte-identical rows, which reads exactly like "not a
- * difficulty lever" and is really "not wired up". §13 I-31.
+ * `BOSSES` is frozen at import against the default CONFIG, so the numbers that
+ * MECHANICS.md states reached the engine as constants and ignored the harness's
+ * override entirely. A sweep of the Gauntlet's pool from 14 down to 8 returned
+ * six byte-identical rows, which reads exactly like "not a difficulty lever"
+ * and is really "not wired up". §13 I-31.
  *
  * The engine takes every boss through here. `BOSSES` stays exported for the UI
  * and the report, which only ever run on the default config and want the names
@@ -91,12 +93,7 @@ export function bossFor(actIndex: 0 | 1 | 2, cfg: Readonly<GameConfig> = CONFIG)
   const def = BOSSES[actIndex];
   switch (def.code) {
     case 'GAUNTLET':
-      return {
-        ...def,
-        words: cfg.gauntlet.words,
-        ownPool: cfg.gauntlet.pool,
-        rule: `FIVE WORDS · ITS OWN POOL OF ${cfg.gauntlet.pool}`,
-      };
+      return { ...def, words: cfg.gauntlet.words };
     case 'CIPHER':
       return { ...def, deferralDepth: cfg.cipherDeferralDepth };
     default:

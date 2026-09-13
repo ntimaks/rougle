@@ -7,11 +7,9 @@ import {
   activationFor,
   impl as implFor,
   isImplemented,
-  offerableInAct,
   offerableConsumables,
 } from '../content/registry';
 import { annotateDistances } from '../feedback/chain';
-import { activeReveals } from '../feedback/infoCap';
 import { projectBoard } from '../feedback/projection';
 import { hasRepeat, scoreBase, vowelCount } from '../feedback/scorer';
 import { generateAct } from '../map/rows';
@@ -25,15 +23,25 @@ import { holdersInOrder, resolveHook, resolveUse } from './hooks';
 import { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './letters';
 import {
   EVENTS,
-  FORGE_GOLD_PER_GUESS,
   drawEvent,
   drawForgeCandidates,
   forgeOperations,
   optionAvailable,
+  rerollCost,
   rollShopStock,
+  sellPrice,
 } from './nodes';
-import { addPool, addPoolMax, currentPool, offerRefund, refillPool, spendGuess } from './pool';
-import { DOMAIN, draw, drawInt, drawWeighted } from './rng';
+import {
+  applyPayout,
+  buyEmergency as bankBuyEmergency,
+  buyRefill,
+  charge,
+  emergencyCost as bankEmergencyCost,
+  grant,
+  refillCost,
+  spendGuess,
+} from './bank';
+import { DOMAIN, draw, drawInt } from './rng';
 import {
   SAVE_VERSION,
   emptyMap,
@@ -83,24 +91,30 @@ export function reduce(
       return applyItemUse(state, action.instanceId, action.payload ?? {}, cfg);
     case 'BUY_EMERGENCY':
       return buyEmergency(state, cfg);
-    case 'BUY_REVEAL':
-      return buyReveal(state, action.index, [], cfg);
     case 'BUY_STOCK':
       return buyStock(state, action.slot, cfg);
+    case 'BUY_REFILL':
+      return buyShopRefill(state, cfg);
+    case 'REROLL_SHOP':
+      return rerollShop(state, cfg);
+    case 'SELL_RELIC':
+      return sellRelic(state, action.instanceId, cfg);
+    case 'REPLACE_RELIC':
+      return replaceRelic(state, action.instanceId, cfg);
     case 'LEAVE_NODE':
       return leaveNode(state, cfg);
     case 'FORGE_UPGRADE':
       return forgeUpgrade(state, action.instanceId);
-    case 'FORGE_CONVERT':
-      return forgeConvert(state, action.guesses, cfg);
+    case 'FORGE_REFILL':
+      return forgeRefill(state, cfg);
     case 'CHOOSE_EVENT_OPTION':
       return chooseEventOption(state, action.key, cfg);
     case 'DECLINE_EMERGENCY':
-      return die(state, 'EMERGENCY_DECLINED', cfg);
+      return reviveOrDie(state, 'EMERGENCY_DECLINED', [], cfg);
     case 'ADVANCE':
       return advance(state, [], cfg);
     case 'ABANDON_RUN':
-      return die(state, 'POOL_EXHAUSTED', cfg);
+      return die(state, 'BANKROLL_EXHAUSTED', cfg);
   }
 }
 
@@ -168,6 +182,13 @@ export function canDispatch(
         return { code: 'INVENTORY_FULL', message: `Consumables are capped at ${cfg.consumableSlots}.` };
       }
       return null;
+    case 'REPLACE_RELIC': {
+      if (!s.pendingReplace) return { code: 'NO_OFFER', message: 'Nothing waiting for a slot.' };
+      if (!heldRelics(s).some((r) => r.instanceId === action.instanceId)) {
+        return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
+      }
+      return null;
+    }
     case 'SKIP_OFFER':
       if (!s.pendingOffer) return { code: 'NO_OFFER', message: 'Nothing to skip.' };
       return null;
@@ -182,9 +203,9 @@ export function canDispatch(
     }
     case 'BUY_EMERGENCY': {
       if (s.phase !== 'EMERGENCY') return wrongPhase('EMERGENCY');
-      const cost = emergencyCost(s, cfg);
+      const cost = bankEmergencyCost(s, cfg);
       if (cost === null) {
-        return { code: 'EMERGENCY_EXHAUSTED', message: 'No emergency guesses remain this act.' };
+        return { code: 'EMERGENCY_EXHAUSTED', message: 'The ladder is spent for this run.' };
       }
       if (s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
       return null;
@@ -203,6 +224,26 @@ export function canDispatch(
       }
       return null;
     }
+    case 'BUY_REFILL': {
+      if (s.phase !== 'SHOP' || !s.shop) return wrongPhase('SHOP');
+      if (s.shop.refillsSold >= cfg.economy.refillsPerShop) {
+        return { code: 'REFILL_EXHAUSTED', message: 'This shop has sold its refill.' };
+      }
+      return refillBlocker(s, cfg);
+    }
+    case 'REROLL_SHOP': {
+      if (s.phase !== 'SHOP' || !s.shop) return wrongPhase('SHOP');
+      const cost = rerollCost(s.shop.rerolls, cfg);
+      if (s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
+      return null;
+    }
+    case 'SELL_RELIC': {
+      if (s.phase !== 'SHOP' || !s.shop) return wrongPhase('SHOP');
+      if (!heldRelics(s).some((r) => r.instanceId === action.instanceId)) {
+        return { code: 'NO_SUCH_ITEM', message: `Not holding ${action.instanceId}.` };
+      }
+      return null;
+    }
     case 'FORGE_UPGRADE': {
       if (s.phase !== 'FORGE' || !s.forge) return wrongPhase('FORGE');
       if (s.forge.operationsLeft <= 0) return { code: 'NO_OPERATIONS', message: 'No operations left.' };
@@ -218,12 +259,10 @@ export function canDispatch(
       }
       return null;
     }
-    case 'FORGE_CONVERT': {
+    case 'FORGE_REFILL': {
       if (s.phase !== 'FORGE' || !s.forge) return wrongPhase('FORGE');
       if (s.forge.operationsLeft <= 0) return { code: 'NO_OPERATIONS', message: 'No operations left.' };
-      const cost = Math.max(0, Math.floor(action.guesses)) * FORGE_GOLD_PER_GUESS;
-      if (cost === 0 || s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
-      return null;
+      return refillBlocker(s, cfg);
     }
     case 'CHOOSE_EVENT_OPTION': {
       if (s.phase !== 'EVENT' || !s.event) return wrongPhase('EVENT');
@@ -239,17 +278,6 @@ export function canDispatch(
         return { code: 'WRONG_PHASE', message: 'Not at a service node.' };
       }
       return null;
-    case 'BUY_REVEAL': {
-      const blocked = revealBlocker(s, cfg);
-      if (blocked) return blocked;
-      if (action.index < 0 || action.index >= s.word!.length) {
-        return { code: 'POSITION_KNOWN', message: 'No such position.' };
-      }
-      if (knownPositions(s).has(action.index)) {
-        return { code: 'POSITION_KNOWN', message: 'Already revealed.' };
-      }
-      return null;
-    }
     default:
       return null;
   }
@@ -264,10 +292,9 @@ export function initialState(seed: string, characterCode: CharacterCode): GameSt
     characterCode,
     phase: 'TITLE',
     actIndex: 0,
-    pool: 0,
-    poolMax: 0,
+    bankroll: 0,
     gold: 0,
-    emergencyPurchasesThisAct: 0,
+    emergencyPurchases: 0,
     relics: [],
     consumables: [],
     map: emptyMap(),
@@ -279,10 +306,9 @@ export function initialState(seed: string, characterCode: CharacterCode): GameSt
     event: null,
     seenEvents: [],
     pendingChallenge: null,
-    actRevivalGuesses: null,
-    actStartSnapshot: null,
+    pendingReplace: null,
+    revivalBankroll: null,
     ouroborosSpent: false,
-    actReceipt: null,
     usedSolutions: [],
     counters: {},
     stats: emptyStats(),
@@ -316,10 +342,25 @@ function startRun(
 
   let s = initialState(seed, characterCode);
   // The innate is a hidden registry entry: granted at run start, never offered,
-  // never occupying a drawer slot.
+  // never occupying a slot. `heldRelics` is what §6.2's five counts.
   s = { ...s, relics: [instantiate(characterCode, 0)] };
 
-  const events: GameEvent[] = [{ type: 'RUN_STARTED', seed, characterCode }];
+  // §2.1 + §9 — the ONE stake, set once. v1.3 read a `pool_modifier` off the
+  // character and added it to each act's pool three times a run; §9 states a
+  // starting bankroll outright, so there is nothing to add it to.
+  s = { ...s, bankroll: character.bankroll_start };
+
+  const events: GameEvent[] = [
+    { type: 'RUN_STARTED', seed, characterCode },
+    {
+      type: 'BANKROLL_CHANGED',
+      delta: character.bankroll_start,
+      bankroll: s.bankroll,
+      reason: 'run start',
+      kind: 'BANKROLL_GRANTED',
+    },
+  ];
+  // `RL.09` The Anvil charges 2 here, so the order is: stake, then costs.
   const runStart = applyEffects(s, resolveHook(s, 'onRunStart', {}, cfg), cfg);
   s = runStart.state;
   events.push(...runStart.events);
@@ -328,37 +369,28 @@ function startRun(
   return { state: act.state, events: [...events, ...act.events] };
 }
 
+/**
+ * A new act: a new map and nothing else.
+ *
+ * v1.3 refilled the pool here, reset the emergency ladder here, and wrote a
+ * snapshot for Ouroboros to restore. §2.1 removes the refill, §2.4 makes the
+ * ladder run-scoped, and §6.5's Ouroboros returns a number rather than
+ * restarting an act — so all three are gone, and an act boundary is now purely
+ * structural. That is exactly what §2.2 is asking for: "one continuous curve
+ * rather than three resets, which is what lets a bad Act I actually matter in
+ * Act III."
+ */
 function startAct(s: GameState, actIndex: 0 | 1 | 2, cfg: Readonly<GameConfig>): ReduceResult {
-  const character = CHARACTER_BY_CODE[s.characterCode]!;
-  const poolMax = Math.max(1, cfg.acts[actIndex].pool + character.pool_modifier);
-
-  let next: GameState = {
+  const next: GameState = {
     ...s,
     actIndex,
-    emergencyPurchasesThisAct: 0,
     gauntlet: null,
     word: null,
     pendingOffer: null,
     map: generateAct(s.seed, actIndex, cfg).map,
     phase: 'MAP',
   };
-
-  const filled = refillPool(next, poolMax, `act ${actIndex + 1} start`);
-  next = filled.state;
-  const events: GameEvent[] = [
-    { type: 'ACT_STARTED', actIndex, pool: next.pool },
-    ...filled.events,
-  ];
-
-  const hooked = applyEffects(next, resolveHook(next, 'onActStart', { actIndex }, cfg), cfg);
-  next = hooked.state;
-  events.push(...hooked.events);
-
-  // RL.30 Ouroboros restores from here. Written after onActStart so a restored
-  // act replays its own start effects rather than double-applying them.
-  next = { ...next, actStartSnapshot: JSON.stringify({ ...next, actStartSnapshot: null }) };
-
-  return { state: next, events };
+  return { state: next, events: [{ type: 'ACT_STARTED', actIndex, bankroll: next.bankroll }] };
 }
 
 function instantiate(code: string, acquiredAt: number): RelicInstance {
@@ -401,14 +433,6 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
 
   // A service node has no word. It opens its own screen and returns to the map
   // via LEAVE_NODE, which is why `advance` already reads current.next.
-  if (node.kind === 'SHOP') {
-    const stock = rollShopStock(next, nodeId, cfg);
-    return {
-      state: { ...next, phase: 'SHOP', shop: { nodeId, stock } },
-      events: [...events, { type: 'SHOP_OPENED', nodeId, slots: stock.length }],
-    };
-  }
-
   if (node.kind === 'FORGE') {
     const operations = forgeOperations(next);
     return {
@@ -442,9 +466,10 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     };
   }
 
-  const bossHere = bossFor(next.actIndex, cfg);
-  if (node.kind === 'BOSS' && bossHere.ownPool !== null) {
-    next = { ...next, gauntlet: { pool: bossHere.ownPool, wordIndex: 0 } };
+  // §8.3 — the Gauntlet is five words back to back. It no longer runs on its
+  // own pool; the index is all that survives.
+  if (node.kind === 'BOSS' && bossFor(node.actIndex, cfg).code === 'GAUNTLET') {
+    next = { ...next, gauntlet: { wordIndex: 0 } };
   }
 
   const started = startWord(next, nodeId, cfg);
@@ -453,28 +478,17 @@ function enterNode(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
 
 // ------------------------------------------------------------ service nodes
 
-/** Clears whichever service node is open and returns to the map. */
+/**
+ * Clears whichever service screen is open and returns to the map.
+ *
+ * `shop:tierUp` is cleared here rather than when the shop opens: `RL.22`
+ * Polyglot sets it on `onShopOpen`, and a flag cleared at the same moment it is
+ * set is a flag that never applies. Closing the shop is the one point at which
+ * it has certainly been read.
+ */
 function leaveNode(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
-  const node = s.map.currentId ? s.map.nodes[s.map.currentId] : null;
-  // "Used it" is what RL.16 The Pilgrim is paid for NOT doing, so it has to
-  // mean the same thing at every node kind: you took what the node offered.
-  const usedIt =
-    (s.shop?.stock.some((x) => x.sold) ?? false) ||
-    (s.forge ? s.forge.operationsLeft < forgeOperations(s) : false);
-
-  const hooked = node
-    ? applyEffects(
-        s,
-        resolveHook(s, 'onNodeLeave', { nodeId: node.id, kind: node.kind, usedIt }, cfg),
-        cfg,
-      )
-    : { state: s, events: [] };
-
-  return advance(
-    { ...hooked.state, shop: null, forge: null, event: null },
-    hooked.events,
-    cfg,
-  );
+  const { 'shop:tierUp': _spent, ...counters } = s.counters;
+  return advance({ ...s, shop: null, forge: null, event: null, counters }, [], cfg);
 }
 
 function buyStock(s: GameState, slot: number, cfg: Readonly<GameConfig>): ReduceResult {
@@ -502,14 +516,115 @@ function buyStock(s: GameState, slot: number, cfg: Readonly<GameConfig>): Reduce
     cfg,
   );
   const stock = s.shop.stock.map((x, i) => (i === slot ? { ...x, sold: true } : x));
+  const bought = def?.isConsumable ? 0 : 1;
   return {
-    state: { ...granted.state, shop: { ...s.shop, stock } },
+    state: {
+      ...granted.state,
+      shop: { ...s.shop, stock },
+      stats: { ...granted.state.stats, relicsBought: granted.state.stats.relicsBought + bought },
+    },
     events: [
       ...paid.events,
       ...granted.events,
       { type: 'STOCK_BOUGHT', code: item.code, price: item.price },
     ],
   };
+}
+
+/**
+ * §4.1 — the one guess refill this shop will sell, off the run-long ladder.
+ *
+ * R-046: the shop and the forge index the SAME `stats.refillsBought`, so six is
+ * six however the run splits them, and neither venue can undercut the other.
+ */
+function buyShopRefill(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  if (!s.shop) return { state: s, events: [], error: { code: 'WRONG_PHASE', message: 'Not in a shop.' } };
+  if (s.shop.refillsSold >= cfg.economy.refillsPerShop) {
+    return { state: s, events: [], error: { code: 'REFILL_EXHAUSTED', message: 'This shop has sold its refill.' } };
+  }
+  const blocked = refillBlocker(s, cfg);
+  if (blocked) return { state: s, events: [], error: blocked };
+
+  const cost = refillCost(s, cfg)!;
+  const bought = buyRefill(s, cfg)!;
+  return {
+    state: { ...bought.state, shop: { ...s.shop, refillsSold: s.shop.refillsSold + 1 } },
+    events: [...bought.events, { type: 'REFILL_BOUGHT', cost, nth: s.stats.refillsBought + 1 }],
+  };
+}
+
+/** §4.2 — 20g, +10g per reroll within the same shop. */
+function rerollShop(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
+  if (!s.shop) return { state: s, events: [], error: { code: 'WRONG_PHASE', message: 'Not in a shop.' } };
+  const cost = rerollCost(s.shop.rerolls, cfg);
+  if (s.gold < cost) {
+    return { state: s, events: [], error: { code: 'UNAFFORDABLE', message: `${cost}g needed.` } };
+  }
+  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -cost, reason: 'reroll' }], cfg);
+  const rerolls = s.shop.rerolls + 1;
+  return {
+    state: {
+      ...paid.state,
+      shop: {
+        ...s.shop,
+        rerolls,
+        stock: rollShopStock(paid.state, s.shop.nodeId, cfg, rerolls),
+      },
+    },
+    events: [...paid.events, { type: 'SHOP_REROLLED', cost, nth: rerolls }],
+  };
+}
+
+/**
+ * §4.2 — sell a held relic for half its price, rounded down.
+ *
+ * The character innate is not sellable: it is a hidden registry entry rather
+ * than a relic the player acquired, and `heldRelics` is the list §6.2 counts.
+ */
+function sellRelic(s: GameState, instanceId: string, cfg: Readonly<GameConfig>): ReduceResult {
+  const held = heldRelics(s).find((r) => r.instanceId === instanceId);
+  if (!held) {
+    return { state: s, events: [], error: { code: 'NO_SUCH_ITEM', message: `Not holding ${instanceId}.` } };
+  }
+  const gold = sellPrice(held.code, cfg);
+  const paid = applyEffects(
+    { ...s, relics: s.relics.filter((r) => r.instanceId !== instanceId) },
+    [{ kind: 'GOLD', delta: gold, reason: 'sold' }],
+    cfg,
+  );
+  return {
+    state: paid.state,
+    events: [...paid.events, { type: 'RELIC_SOLD', code: held.code, gold }],
+  };
+}
+
+/**
+ * §6.2 — destroy one of the five to let the sixth in.
+ *
+ * The choice is made "at the moment of acquisition, with the incoming relic
+ * visible alongside the five held", so the grant is held in `pendingReplace`
+ * and the phase is `REPLACE` until the player picks. Declining is `SKIP_OFFER`,
+ * which drops the incoming relic and keeps the board.
+ */
+function replaceRelic(s: GameState, instanceId: string, cfg: Readonly<GameConfig>): ReduceResult {
+  const pending = s.pendingReplace;
+  if (!pending) {
+    return { state: s, events: [], error: { code: 'NO_OFFER', message: 'Nothing waiting for a slot.' } };
+  }
+  const held = heldRelics(s).find((r) => r.instanceId === instanceId);
+  if (!held) {
+    return { state: s, events: [], error: { code: 'NO_SUCH_ITEM', message: `Not holding ${instanceId}.` } };
+  }
+  const freed: GameState = {
+    ...s,
+    relics: s.relics.filter((r) => r.instanceId !== instanceId),
+    pendingReplace: null,
+  };
+  const granted = applyEffects(freed, [{ kind: 'GRANT_RELIC', code: pending.code }], cfg);
+  return advance(granted.state, [
+    { type: 'RELIC_DESTROYED', code: held.code, instanceId },
+    ...granted.events,
+  ], cfg);
 }
 
 function forgeUpgrade(s: GameState, instanceId: string): ReduceResult {
@@ -548,26 +663,47 @@ function forgeUpgrade(s: GameState, instanceId: string): ReduceResult {
   };
 }
 
-function forgeConvert(s: GameState, guesses: number, cfg: Readonly<GameConfig>): ReduceResult {
+/**
+ * §6.7 operation B — convert gold to bankroll, off the SAME §4.1 ladder the
+ * shop sells from (R-046).
+ *
+ * It used to be a flat 20g for "any quantity affordable", with a forge
+ * guaranteed every act. Once R-042 and R-043 repriced the other two valves,
+ * that made the forge the cheapest bankroll in the game and the only uncapped
+ * one: switching it on took a relic-less run from 34.3% to 63.5%, undoing most
+ * of both fixes. One ladder, one run cap, wherever you buy it — pricing it
+ * separately would re-open the arbitrage the moment either number moved again.
+ */
+function forgeRefill(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
   if (!s.forge || s.forge.operationsLeft <= 0) {
     return { state: s, events: [], error: { code: 'NO_OPERATIONS', message: 'No operations left.' } };
   }
-  const wanted = Math.max(0, Math.floor(guesses));
-  const cost = wanted * FORGE_GOLD_PER_GUESS;
-  if (wanted === 0 || s.gold < cost) {
-    return { state: s, events: [], error: { code: 'UNAFFORDABLE', message: `${cost}g needed.` } };
-  }
+  const blocked = refillBlocker(s, cfg);
+  if (blocked) return { state: s, events: [], error: blocked };
 
-  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -cost, reason: 'forge' }], cfg);
-  const poured = applyEffects(paid.state, [{ kind: 'POOL', delta: wanted, reason: 'forge' }], cfg);
+  const cost = refillCost(s, cfg)!;
+  const bought = buyRefill(s, cfg)!;
   return {
-    state: { ...poured.state, forge: { ...s.forge, operationsLeft: s.forge.operationsLeft - 1 } },
-    events: [
-      ...paid.events,
-      ...poured.events,
-      { type: 'GOLD_CONVERTED', gold: cost, guesses: wanted },
-    ],
+    state: { ...bought.state, forge: { ...s.forge, operationsLeft: s.forge.operationsLeft - 1 } },
+    events: [...bought.events, { type: 'REFILL_BOUGHT', cost, nth: s.stats.refillsBought + 1 }],
   };
+}
+
+/**
+ * Why the shared refill ladder is closed right now, or null if it is open.
+ * `canDispatch`, the shop and the forge all need the same answer, and a screen
+ * that re-derives legality is a screen that will eventually disagree.
+ */
+function refillBlocker(s: GameState, cfg: Readonly<GameConfig>): EngineError | null {
+  const cost = refillCost(s, cfg);
+  if (cost === null) {
+    return { code: 'REFILL_EXHAUSTED', message: 'All six refills are spent.' };
+  }
+  if (s.bankroll >= cfg.economy.bankrollCap) {
+    return { code: 'BANKROLL_FULL', message: `The bankroll is capped at ${cfg.economy.bankrollCap}.` };
+  }
+  if (s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
+  return null;
 }
 
 // -------------------------------------------------------------------- word
@@ -583,7 +719,7 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   const modifiers: ModifierId[] = [...node.modifiers];
   const baseLength = cfg.acts[s.actIndex].wordLength;
   const length: WordLength = isBoss
-    ? boss.ownPool !== null
+    ? boss.code === 'GAUNTLET'
       ? cfg.gauntlet.wordLength
       : baseLength
     : lengthFor(baseLength, modifiers);
@@ -630,14 +766,11 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     lockedLetters: [],
     liarIndex,
     truthMask: null,
-    netGuessesSpent: 0,
-    refundsAppliedThisWord: 0,
-    pendingRefunds: [],
+    guessesSpent: 0,
     deferralDepth,
-    revealsPurchased: 0,
     revealed: { vowelCount: null, hasRepeat: null, sharedLetter: null, letters: [] },
     nodeId,
-    poolSource: s.gauntlet ? 'GAUNTLET' : 'ACT',
+    wagered: null,
   };
 
   let next: GameState = {
@@ -659,64 +792,21 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
     }
   }
 
-  // §6.3: suppressed pre-guess reveals do not fire at all. Suppression is
-  // per-word, so it is evaluated here rather than cached.
-  const suppressed = new Set(activeReveals(next, cfg).suppressed);
-  for (const id of suppressed) events.push({ type: 'RELIC_SUPPRESSED', instanceId: id });
-
+  // §6.2 — v1.1's information cap is gone. Five relic slots is itself the cap
+  // on how much a board can know, and the old rule suppressed the THIRD reveal
+  // by acquisition order, which meant a `RL.31` Rosetta Slab bought at a boss
+  // charged its payout penalty and did nothing (§13 I-03). Nothing suppresses
+  // anything now, so every relic the player paid for fires.
   const payload = {
     nodeId,
     solutions: [...solutions],
     previousSolution: lastSolution(s),
   };
-  const effects = resolveHook(next, 'onWordStart', payload, cfg).filter(
-    (_e, i) => !isSuppressedEffect(next, 'onWordStart', payload, i, suppressed, cfg),
-  );
-  const hooked = applyEffects(next, effects, cfg);
+  const hooked = applyEffects(next, resolveHook(next, 'onWordStart', payload, cfg), cfg);
   next = hooked.state;
   events.push(...hooked.events);
 
   return { state: next, events };
-}
-
-/**
- * Which effects came from a suppressed holder. Recomputing per holder is
- * cheaper to read than threading provenance through every handler, and this
- * runs once per word rather than once per guess.
- */
-function isSuppressedEffect(
-  s: GameState,
-  hook: 'onWordStart',
-  payload: { nodeId: string; solutions: string[]; previousSolution: string | null },
-  index: number,
-  suppressed: ReadonlySet<string>,
-  cfg: Readonly<GameConfig>,
-): boolean {
-  if (suppressed.size === 0) return false;
-  let cursor = 0;
-  for (const holder of [...s.relics, ...s.consumables].sort((a, b) => a.acquiredAt - b.acquiredAt)) {
-    const produced = resolveHookFor(s, holder.instanceId, hook, payload, cfg);
-    if (index < cursor + produced) {
-      return suppressed.has(holder.instanceId) && REGISTRY[holder.code]?.pre_guess_reveal === true;
-    }
-    cursor += produced;
-  }
-  return false;
-}
-
-function resolveHookFor(
-  s: GameState,
-  instanceId: string,
-  hook: 'onWordStart',
-  payload: { nodeId: string; solutions: string[]; previousSolution: string | null },
-  cfg: Readonly<GameConfig>,
-): number {
-  const single: GameState = {
-    ...s,
-    relics: s.relics.filter((r) => r.instanceId === instanceId),
-    consumables: s.consumables.filter((c) => c.instanceId === instanceId),
-  };
-  return resolveHook(single, hook, payload, cfg).length;
 }
 
 function submitGuess(s: GameState, raw: string, cfg: Readonly<GameConfig>): ReduceResult {
@@ -737,20 +827,19 @@ function submitGuess(s: GameState, raw: string, cfg: Readonly<GameConfig>): Redu
   const usedBefore = new Set(word.history.flatMap((h) => [...h.guess]));
   const newUnique = new Set([...guess].filter((c) => !usedBefore.has(c))).size;
 
-  const hookEffects = resolveHook(
-    next,
-    'onGuessSubmit',
-    { guess, turn, newUniqueLetters: newUnique },
-    cfg,
-  );
-  const refunds = hookEffects.filter((e) => e.kind === 'REFUND');
-  const others = hookEffects.filter((e) => e.kind !== 'REFUND');
-
-  const spent = spendGuess(next, refunds, cfg);
+  // §2.1 — the decrement lands BEFORE feedback resolves, and before the hooks
+  // that react to the guess. `RL.23` The Tin Cup's gold is emitted in the same
+  // batch, which the UI drains atomically, so the two counters move on one
+  // frame rather than competing for attention.
+  const spent = spendGuess(next);
   next = spent.state;
   events.push(...spent.events);
 
-  const applied = applyEffects(next, others, cfg);
+  const applied = applyEffects(
+    next,
+    resolveHook(next, 'onGuessSubmit', { guess, turn, newUniqueLetters: newUnique }, cfg),
+    cfg,
+  );
   next = applied.state;
   events.push(...applied.events);
 
@@ -762,10 +851,27 @@ function submitGuess(s: GameState, raw: string, cfg: Readonly<GameConfig>): Redu
   next = withWord(next, (w) => ({ ...w, solved: solvedNow }));
 
   if (solvedNow.every(Boolean)) return finishWord(next, true, events, cfg);
-  if (currentPool(next) <= 0) return offerEmergency(next, events, cfg);
+  if (next.bankroll <= 0) return offerEmergency(next, events, cfg);
   return { state: next, events };
 }
 
+/**
+ * A word is over. §2.3's payout is computed here and nowhere else.
+ *
+ * Order, and it is load-bearing:
+ *   1. `onWordSolved` — gold and counters. `RL.12` Hot Streak's streak moves
+ *      here, which is why `onPayout` reads it FIRST: the bonus is the streak
+ *      before this solve, so the first fast solve pays nothing.
+ *   2. `onPayout` — collect `PAYOUT_BONUS` bids and `PAYOUT_DISCOUNT`s. These
+ *      are not applied; they are inputs to the clamps.
+ *   3. `bank.applyPayout` — Clamp B picks the largest bid, Clamp A caps the
+ *      word's net gain at +5.
+ *
+ * Under Mirror the word carries two solutions and §8.1 says "each pays out
+ * separately", so the payout runs once per solution against the same guess
+ * count. That is what makes the Twins two payouts for one word's guesses, and
+ * it is the arithmetic §12.1 says could change the boss order.
+ */
 function finishWord(
   s: GameState,
   solved: boolean,
@@ -774,6 +880,7 @@ function finishWord(
 ): ReduceResult {
   const word = s.word!;
   const guessesUsed = word.history.length;
+  const node = s.map.nodes[word.nodeId]!;
   let next = s;
 
   if (solved) {
@@ -788,21 +895,23 @@ function finishWord(
     };
     const hooked = applyEffects(
       next,
-      resolveHook(next, 'onWordSolved', { nodeId: word.nodeId, guessesUsed }, cfg),
+      resolveHook(
+        next,
+        'onWordSolved',
+        { nodeId: word.nodeId, guessesUsed, length: word.length, kind: node.kind },
+        cfg,
+      ),
       cfg,
     );
     next = hooked.state;
     events.push(...hooked.events);
+
+    const paid = payWord(next, word, guessesUsed, cfg);
+    next = paid.state;
+    events.push(...paid.events);
   } else {
     events.push({ type: 'WORD_FAILED', nodeId: word.nodeId });
     next = { ...next, stats: { ...next.stats, wordsFailed: next.stats.wordsFailed + 1 } };
-    const hooked = applyEffects(
-      next,
-      resolveHook(next, 'onWordFailed', { nodeId: word.nodeId }, cfg),
-      cfg,
-    );
-    next = hooked.state;
-    events.push(...hooked.events);
   }
 
   // An event's word_challenge resolves here, and only here. It was set on run
@@ -826,109 +935,158 @@ function finishWord(
     });
   }
 
-  // Pending refunds are per word (Rule A is per word) and are dropped here.
   next = { ...next, word: null };
-
-  const node = next.map.nodes[word.nodeId]!;
   const isBoss = node.kind === 'BOSS';
 
-  // The Gauntlet: five words back to back, no shop, forge or reward between.
+  // §8.3 — the Gauntlet is five words back to back, no shop between them.
   if (isBoss && next.gauntlet && next.gauntlet.wordIndex + 1 < cfg.gauntlet.words) {
     const advanced: GameState = {
       ...next,
-      gauntlet: { ...next.gauntlet, wordIndex: next.gauntlet.wordIndex + 1 },
+      gauntlet: { wordIndex: next.gauntlet.wordIndex + 1 },
     };
     const nextWord = startWord(advanced, word.nodeId, cfg);
     return { state: nextWord.state, events: [...events, ...nextWord.events] };
   }
 
-  const reward = grantNodeReward(next, node.kind, word.nodeId, cfg);
+  const reward = grantNodeReward(next, node.kind, word.nodeId, word.length, cfg);
   next = reward.state;
   events.push(...reward.events);
 
   return { state: next, events };
 }
 
+/**
+ * §2.3 + §2.5 — what the solve is worth, once per solution.
+ *
+ * `RL.21` All In resolves through `onWordSolved` as a plain `BANKROLL` delta
+ * rather than as a bid here, because a wager you won is your own stake coming
+ * back rather than a payout bonus, and Clamp B would otherwise make it compete
+ * with Flywheel for the one bonus slot.
+ */
+function payWord(
+  s: GameState,
+  word: WordState,
+  guessesUsed: number,
+  cfg: Readonly<GameConfig>,
+): { state: GameState; events: GameEvent[] } {
+  const opener = word.history[0];
+  const openerUniqueLetters = opener ? new Set(opener.guess).size : 0;
+  const bids = resolveHook(
+    s,
+    'onPayout',
+    { guessesUsed, length: word.length, openerUniqueLetters },
+    cfg,
+  );
+
+  const bonuses = bids
+    .filter((e): e is Extract<Effect, { kind: 'PAYOUT_BONUS' }> => e.kind === 'PAYOUT_BONUS')
+    .map((e) => ({ amount: e.amount, source: e.source }));
+  const discount = bids
+    .filter((e): e is Extract<Effect, { kind: 'PAYOUT_DISCOUNT' }> => e.kind === 'PAYOUT_DISCOUNT')
+    .reduce((n, e) => n + e.guesses, 0);
+  // Anything else a payout handler returned is a normal effect and is applied.
+  const others = bids.filter((e) => e.kind !== 'PAYOUT_BONUS' && e.kind !== 'PAYOUT_DISCOUNT');
+
+  let next = s;
+  const events: GameEvent[] = [];
+  const effective = Math.max(0, guessesUsed - discount);
+
+  for (let i = 0; i < word.solutions.length; i++) {
+    const paid = applyPayout(next, word.length, effective, bonuses, cfg);
+    next = paid.state;
+    events.push(...paid.events);
+  }
+
+  const applied = applyEffects(next, others, cfg);
+  return { state: applied.state, events: [...events, ...applied.events] };
+}
+
 // ------------------------------------------------------------------ rewards
 
+/**
+ * §3.3 — what clearing a node pays.
+ *
+ * | Node  | Gold | Other                                           |
+ * | Word  | 40g  | Shop opens on clear                             |
+ * | Elite | 70g  | Shop opens on clear                             |
+ * | Boss  | 120g | +4 bankroll, and choice of 1 of 2 boss relics   |
+ *
+ * v1.3 offered three relics FREE at every word node and paid 20g to decline —
+ * ~15 relics a run, and gold with nothing to buy that was not already coming
+ * for free. That is what §4 exists to fix: relics are bought now, and the shop
+ * that opens here is the only place a non-boss relic enters a run.
+ *
+ * The shop is not a map node and cannot be routed around (§4), which is why it
+ * opens from the reward path rather than from `enterNode`.
+ */
 function grantNodeReward(
   s: GameState,
   kind: string,
   nodeId: NodeId,
+  length: number,
   cfg: Readonly<GameConfig>,
 ): ReduceResult {
   const events: GameEvent[] = [];
   let next = s;
 
-  // R-025. A word node pays gold OR a relic and the player picks; an elite or
-  // a boss pays both. Granting both everywhere yielded ~15 relics a run, which
-  // left gold with nothing to buy that was not already coming for free.
-  const bothRewards = kind === 'BOSS' || kind === 'ELITE';
-  if (bothRewards) {
-    const gold = kind === 'BOSS' ? cfg.rewards.boss : cfg.rewards.elite;
-    const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
-    next = golded.state;
-    events.push(...golded.events);
+  const gold =
+    kind === 'BOSS' ? cfg.rewards.boss : kind === 'ELITE' ? cfg.rewards.elite : cfg.rewards.word;
+  const golded = applyEffects(next, [{ kind: 'GOLD', delta: gold, reason: `${kind} reward` }], cfg);
+  next = golded.state;
+  events.push(...golded.events);
+
+  if (kind === 'BOSS') {
+    // §3.3 — the boss's +4 lands on CLEARING it, once, not once per word. The
+    // Gauntlet is five words and the Twins is two solutions; paying per word
+    // would invent 20 bankroll a run.
+    const granted = grant(next, cfg.economy.bossBankroll, 'boss cleared', cfg);
+    next = granted.state;
+    events.push(...granted.events);
+
+    const codes = rollBossOffer(next, nodeId);
+    if (codes.length > 0) {
+      return {
+        state: {
+          ...next,
+          phase: 'REWARD',
+          pendingOffer: { kind: 'RELIC', codes, sourceNodeId: nodeId, forced: false },
+        },
+        events,
+      };
+    }
+    return advance(next, events, cfg);
   }
 
-  const codes = rollOffer(next, nodeId, cfg);
-  if (codes.length > 0) {
-    next = {
-      ...next,
-      phase: 'REWARD',
-      pendingOffer: {
-        kind: 'RELIC',
-        codes,
-        sourceNodeId: nodeId,
-        forced: false,
-        // null on elite and boss nodes: their gold is already paid, so refusing
-        // the relic buys nothing and the screen must not offer a trade.
-        goldInstead: bothRewards ? null : cfg.rewards.wordGoldInstead,
-      },
-    };
-  } else {
-    const advanced = advance(next, events, cfg);
-    return advanced;
-  }
+  // §4 — a shop after every solve node, elites included. Twelve per run.
+  const opened = applyEffects(
+    next,
+    resolveHook(next, 'onShopOpen', { nodeId, afterLength: length, afterKind: kind }, cfg),
+    cfg,
+  );
+  next = opened.state;
+  events.push(...opened.events);
 
-  return { state: next, events };
+  const stock = rollShopStock(next, nodeId, cfg);
+  return {
+    state: { ...next, phase: 'SHOP', shop: { nodeId, stock, rerolls: 0, refillsSold: 0 } },
+    events: [...events, { type: 'SHOP_OPENED', nodeId, slots: stock.length }],
+  };
 }
 
 /**
- * Three relics, weighted by MECHANICS.md §6.4 so offers bias toward archetypes
- * the player already holds, with a 0.25 floor so pivoting stays possible.
- * Without weighting, players accumulate anti-synergistic piles.
+ * §3.3 — a boss offers a choice of 1 of 2 BOSS relics, and both may be
+ * declined. They are the only relics not sold in a shop, which is what makes
+ * clearing a boss the only way to get one.
  */
-export function rollOffer(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): string[] {
-  const held = s.relics.filter((r) => REGISTRY[r.code]).map((r) => REGISTRY[r.code]!);
+function rollBossOffer(s: GameState, nodeId: NodeId): string[] {
   const available = offerableRelics().filter(
-    (d) =>
-      !d.isConsumable &&
-      !s.relics.some((r) => r.code === d.code) &&
-      offerableInAct(d, s.actIndex),
+    (d) => d.rarity === 'BOSS' && !s.relics.some((r) => r.code === d.code),
   );
-  if (available.length === 0) return [];
-
-  const archetypeWeight = (archetype: string | undefined): number => {
-    if (!archetype || held.length === 0) return 1;
-    const inArchetype = held.filter((h) => h.archetype === archetype).length;
-    return cfg.shopArchetypeFloor + (1 - cfg.shopArchetypeFloor) * (inArchetype / held.length);
-  };
-
-  const picked: string[] = [];
-  let pool = available;
-  for (let slot = 0; slot < 3 && pool.length > 0; slot++) {
-    const chosen = drawWeighted(
-      s.seed,
-      DOMAIN.offer(nodeId),
-      slot,
-      pool,
-      pool.map((d) => archetypeWeight(d.archetype)),
-    );
-    picked.push(chosen.code);
-    pool = pool.filter((d) => d.code !== chosen.code);
-  }
-  return picked;
+  if (available.length <= 2) return available.map((d) => d.code);
+  const first = drawInt(s.seed, DOMAIN.offer(nodeId), 0, available.length);
+  const rest = available.filter((_d, i) => i !== first);
+  const second = drawInt(s.seed, DOMAIN.offer(nodeId), 1, rest.length);
+  return [available[first]!.code, rest[second]!.code];
 }
 
 function acceptOffer(s: GameState, code: string, cfg: Readonly<GameConfig>): ReduceResult {
@@ -988,8 +1146,9 @@ function applyEventEffect(
   if ('gold_delta' in effect) {
     return applyEffects(s, [{ kind: 'GOLD', delta: effect['gold_delta'] as number, reason: source }], cfg);
   }
-  if ('pool_delta' in effect) {
-    return applyEffects(s, [{ kind: 'POOL', delta: effect['pool_delta'] as number, reason: source }], cfg);
+  if ('bankroll_delta' in effect || 'pool_delta' in effect) {
+    const delta = (effect['bankroll_delta'] ?? effect['pool_delta']) as number;
+    return applyEffects(s, [{ kind: 'BANKROLL', delta, reason: source }], cfg);
   }
   if ('consumable_grant' in effect) {
     const spec = effect['consumable_grant'] as { count: number };
@@ -1008,16 +1167,22 @@ function applyEventEffect(
   if ('relic_destroy' in effect) {
     const spec = effect['relic_destroy'] as { mode: 'choice' | 'random'; count: number };
     let next = s;
-    for (let i = 0; i < spec.count && next.relics.length > 0; i++) {
+    for (let i = 0; i < spec.count; i++) {
+      // §6.2 — `heldRelics`, never `relics`. The character innate lives in the
+      // same array so its hooks fire in acquisition order, and an event that
+      // took it would silently delete the thing the player chose the character
+      // for. It is not a relic they acquired and it does not occupy a slot.
+      const held = heldRelics(next);
+      if (held.length === 0) break;
       // A contingent destroy can resolve with nothing to take — EV.01's wager is
       // deliberately open to a player holding one relic, so this must no-op
       // rather than throw. `choice` resolves to the last acquired until the
       // screen supplies a pick; the UI passes one through by reordering.
-      const index =
+      const victim =
         spec.mode === 'random'
-          ? drawInt(next.seed, DOMAIN.offer(source), 850 + i, next.relics.length)
-          : next.relics.length - 1;
-      next = { ...next, relics: next.relics.filter((_, j) => j !== index) };
+          ? held[drawInt(next.seed, DOMAIN.offer(source), 850 + i, held.length)]!
+          : held[held.length - 1]!;
+      next = { ...next, relics: next.relics.filter((r) => r.instanceId !== victim.instanceId) };
     }
     return { state: next, events: [] };
   }
@@ -1042,8 +1207,8 @@ function applyEventEffect(
   }
   if ('flag_set' in effect) {
     const spec = effect['flag_set'] as { flag: string; value: number };
-    if (spec.flag === 'act_revival_available') {
-      return { state: { ...s, actRevivalGuesses: spec.value }, events: [] };
+    if (spec.flag === 'act_revival_available' || spec.flag === 'revival_available') {
+      return { state: { ...s, revivalBankroll: spec.value }, events: [] };
     }
     return { state: { ...s, counters: { ...s.counters, [spec.flag]: spec.value } }, events: [] };
   }
@@ -1083,10 +1248,7 @@ function skipNodes(s: GameState, count: number): GameState {
 // ------------------------------------------------------------- progression
 
 function advance(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): ReduceResult {
-  if (s.phase === 'ACT_END') {
-    const next = beginNextAct(s, cfg);
-    return { state: next.state, events: [...events, ...next.events] };
-  }
+  if (s.pendingReplace) return { state: { ...s, phase: 'REPLACE' }, events };
   if (s.pendingOffer) return { state: { ...s, phase: 'REWARD' }, events };
 
   const current = s.map.currentId ? s.map.nodes[s.map.currentId] : null;
@@ -1098,254 +1260,118 @@ function advance(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): 
   return endAct(s, events, cfg);
 }
 
+/**
+ * The act's last node is behind us.
+ *
+ * v1.3 stopped here on an ACT_END receipt, because the act converted its
+ * leftover guesses to gold and that trade was the moment a player learned what
+ * hoarding was worth. §2.1 has no leftover and no conversion — the bankroll
+ * simply continues — so there is nothing to show and the run walks straight on
+ * to the next act's map.
+ */
 function endAct(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): ReduceResult {
-  const leftover = s.pool;
-  const goldBefore = s.gold;
-  let next = s;
+  const out = [...events, { type: 'ACT_ENDED' as const, actIndex: s.actIndex }];
 
-  // Hooks first, so RL.24 The Ledger's top-up is part of the same conversion
-  // rather than a second, separate gold event the player has to reconcile.
-  const hooked = applyEffects(
-    next,
-    resolveHook(next, 'onActEnd', { actIndex: next.actIndex, leftover }, cfg),
-    cfg,
-  );
-  next = hooked.state;
-  const out = [...events, ...hooked.events];
-
-  const base = leftover * cfg.goldPerLeftoverGuess;
-  const golded = applyEffects(next, [{ kind: 'GOLD', delta: base, reason: 'leftover guesses' }], cfg);
-  next = golded.state;
-  out.push(...golded.events);
-
-  // The leftover guesses are SPENT by the conversion, so the pool empties. The
-  // next act refills it anyway, but the receipt is shown in between — and a HUD
-  // still reading 19 while the receipt says they all became gold is the kind of
-  // contradiction a player notices immediately.
-  const drained = addPool(next, -leftover, 'converted to gold');
-  next = drained.state;
-  out.push(...drained.events);
-
-  // What the conversion was actually worth, base plus any relic top-up. The
-  // receipt shows the rate, so a Ledger holder can see the 15g they were
-  // promised rather than the 10g the config names.
-  const goldGained = next.gold - goldBefore;
-  const rate = leftover > 0 ? goldGained / leftover : cfg.goldPerLeftoverGuess;
-  out.push({ type: 'ACT_ENDED', actIndex: next.actIndex, leftover, goldGained });
-
-  if (next.actIndex === 2) {
+  if (s.actIndex === 2) {
     return {
-      state: { ...next, phase: 'VICTORY', outcome: { result: 'WIN', cause: null } },
+      state: { ...s, phase: 'VICTORY', outcome: { result: 'WIN', cause: null } },
       events: [...out, { type: 'RUN_ENDED', outcome: 'WIN', cause: null }],
     };
   }
-
-  // Stop at the receipt. The conversion is the moment a player learns what
-  // hoarding was worth, and running straight on to the next act's map hides it.
-  // ADVANCE from here starts the next act.
-  return {
-    state: {
-      ...next,
-      phase: 'ACT_END',
-      actReceipt: { actIndex: next.actIndex, leftover, goldGained, rate },
-    },
-    events: out,
-  };
-}
-
-/** ADVANCE out of the act-end receipt. */
-function beginNextAct(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
-  const started = startAct({ ...s, actReceipt: null }, (s.actIndex + 1) as 0 | 1 | 2, cfg);
-  return { state: started.state, events: started.events };
+  const started = startAct(s, (s.actIndex + 1) as 0 | 1 | 2, cfg);
+  return { state: started.state, events: [...out, ...started.events] };
 }
 
 // ------------------------------------------------------- emergency and death
 
 /**
- * How many emergency guesses are free this act. RL.25 Insurance grants one, two
- * at MK.II. Read from held relics rather than fired as a hook, for the same
- * reason `revealCost` reads `reveal_discount`: a price is a query.
- */
-function freeEmergencies(s: GameState): number {
-  const held = s.relics.find((r) => r.code === 'RL.25');
-  if (!held) return 0;
-  return held.upgraded ? 2 : 1;
-}
-
-export function emergencyCost(
-  s: GameState,
-  cfg: Readonly<GameConfig> = CONFIG,
-): number | null {
-  // Free purchases still consume a rung. Insurance buys the price, not the cap
-  // — otherwise it would quietly raise the §2.3 ladder from three outs to four.
-  if (s.emergencyPurchasesThisAct < freeEmergencies(s)) {
-    return cfg.emergencyCosts[s.emergencyPurchasesThisAct] === undefined ? null : 0;
-  }
-  return cfg.emergencyCosts[s.emergencyPurchasesThisAct] ?? null;
-}
-
-/**
- * R-025 — refusing the relic takes the gold instead.
- *
- * Not a "skip". On a word node the two rewards are one choice, so declining is
- * a purchase: it is how gold enters a run in any quantity, and therefore how
- * the shop and both ladders get funded. `goldInstead` is null on elite and boss
- * nodes, where the gold is already paid and refusing really is just refusing.
+ * §3.3 — "the player may decline both". Also §6.2's exit from a full board:
+ * declining the replacement drops the incoming relic and keeps the five held.
  */
 function declineOffer(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
-  const instead = s.pendingOffer?.goldInstead ?? null;
-  let next: GameState = { ...s, pendingOffer: null };
-  const events: GameEvent[] = [];
-  if (instead !== null && instead > 0) {
-    const paid = applyEffects(next, [{ kind: 'GOLD', delta: instead, reason: 'relic declined' }], cfg);
-    next = paid.state;
-    events.push(...paid.events);
-  }
-  return advance(next, events, cfg);
+  return advance({ ...s, pendingOffer: null, pendingReplace: null }, [], cfg);
 }
 
-// ------------------------------------------------------------ reveal ladder
-
 /**
- * The price of the next §2.5 reveal, or null when the ladder is spent.
+ * §2.4 — the offer is mandatory UI, not optional. "The player must always see
+ * the exit they did or did not buy", including when they cannot afford it,
+ * which is a different death from declining one they could.
  *
- * Discounts are read from `reveal_discount` on every held relic rather than
- * fired as hooks: a price is a query and `Effect` is the vocabulary of state
- * change. Reading the registry generically also means a second discount relic
- * needs no engine change — which is the difference between data-driven and a
- * special case.
- *
- * Discounts multiply rather than sum, so two of them cannot reach zero, and the
- * floor of 1 catches the rest. A free reveal is not a decision.
- */
-export function revealCost(
-  s: GameState,
-  cfg: Readonly<GameConfig> = CONFIG,
-): number | null {
-  if (!s.word) return null;
-  const base = cfg.revealCosts[s.word.revealsPurchased];
-  if (base === undefined) return null;
-  let price = base;
-  for (const held of s.relics) {
-    const discount = REGISTRY[held.code]?.reveal_discount;
-    if (discount) price *= 1 - discount;
-  }
-  return Math.max(1, Math.round(price));
-}
-
-/** Positions whose letter the player already knows for certain. */
-function knownPositions(s: GameState): Set<number> {
-  return new Set((s.word?.presetTiles ?? []).map((p) => p.index));
-}
-
-/**
- * Why the ladder is closed right now, or null if it is open. Split out because
- * `canDispatch` and the view need the same answer, and a view that re-derives
- * legality is a view that will eventually disagree with the engine.
- */
-export function revealBlocker(
-  s: GameState,
-  cfg: Readonly<GameConfig> = CONFIG,
-): EngineError | null {
-  if (s.phase !== 'WORD' || !s.word) return { code: 'WRONG_PHASE', message: 'Not in a word.' };
-  // Rule A. Engage with the word before buying your way through it.
-  if (s.word.history.length === 0) {
-    return { code: 'REVEAL_UNAVAILABLE', message: 'Guess once before buying a reveal.' };
-  }
-  // Rule B. Bought reveals and relic presets count together, so the ladder can
-  // never hand over the last unknown position.
-  if (knownPositions(s).size >= s.word.length - 1) {
-    return { code: 'REVEAL_UNAVAILABLE', message: 'Only one position left to find.' };
-  }
-  const cost = revealCost(s, cfg);
-  if (cost === null) return { code: 'REVEAL_EXHAUSTED', message: 'No reveals left this word.' };
-  // Rule C. Refused, not consumed: this returns before revealsPurchased moves.
-  if (s.gold < cost) return { code: 'UNAFFORDABLE', message: `${cost}g needed.` };
-  return null;
-}
-
-function buyReveal(
-  s: GameState,
-  index: number,
-  events: GameEvent[],
-  cfg: Readonly<GameConfig>,
-): ReduceResult {
-  const blocked = revealBlocker(s, cfg);
-  if (blocked) return { state: s, events, error: blocked };
-  const word = s.word!;
-  if (index < 0 || index >= word.length) {
-    return { state: s, events, error: { code: 'POSITION_KNOWN', message: 'No such position.' } };
-  }
-  if (knownPositions(s).has(index)) {
-    return { state: s, events, error: { code: 'POSITION_KNOWN', message: 'Already revealed.' } };
-  }
-
-  const cost = revealCost(s, cfg)!;
-  // Rule D. Read from the solution directly, not through the transform chain:
-  // a bought reveal is not corrupted by Liar Letter and does not decay. That is
-  // the whole product. Under Mirror this is the first unsolved solution, so the
-  // purchase applies to the board the player is currently working.
-  const solutionIndex = Math.max(0, word.solved.findIndex((v) => !v));
-  const letter = word.solutions[solutionIndex]![index]!;
-
-  const paid = applyEffects(s, [{ kind: 'GOLD', delta: -cost, reason: 'reveal' }], cfg);
-  let next = paid.state;
-  const out = [...events, ...paid.events];
-
-  // Rule E is satisfied by construction: PRESET_TILE fixes the letter at this
-  // position and never touches lockedLetters, so the letter stays typable
-  // elsewhere in the word (R-014).
-  const revealed = applyEffects(next, [{ kind: 'PRESET_TILE', index, letter }], cfg);
-  next = revealed.state;
-  out.push(...revealed.events);
-
-  next = withWord(next, (w) => ({ ...w, revealsPurchased: w.revealsPurchased + 1 }));
-  out.push({ type: 'REVEAL_BOUGHT', index, letter, cost, nth: word.revealsPurchased + 1 });
-  return { state: next, events: out };
-}
-
-/**
- * MECHANICS.md §2.3: the offer is mandatory, not optional UI. The player must
- * always see the out they did or did not buy — including when they cannot
- * afford it, which is a different death from declining one they could.
+ * The Gauntlet no longer has its own pool (§8.3), so its words reach the ladder
+ * like any other. v1.3 died outright inside it because the separate 14-guess
+ * pool had no valve attached.
  */
 function offerEmergency(
   s: GameState,
   events: GameEvent[],
   cfg: Readonly<GameConfig>,
 ): ReduceResult {
-  // The Gauntlet's pool is fixed and separate; there is no emergency ladder
-  // inside it, so running it dry is simply death (MECHANICS.md §7.3).
-  if (s.word?.poolSource === 'GAUNTLET') return die(s, 'GAUNTLET', cfg, events);
-
-  const cost = emergencyCost(s, cfg);
-  if (cost === null) return die(s, 'POOL_EXHAUSTED', cfg, events);
+  const cost = bankEmergencyCost(s, cfg);
+  if (cost === null) return reviveOrDie(s, 'BANKROLL_EXHAUSTED', events, cfg);
 
   const affordable = s.gold >= cost;
   const out = [...events, { type: 'EMERGENCY_OFFERED' as const, cost, affordable }];
-  if (!affordable) return die(s, 'EMERGENCY_UNAFFORDABLE', cfg, out);
+  if (!affordable) return reviveOrDie(s, 'EMERGENCY_UNAFFORDABLE', out, cfg);
 
   return { state: { ...s, phase: 'EMERGENCY' }, events: out };
 }
 
 function buyEmergency(s: GameState, cfg: Readonly<GameConfig>): ReduceResult {
-  const cost = emergencyCost(s, cfg)!;
-  let next: GameState = {
-    ...s,
-    emergencyPurchasesThisAct: s.emergencyPurchasesThisAct + 1,
-    stats: { ...s.stats, emergencyPurchases: s.stats.emergencyPurchases + 1 },
+  const cost = bankEmergencyCost(s, cfg)!;
+  const bought = bankBuyEmergency(s, cfg);
+  if (!bought) {
+    return { state: s, events: [], error: { code: 'UNAFFORDABLE', message: `${cost}g needed.` } };
+  }
+  return {
+    state: { ...bought.state, phase: 'WORD' },
+    events: [{ type: 'EMERGENCY_BOUGHT', cost }, ...bought.events],
   };
-  const events: GameEvent[] = [{ type: 'EMERGENCY_BOUGHT', cost }];
+}
 
-  const paid = applyEffects(next, [{ kind: 'GOLD', delta: -cost, reason: 'emergency guess' }], cfg);
-  next = paid.state;
-  events.push(...paid.events);
+/**
+ * The last thing between a spent bankroll and the end of the run.
+ *
+ * `RL.30` Ouroboros and `EV.08` The Undertaker both return you from zero, and
+ * both are explicitly ordered AFTER the §2.4 offer: a player who can pay gold
+ * pays gold first and keeps the revival. That ordering is why the zero-crossing
+ * is resolved here rather than as an `onBankrollChange` reaction inside
+ * `spendGuess` — only this path knows whether the offer was made, taken or
+ * refused, and a hook firing on the decrement would fire before it.
+ *
+ * Ouroboros goes first: it is a relic the player chose to carry, and the
+ * Undertaker is a one-shot an event left behind. Whichever fires, the word
+ * continues rather than restarting.
+ */
+function reviveOrDie(
+  s: GameState,
+  cause: 'BANKROLL_EXHAUSTED' | 'EMERGENCY_DECLINED' | 'EMERGENCY_UNAFFORDABLE',
+  events: GameEvent[],
+  cfg: Readonly<GameConfig>,
+): ReduceResult {
+  const relic = resolveHook(s, 'onBankrollChange', { delta: 0, bankroll: s.bankroll }, cfg);
+  if (relic.length > 0) {
+    const revived = applyEffects(s, relic, cfg);
+    if (revived.state.bankroll > 0) {
+      return {
+        state: { ...revived.state, phase: s.word ? 'WORD' : revived.state.phase, ouroborosSpent: true },
+        events: [
+          ...events,
+          ...revived.events,
+          { type: 'OUROBOROS_TRIGGERED', bankroll: revived.state.bankroll },
+        ],
+      };
+    }
+  }
 
-  const pooled = addPool(next, 1, 'emergency guess');
-  next = pooled.state;
-  events.push(...pooled.events);
+  if (s.revivalBankroll !== null && s.revivalBankroll > 0) {
+    const granted = grant({ ...s, revivalBankroll: null }, s.revivalBankroll, 'EV.08', cfg);
+    return {
+      state: { ...granted.state, phase: s.word ? 'WORD' : granted.state.phase },
+      events: [...events, ...granted.events],
+    };
+  }
 
-  return { state: { ...next, phase: 'WORD' }, events };
+  return die(s, cause, cfg, events);
 }
 
 function die(
@@ -1424,7 +1450,7 @@ function applyItemUse(
   if (activation?.cost.guesses) {
     const paid = applyEffects(
       next,
-      [{ kind: 'POOL', delta: -activation.cost.guesses, reason: holder.code }],
+      [{ kind: 'BANKROLL', delta: -activation.cost.guesses, reason: holder.code }],
       cfg,
     );
     next = paid.state;
@@ -1435,9 +1461,9 @@ function applyItemUse(
   next = applied.state;
   events.push(...applied.events);
 
-  // Spending a guess can empty the pool. The offer is mandatory even when the
-  // player emptied it themselves (MECHANICS.md §2.3).
-  if (next.word && !next.word.solved.every(Boolean) && currentPool(next) <= 0) {
+  // Spending a guess can empty the bankroll. §2.4's offer is mandatory even
+  // when the player emptied it themselves.
+  if (next.word && !next.word.solved.every(Boolean) && next.bankroll <= 0) {
     return offerEmergency(next, events, cfg);
   }
   return { state: next, events };
@@ -1448,7 +1474,7 @@ function applyItemUse(
 /**
  * The only writer of state fields. Technical brief §2.4.
  *
- * POOL and GOLD effects re-enter the hook system for onPoolChange /
+ * BANKROLL and GOLD effects re-enter the hook system for onBankrollChange /
  * onGoldChange with a depth guard: two relics that each react to the other's
  * change would otherwise loop forever, and a loop in the harness is a hang
  * rather than a stack trace.
@@ -1478,22 +1504,37 @@ function applyEffect(
   depth: number,
 ): { state: GameState; events: GameEvent[] } {
   switch (effect.kind) {
-    case 'POOL': {
-      const pooled = addPool(s, effect.delta, effect.reason);
-      if (pooled.events.length === 0) return pooled;
+    case 'BANKROLL': {
+      const moved =
+        effect.delta >= 0
+          ? grant(s, effect.delta, effect.reason, cfg)
+          : charge(s, -effect.delta, effect.reason);
+      if (moved.events.length === 0) return moved;
+      // A reaction to reaching zero is NOT resolved here: §2.4's offer has to
+      // come first, and `reviveOrDie` is the only path that knows whether it
+      // did. Firing Ouroboros from the decrement would jump the queue.
+      if (moved.state.bankroll <= 0) return moved;
       const reactions = applyEffects(
-        pooled.state,
-        resolveHook(pooled.state, 'onPoolChange', { delta: effect.delta, pool: currentPool(pooled.state) }, cfg),
+        moved.state,
+        resolveHook(
+          moved.state,
+          'onBankrollChange',
+          { delta: effect.delta, bankroll: moved.state.bankroll },
+          cfg,
+        ),
         cfg,
         depth + 1,
       );
-      return { state: reactions.state, events: [...pooled.events, ...reactions.events] };
+      return { state: reactions.state, events: [...moved.events, ...reactions.events] };
     }
 
-    case 'REFUND': {
-      const refunded = offerRefund(s, effect.amount, effect.source, cfg);
-      return refunded;
-    }
+    // §2.5's clamps are applied in `payWord`, which collects every bid before
+    // deciding. A bid that reaches here fired outside a payout and does nothing
+    // — deliberately silent rather than an error, because a payout relic held
+    // through a failed word is not a bug.
+    case 'PAYOUT_BONUS':
+    case 'PAYOUT_DISCOUNT':
+      return { state: s, events: [] };
 
     case 'GOLD': {
       // R-006: gold never goes negative. A penalty larger than the purse takes
@@ -1524,9 +1565,6 @@ function applyEffect(
         ],
       };
     }
-
-    case 'POOL_MAX':
-      return addPoolMax(s, effect.delta, effect.reason);
 
     case 'PRESET_TILE': {
       if (!s.word) return { state: s, events: [] };
@@ -1594,6 +1632,13 @@ function applyEffect(
 
     case 'GRANT_RELIC': {
       if (s.relics.some((r) => r.code === effect.code)) return { state: s, events: [] };
+      // §6.2 — five slots, hard cap. A sixth is held in `pendingReplace` until
+      // the player names which of the five it destroys. That is the rule that
+      // "turns every subsequent offer into a comparison", so it must not
+      // silently drop the relic and it must not silently exceed the cap.
+      if (heldRelics(s).length >= cfg.relicSlots) {
+        return { state: { ...s, pendingReplace: { code: effect.code } }, events: [] };
+      }
       const acquiredAt = nextAcquisitionOrdinal(s);
       return {
         state: {
@@ -1708,6 +1753,19 @@ function applyEffect(
 }
 
 // ----------------------------------------------------------------- helpers
+
+/**
+ * The relics §6.2's five slots count.
+ *
+ * The character innate is a hidden registry entry granted at run start — it is
+ * in `state.relics` so its hooks fire in acquisition order, but it never
+ * occupied a slot and must not now that slots are scarce. A Linguist who could
+ * hold four bought relics to a Gambler's five would be a balance change nobody
+ * wrote down.
+ */
+export function heldRelics(s: GameState): readonly RelicInstance[] {
+  return s.relics.filter((r) => r.code !== s.characterCode);
+}
 
 function withWord(s: GameState, fn: (w: WordState) => WordState): GameState {
   return s.word ? { ...s, word: fn(s.word) } : s;

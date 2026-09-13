@@ -11,17 +11,20 @@
  */
 
 // Rules core
-export { reduce, canDispatch, initialState, emergencyCost, revealCost, revealBlocker, applyEffects, rollOffer } from './core/reducer';
+export { reduce, canDispatch, initialState, applyEffects, heldRelics } from './core/reducer';
 export { CONFIG, withConfig, type GameConfig, type ActConfig } from './core/config';
 export { serialize, deserialize, migrate, SaveError } from './core/serialize';
 export { draw, drawInt, drawPick, drawShuffle, drawWeighted, formatSeed, hash32, isValidSeed, DOMAIN, SEED_LENGTH } from './core/rng';
-export { spendGuess, grantableRefund, highestRefund, currentPool } from './core/pool';
+export { spendGuess, grant, charge, applyPayout, refillCost, emergencyCost } from './core/bank';
+export { basePayout, payoutFor, breakEven } from './economy/bankroll';
+export { ECONOMY } from './economy/config';
 export { resolveHook, resolveUse, holdersInOrder } from './core/hooks';
 export {
   FORGE_CANDIDATES,
-  FORGE_GOLD_PER_GUESS,
   drawForgeCandidates,
   shopPrice,
+  sellPrice,
+  rerollCost,
   forgeOperations,
   optionAvailable,
 } from './core/nodes';
@@ -66,7 +69,6 @@ export {
   type BoardRow,
   type BoardView,
 } from './feedback/projection';
-export { activeReveals, revealAllowed, orderForSuppression } from './feedback/infoCap';
 export { renderStates, type FeedbackResult, type Tile, type TileState } from './feedback/types';
 
 // Content
@@ -77,11 +79,9 @@ export {
   CHARACTER_BY_CODE,
   offerableRelics,
   offerableConsumables,
-  PRE_GUESS_REVEAL_CODES,
   PENDING_IMPLEMENTATION,
   isImplemented,
   isHookName,
-  isPreGuessReveal,
   isActivated,
   activationFor,
   offerableInAct,

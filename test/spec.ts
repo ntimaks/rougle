@@ -16,19 +16,17 @@ import { resolve } from 'node:path';
 export const SPEC = readFileSync(resolve(__dirname, '../MECHANICS.md'), 'utf8');
 
 /**
- * What the ENGINE currently implements, which during the v1.3 → v2.0 migration
- * is not what `MECHANICS.md` says. The spec is v2.0; the reducer is still the
- * per-act pool. Tests over v1.3 behaviour assert against the archived v1.3
- * document, so they keep meaning something instead of being deleted or skipped
- * while the migration runs.
+ * What the ENGINE implements — the same document again.
  *
- * One line to flip when §2 lands: point this at `../MECHANICS.md` and the whole
- * suite is asserting against one spec again.
+ * This pointed at `docs/archive/MECHANICS-v1.3.md` through the migration,
+ * because the spec was v2.0 while the reducer was still the per-act pool, and
+ * a test asserting v1.3 behaviour against a v2.0 document would have had to be
+ * deleted or skipped. §2 has landed, so it is one spec again.
+ *
+ * The alias stays rather than being inlined: it is the seam a future migration
+ * uses, and it costs one line.
  */
-export const LIVE_SPEC = readFileSync(
-  resolve(__dirname, '../docs/archive/MECHANICS-v1.3.md'),
-  'utf8',
-);
+export const LIVE_SPEC = SPEC;
 
 /**
  * The rows of the first markdown table following `heading`, header and rule

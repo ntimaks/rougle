@@ -46,7 +46,7 @@ function isStateShaped(value: unknown): value is GameState {
   return (
     typeof s.version === 'number' &&
     typeof s.seed === 'string' &&
-    typeof s.pool === 'number' &&
+    typeof s.bankroll === 'number' &&
     typeof s.phase === 'string' &&
     Array.isArray(s.relics)
   );
@@ -93,6 +93,23 @@ const MIGRATIONS: Record<number, Migration> = {
         }
       : null,
   }),
+
+  // v3 → v4: there is no migration, and that is the ruling.
+  //
+  // A v3 save describes a per-act pool with an act's worth of guesses in it and
+  // no bankroll at all, and there is no honest conversion: 11-of-14 in Act II
+  // is not a number of run-long guesses, because the v3 run was counting on a
+  // refill that v2.0 deleted. Any mapping would be inventing a stake the player
+  // never earned, in either direction.
+  //
+  // `isStateShaped` already rejects a save with no `bankroll`, so a v3 save is
+  // discarded before it reaches here and the player gets the title screen. This
+  // entry exists so the gap in the table is deliberate rather than a bug — the
+  // migrator throws on a missing step, which is the behaviour we want if one is
+  // ever forgotten.
+  3: () => {
+    throw new SaveError('v1.3 saves describe a per-act pool. There is no bankroll to convert them to.');
+  },
 };
 
 export function migrate(state: GameState): GameState {

@@ -7,19 +7,20 @@ import {
   initialState,
   projectBoard,
   reduce,
-  currentPool,
-  revealBlocker,
+  heldRelics,
+  refillCost,
+  shopPrice,
   type CharacterCode,
   type GameConfig,
   type GameState,
   wordList,
 } from '../lib/engine';
 import { EVENTS } from '../lib/engine/content/events';
+import { REGISTRY } from '../lib/engine/content/registry';
 import '../lib/engine/words/all';
 import {
   DEFAULT_SOLVER,
   chooseGuess,
-  filterCandidates,
   knownSolutions,
   type SolverConfig,
   type SolverView,
@@ -53,7 +54,8 @@ export interface RunResult {
   deathCandidatesRemaining: number;
   wordsSolved: number;
   guessesSpent: number;
-  refundsGranted: number;
+  /** §2.3 payout, run total. With `guessesSpent`, this is the bleed. */
+  payoutsGranted: number;
   guessesPerWord: number[];
   guessesPerWordByAct: Array<number[]>;
   /** Guesses spent on each act's boss. B-06 measures the Twins from this. */
@@ -61,87 +63,67 @@ export interface RunResult {
   cleanFiveLetterGuesses: number[];
   goldEarned: number;
   goldSpent: number;
-  /** §2.5 reveals bought across the run, so the sink can be measured. */
-  revealsBought: number;
+  /** §4.1 — rungs of the shared refill ladder bought, shop and forge together. */
+  refillsBought: number;
   emergencyPurchases: number;
   relicsTaken: string[];
+  /** §11.5 — "median relics held at death", target 3-5. */
+  relicsHeld: number;
+  /** §11.3 — the bankroll after each word, so the curve can be plotted. */
+  bankrollByWord: number[];
+  /**
+   * §11.2 — words between DOOMED and DEAD, or null if the run never became
+   * doomed (it won, or it died from a spike rather than a spiral).
+   *
+   * "Doomed" is approximated as: the bankroll can no longer cover the words
+   * left before the next boss at the run's own measured cost per word, with no
+   * emergency rung and no refill left to buy. That is weaker than §11.2's "no
+   * reachable line of play" — a lucky run of two-guess solves can still escape
+   * it — so treat it as an UPPER bound on the doomed count and a lower bound on
+   * how bad the spiral is. The exact metric needs a search over lines of play
+   * and is still owed.
+   */
+  doomedWords: number | null;
   finalGold: number;
+  finalBankroll: number;
   turns: number;
 }
 
 const MAX_ACTIONS = 4000;
 
 export interface RunOptions {
-  /** Gate 3: "does a no-relic bot die in Act II?" */
+  /** §11.5 — "win rate, no relics purchased", target <2%. */
   noRelics?: boolean;
-  /** Measure the game as it was before R-020, for the A/B on the reveal ladder. */
-  noReveals?: boolean;
-  /** Measure the game with the shop inert, for an A/B on the new sinks. */
+  /** Measure the game with the shop inert, for an A/B on the §4 sinks. */
   noShopping?: boolean;
-  /** Overrides for when the bot buys a §2.5 reveal. See REVEAL_POLICY. */
-  revealPolicy?: Partial<RevealPolicy>;
+  /** Never buy a refill or an emergency rung, for an A/B on the valves. */
+  noValves?: boolean;
+  /** Overrides for the shop policy below. */
+  shopPolicy?: Partial<ShopPolicy>;
 }
 
 /**
- * When the bot buys a reveal.
+ * When the bot buys what. A FLOOR, not optimal play, and every number the
+ * harness reports is bounded by it.
  *
- * Two triggers, because "stuck" has two shapes and only one of them is about
- * the act pool. `poolAtMost` is running out of run; `guessesOnWordAtLeast` is
- * the one the playtest actually described — several guesses into a word and
- * still no idea — which can happen with a healthy pool and is invisible to any
- * threshold on it.
- *
- * `candidatesOver` guards both: with two candidates left you guess one, you do
- * not pay to be told which.
+ * §4's whole claim is that gold buys builds and buys survival at a penalty, so
+ * the policy has to be able to express both and choose. It does it in one
+ * order: survive if you are about to die, otherwise buy the best relic you can
+ * afford. It never rerolls and never sells, because both are judgement calls
+ * about a board the bot cannot evaluate — which means the measured relic count
+ * is a lower bound and the measured gold surplus an upper one.
  */
-export interface RevealPolicy {
-  poolAtMost: number;
-  guessesOnWordAtLeast: number;
-  candidatesOver: number;
+export interface ShopPolicy {
+  /** Buy a refill at or below this bankroll, before buying anything else. */
+  refillAt: number;
+  /** Keep this much gold back for the next shop rather than spending it all. */
+  reserve: number;
 }
 
-/** When the bot starts taking gold instead of relics at a word node (R-025). */
-const RELICS_BEFORE_BANKING = 4;
-
-export const REVEAL_POLICY: RevealPolicy = {
-  poolAtMost: 2,
-  guessesOnWordAtLeast: 3,
-  candidatesOver: 5,
+export const SHOP_POLICY: ShopPolicy = {
+  refillAt: 6,
+  reserve: 0,
 };
-
-/**
- * Which position to buy. Picks the one that splits the candidate set most
- * evenly — the position whose letter is least predictable is the one carrying
- * the most information, which is the same principle the guess ranker uses.
- */
-function revealTarget(
-  s: GameState,
-  view: SolverView,
-  vocabulary: readonly string[],
-): number | null {
-  const word = s.word!;
-  const known = new Set(word.presetTiles.map((p) => p.index));
-  const candidates = filterCandidates(view, vocabulary);
-  if (candidates.length === 0) return null;
-
-  let best: number | null = null;
-  let bestSpread = -1;
-  for (let i = 0; i < word.length; i++) {
-    if (known.has(i)) continue;
-    const counts = new Map<string, number>();
-    for (const candidate of candidates) {
-      const letter = candidate[i]!;
-      counts.set(letter, (counts.get(letter) ?? 0) + 1);
-    }
-    // Distinct letters at this position: more means the reveal eliminates more.
-    const spread = counts.size;
-    if (spread > bestSpread) {
-      bestSpread = spread;
-      best = i;
-    }
-  }
-  return best;
-}
 
 export function playRun(
   seed: string,
@@ -156,10 +138,12 @@ export function playRun(
   const guessesPerWordByAct: number[][] = [[], [], []];
   const bossGuessesByAct: number[][] = [[], [], []];
   const cleanFive: number[] = [];
+  const bankrollByWord: number[] = [];
   let deathWithAnswerKnown = false;
   let deathCandidatesRemaining = 0;
   let actions = 0;
-  let revealsBought = 0;
+  let doomedAtWord: number | null = null;
+  const policy = { ...SHOP_POLICY, ...options.shopPolicy };
 
   const known = new Map<number, ReturnType<typeof knownSolutions>>();
   const vocabRng = (i: number) => draw(seed, 'solver:vocab', i);
@@ -182,16 +166,36 @@ export function playRun(
       }
 
       case 'SHOP': {
-        // Buy the cheapest affordable thing, then leave. Crude, and enough to
-        // stop the shop being a pure gold sink in the report.
-        if (!options.noShopping) {
-          const affordable = (s.shop?.stock ?? [])
-            .map((item, slot) => ({ item, slot }))
-            .filter(({ item }) => !item.sold && item.price <= s.gold)
-            .sort((a, b) => a.item.price - b.item.price);
-          for (const { slot } of affordable) {
-            const bought = reduce(s, { type: 'BUY_STOCK', slot }, cfg);
-            if (!bought.error) s = bought.state;
+        // Survival first: one refill when the bankroll is nearly out. §4.2
+        // prices it deliberately worse than a relic, so a bot that reaches for
+        // it before it has to is measuring the wrong game.
+        if (!options.noValves && s.bankroll <= policy.refillAt) {
+          const refill = reduce(s, { type: 'BUY_REFILL' }, cfg);
+          if (!refill.error) s = refill.state;
+        }
+
+        // Then build. "Most expensive affordable" is "highest rarity" under
+        // §4.2's flat table, and R-048 makes rarity a real proxy for value —
+        // so this is the closest a policy gets to "buy the best thing" without
+        // the bot evaluating a board it cannot read.
+        if (!options.noRelics && !options.noShopping) {
+          for (;;) {
+            const best = (s.shop?.stock ?? [])
+              .map((item, slot) => ({ item, slot }))
+              .filter(
+                ({ item }) =>
+                  !item.sold &&
+                  item.price <= s.gold - policy.reserve &&
+                  !REGISTRY[item.code]?.isConsumable,
+              )
+              .sort((a, b) => b.item.price - a.item.price)[0];
+            if (!best) break;
+            const bought = reduce(s, { type: 'BUY_STOCK', slot: best.slot }, cfg);
+            if (bought.error) break;
+            s = bought.state;
+            // §6.2 — a full board turns the purchase into a comparison. The bot
+            // makes the crudest version of it: destroy the cheapest thing held.
+            if (s.pendingReplace) s = dropCheapest(s, cfg);
           }
         }
         s = reduce(s, { type: 'LEAVE_NODE' }, cfg).state;
@@ -210,7 +214,9 @@ export function playRun(
           );
           const op = target
             ? reduce(s, { type: 'FORGE_UPGRADE', instanceId: target }, cfg)
-            : reduce(s, { type: 'FORGE_CONVERT', guesses: 1 }, cfg);
+            : options.noValves
+              ? { state: s, error: { code: 'NO_OPERATIONS' } as const }
+              : reduce(s, { type: 'FORGE_REFILL' }, cfg);
           if (op.error) break;
           s = op.state;
         }
@@ -258,30 +264,7 @@ export function playRun(
           };
         };
 
-        let view = buildView(s);
-
-        // §2.5 — buy reveals when the pool cannot cover the search that is left.
-        // Deliberately a DESPERATION policy, not optimal play: it buys only when
-        // the pool is nearly gone and the word is still genuinely open. A skilled
-        // human buys earlier and more often, so every number this produces is a
-        // LOWER bound on what the ladder does to the game (§13 I-22).
-        if (!options.noReveals) {
-          const policy = { ...REVEAL_POLICY, ...options.revealPolicy };
-          while (
-            (currentPool(s) <= policy.poolAtMost ||
-              s.word!.history.length >= policy.guessesOnWordAtLeast) &&
-            revealBlocker(s, cfg) === null &&
-            filterCandidates(view, known.get(word.length)!.all).length > policy.candidatesOver
-          ) {
-            const position = revealTarget(s, view, known.get(word.length)!.all);
-            if (position === null) break;
-            const bought = reduce(s, { type: 'BUY_REVEAL', index: position }, cfg);
-            if (bought.error) break;
-            s = bought.state;
-            revealsBought++;
-            view = buildView(s);
-          }
-        }
+        const view = buildView(s);
 
         const choice = chooseGuess(
           view,
@@ -311,6 +294,10 @@ export function playRun(
             guessesPerWordByAct[actIndex]!.push(used);
             if (word.nodeId.endsWith('-boss')) bossGuessesByAct[actIndex]!.push(used);
             if (word.length === 5 && word.modifiers.length === 0) cleanFive.push(used);
+            bankrollByWord.push(s.bankroll);
+            if (doomedAtWord === null && isDoomed(s, cfg)) {
+              doomedAtWord = bankrollByWord.length;
+            }
           }
         }
         if (s.phase === 'EMERGENCY' || s.phase === 'DEATH') {
@@ -321,29 +308,27 @@ export function playRun(
       }
 
       case 'REWARD': {
+        // §3.3 — the only offer left in the game is the boss's 1-of-2. It is
+        // free, so `noRelics` has to decline it explicitly or the "bought
+        // nothing" run would still finish holding three boss relics.
         const offer = s.pendingOffer;
-        if (!offer) {
-          s = reduce(s, { type: 'ADVANCE' }, cfg).state;
+        if (!offer || options.noRelics) {
+          s = reduce(s, { type: offer ? 'SKIP_OFFER' : 'ADVANCE' }, cfg).state;
           break;
         }
-        if (options.noRelics) {
-          s = reduce(s, { type: 'SKIP_OFFER' }, cfg).state;
-          break;
-        }
-        // R-025 made the word-node reward a CHOICE, and a bot that always takes
-        // the relic never earns gold — which would leave the shop, the forge and
-        // both ladders measuring a player who cannot afford any of them.
-        // Build first, then bank: take relics until the deck is real, then take
-        // the gold. A floor, not optimal play, and stated in the report.
-        const banking = offer.goldInstead !== null && s.relics.length >= RELICS_BEFORE_BANKING;
-        s = banking
-          ? reduce(s, { type: 'SKIP_OFFER' }, cfg).state
-          : reduce(s, { type: 'ACCEPT_OFFER', code: offer.codes[0]! }, cfg).state;
+        s = reduce(s, { type: 'ACCEPT_OFFER', code: offer.codes[0]! }, cfg).state;
+        break;
+      }
+
+      case 'REPLACE': {
+        s = dropCheapest(s, cfg);
         break;
       }
 
       case 'EMERGENCY': {
-        const buy = reduce(s, { type: 'BUY_EMERGENCY' }, cfg);
+        const buy = options.noValves
+          ? { state: s, error: { code: 'UNAFFORDABLE' } as const }
+          : reduce(s, { type: 'BUY_EMERGENCY' }, cfg);
         s = buy.error ? reduce(s, { type: 'DECLINE_EMERGENCY' }, cfg).state : buy.state;
         break;
       }
@@ -364,19 +349,65 @@ export function playRun(
     deathCandidatesRemaining,
     wordsSolved: s.stats.wordsSolved,
     guessesSpent: s.stats.guessesSpent,
-    refundsGranted: s.stats.refundsGranted,
+    payoutsGranted: s.stats.payoutsGranted,
     guessesPerWord: s.stats.guessesPerWord,
     guessesPerWordByAct,
     bossGuessesByAct,
     cleanFiveLetterGuesses: cleanFive,
     goldEarned: s.stats.goldEarned,
     goldSpent: s.stats.goldSpent,
-    revealsBought,
+    refillsBought: s.stats.refillsBought,
     emergencyPurchases: s.stats.emergencyPurchases,
     relicsTaken: s.stats.relicsTaken,
+    relicsHeld: heldRelics(s).length,
+    bankrollByWord,
+    doomedWords:
+      doomedAtWord === null ? null : Math.max(0, bankrollByWord.length - doomedAtWord),
     finalGold: s.gold,
+    finalBankroll: s.bankroll,
     turns: actions,
   };
+}
+
+/**
+ * §6.2's comparison, at its crudest: destroy the cheapest relic held.
+ *
+ * Under §4.2 price IS rarity, so this drops the lowest tier — which is the
+ * right shape and the wrong resolution, because it cannot tell a common that
+ * anchors a build from one that does nothing. The measured relic quality is
+ * therefore a lower bound.
+ */
+function dropCheapest(s: GameState, cfg: Readonly<GameConfig>): GameState {
+  const held = [...heldRelics(s)].sort((a, b) => shopPrice(a.code) - shopPrice(b.code));
+  const victim = held[0];
+  if (!victim) return reduce(s, { type: 'SKIP_OFFER' }, cfg).state;
+  const done = reduce(s, { type: 'REPLACE_RELIC', instanceId: victim.instanceId }, cfg);
+  return done.error ? reduce(s, { type: 'SKIP_OFFER' }, cfg).state : done.state;
+}
+
+/**
+ * §11.2's DOOMED, approximated. See `RunResult.doomedWords` for what this is
+ * and is not.
+ *
+ * "No valve left" is the load-bearing half: while an emergency rung or a refill
+ * is still affordable there is a line of play, however bad. Once both are gone
+ * the bankroll is all there is, and 1.8 a word is the §2.3 bleed a solver at
+ * the human baseline actually pays.
+ */
+const BLEED_PER_WORD = 1.8;
+
+function isDoomed(s: GameState, cfg: Readonly<GameConfig>): boolean {
+  const rung = cfg.economy.emergencyCosts[s.emergencyPurchases];
+  if (rung !== undefined && s.gold >= rung) return false;
+  const refill = refillCost(s, cfg);
+  if (refill !== null && s.gold >= refill) return false;
+  // Words still to play before the next boss pays out: the act's solve nodes
+  // not yet visited, plus the boss itself.
+  const solveNodesLeft = Math.max(
+    0,
+    cfg.acts[s.actIndex]!.solveNodes - s.stats.guessesPerWord.length % cfg.acts[s.actIndex]!.solveNodes,
+  );
+  return s.bankroll < (solveNodesLeft + 1) * BLEED_PER_WORD;
 }
 
 /**

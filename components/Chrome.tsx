@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CONFIG, activeReveals, currentPool, type GameState } from '@/lib/engine';
-import { PoolMeter } from './cmp/PoolMeter';
+import { CONFIG, type GameState } from '@/lib/engine';
+import { BankrollMeter } from './cmp/BankrollMeter';
 import { RelicChip } from './cmp/RelicChip';
 import { RelicDrawer } from './cmp/RelicDrawer';
 import { useGame } from '@/lib/store/useGame';
@@ -26,9 +26,6 @@ export function Chrome({ state, batchId }: { state: GameState; batchId: number }
   );
   const skip = useGame((s) => s.skipAnimations);
   const setSkip = useGame((s) => s.setSkipAnimations);
-  const inGauntlet = state.word?.poolSource === 'GAUNTLET';
-  const poolMax = inGauntlet ? CONFIG.gauntlet.pool : state.poolMax;
-  const suppressed = new Set(activeReveals(state).suppressed);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -56,9 +53,9 @@ export function Chrome({ state, batchId }: { state: GameState; batchId: number }
 
       <div className="relative z-[5] flex-none border-b border-dark3 bg-panel px-3 pb-2 pt-[10px]">
         <div className="mb-[7px]">
-          <PoolMeter
-            value={currentPool(state)}
-            max={poolMax}
+          <BankrollMeter
+            value={state.bankroll}
+            max={CONFIG.economy.bankrollCap}
             batchId={batchId}
             trailing={
               <div className="flex flex-col items-end gap-[3px]">
@@ -79,7 +76,6 @@ export function Chrome({ state, batchId }: { state: GameState; batchId: number }
               <RelicChip
                 key={r.instanceId}
                 code={r.code}
-                suppressed={suppressed.has(r.instanceId)}
                 fired={fired.get(r.code) ?? null}
                 batchId={batchId}
                 onTap={() => setDrawerOpen(true)}

@@ -3,7 +3,7 @@ import { DECAY_CAVEAT, type SolverConfig } from './solver';
 import type { RunResult } from './runner';
 
 /**
- * The §10.3 report. MECHANICS.md is explicit that every budget in §2.2 is
+ * The §11.5 report. MECHANICS.md is explicit that every budget in §2.2 is
  * provisional until this runs, so this is the artefact the balance work reads.
  */
 
@@ -15,7 +15,7 @@ export interface Report {
   solver: SolverConfig;
   winRate: number;
   /**
-   * MECHANICS.md §10.3 sets a second win-rate target — under 5% with no relics
+   * MECHANICS.md §11.5 sets a second win-rate target — under 5% with no relics
    * taken — and nothing reported it. Gate 3 checked only that a relic-less run
    * dies in ACT II, which it does emphatically while still winning 7.2%. Null
    * when the harness was not asked for the second sweep.
@@ -25,7 +25,7 @@ export interface Report {
   noRelicDeathsByAct: number[] | null;
   deathsByAct: number[];
   deathsByCause: Record<string, number>;
-  /** MECHANICS.md §10.3: deaths attributable to word-list luck, not decisions. */
+  /** MECHANICS.md §11.5: deaths attributable to word-list luck, not decisions. */
   wordLuckDeathRate: number;
   /**
    * Died with the answer live but the field still WIDE (more than
@@ -43,7 +43,14 @@ export interface Report {
   meanEmergencyPurchases: number;
   medianEmergencyPurchases: number;
   meanFinalGold: number;
-  meanRevealsBought: number;
+  /** §4.1 — rungs of the shared refill ladder, shop and forge together. */
+  meanRefillsBought: number;
+  /** §11.5 — median relics held, and at death specifically. Target 3-5. */
+  medianRelicsHeld: number;
+  medianRelicsHeldAtDeath: number;
+  /** §11.2 — how many runs became doomed, and for how long. See RunResult. */
+  doomedRate: number;
+  medianDoomedWords: number;
   meanGoldSpent: number;
   deathsHoldingGold: number;
   relicPickRate: Record<string, number>;
@@ -86,7 +93,7 @@ export function buildReport(
   }
 
   /*
-   * Word-list luck (MECHANICS.md §10.3, target <5% of deaths).
+   * Word-list luck (MECHANICS.md §11.5, target <5% of deaths).
    *
    * A death counts as word luck when, at the guess that emptied the pool, the
    * bot still held the answer AND could not distinguish it from at least one
@@ -105,7 +112,7 @@ export function buildReport(
    * and over half of THOSE at the 20-candidate cap. The two move in opposite
    * directions when pools are tuned — tightening a pool kills more runs early,
    * with the field wide, so the number that is supposed to indict the WORD LIST
-   * rises when the BUDGET changes. §10.3 says "fix the list, not the budget" on
+   * rises when the BUDGET changes. §11.5 says "fix the list, not the budget" on
    * the strength of this figure, so conflating them aims that at the wrong file.
    */
   const luckDeaths = deaths.filter(
@@ -168,7 +175,15 @@ export function buildReport(
     meanEmergencyPurchases: mean(results.map((r) => r.emergencyPurchases)),
     medianEmergencyPurchases: median(results.map((r) => r.emergencyPurchases)),
     meanFinalGold: mean(results.map((r) => r.finalGold)),
-    meanRevealsBought: mean(results.map((r) => r.revealsBought)),
+    meanRefillsBought: mean(results.map((r) => r.refillsBought)),
+    medianRelicsHeld: median(results.map((r) => r.relicsHeld)),
+    medianRelicsHeldAtDeath: median(results.filter((r) => !r.won).map((r) => r.relicsHeld)),
+    doomedRate: results.length
+      ? results.filter((r) => r.doomedWords !== null).length / results.length
+      : 0,
+    medianDoomedWords: median(
+      results.filter((r) => r.doomedWords !== null).map((r) => r.doomedWords!),
+    ),
     meanGoldSpent: mean(results.map((r) => r.goldSpent)),
     // R-020's pathology in one number: dying with the price of an out in hand.
     //
@@ -179,13 +194,12 @@ export function buildReport(
     // a change that halved it. Same failure as the word-luck metric in §13
     // I-29 — a metric whose threshold is a balance number has to read it.
     deathsHoldingGold: (() => {
-      // Gauntlet deaths are excluded: §2.3's ladder is not offered during the
-      // Gauntlet at all, so gold in hand there was never an out that went
-      // unbought. Counting them made the metric worse every time the Gauntlet
-      // got harder, which is the opposite of what it is for.
-      const deaths = results.filter((r) => !r.won && r.deathCause !== 'GAUNTLET');
+      // No Gauntlet exclusion any more: §8.3 removed the separate pool, so the
+      // §2.4 ladder is offered inside the Gauntlet like anywhere else and gold
+      // held there IS an out that went unbought.
+      const deaths = results.filter((r) => !r.won);
       if (deaths.length === 0) return 0;
-      const firstRung = CONFIG.emergencyCosts[0] ?? 0;
+      const firstRung = CONFIG.economy.emergencyCosts[0] ?? 0;
       return deaths.filter((r) => r.goldEarned - r.goldSpent >= firstRung).length / deaths.length;
     })(),
     relicPickRate,
@@ -210,13 +224,18 @@ export function formatReport(report: Report): string {
       `vocabularyGap=${report.solver.vocabularyGap} searchWidth=${report.solver.searchWidth}`,
   );
   push();
-  push('MECHANICS.md §10.3 targets');
+  // §11.5's targets moved with v2.0. Act I deaths are now "expected and
+  // acceptable" at 10-20% rather than capped at 15% — "under a run-long
+  // bankroll an early death is a fast, legible loss rather than a frustrating
+  // one" — and the no-relic ceiling tightened from 5% to 2%.
+  const actIDeaths = report.deathsByAct[0]! / report.runs;
+  push('MECHANICS.md §11.5 targets');
   push('  metric                          value      target        ');
   push(
-    `  win rate                        ${pct(report.winRate).padEnd(10)} 25–35%        ${verdict(report.winRate >= 0.25 && report.winRate <= 0.35)}`,
+    `  win rate                        ${pct(report.winRate).padEnd(10)} 20–30%        ${verdict(report.winRate >= 0.2 && report.winRate <= 0.3)}`,
   );
   push(
-    `  act I death rate                ${pct(report.deathsByAct[0]! / report.runs).padEnd(10)} <15%          ${verdict(report.deathsByAct[0]! / report.runs < 0.15)}`,
+    `  act I death rate                ${pct(report.deathsByAct[0]! / report.runs).padEnd(10)} 10–20%        ${verdict(actIDeaths >= 0.1 && actIDeaths <= 0.2)}`,
   );
   push(
     `  word-luck deaths                ${pct(report.wordLuckDeathRate).padEnd(10)} <5% of deaths ${verdict(report.wordLuckDeathRate < 0.05)}`,
@@ -227,9 +246,12 @@ export function formatReport(report: Report): string {
   push(
     `  median emergency purchases      ${String(report.medianEmergencyPurchases).padEnd(10)} >0            ${verdict(report.medianEmergencyPurchases > 0)}`,
   );
+  push(
+    `  median relics held at death     ${String(report.medianRelicsHeldAtDeath).padEnd(10)} 3–5           ${verdict(report.medianRelicsHeldAtDeath >= 3 && report.medianRelicsHeldAtDeath <= 5)}`,
+  );
   if (report.noRelicWinRate !== null) {
     push(
-      `  win rate, no relics taken       ${pct(report.noRelicWinRate).padEnd(10)} <5%           ${verdict(report.noRelicWinRate < 0.05)}`,
+      `  win rate, no relics taken       ${pct(report.noRelicWinRate).padEnd(10)} <2%           ${verdict(report.noRelicWinRate < 0.02)}`,
     );
     const acts = report.noRelicDeathsByAct!;
     const modal = acts.indexOf(Math.max(...acts));
@@ -246,8 +268,7 @@ export function formatReport(report: Report): string {
       `human baseline 3.9, strong solver 3.5`,
   );
   report.meanGuessesPerWordByAct.forEach((v, i) => {
-    const budget = CONFIG.acts[i]!;
-    push(`  act ${i + 1}                           ${v.toFixed(2)}   pool ${budget.pool}`);
+    push(`  act ${i + 1}                           ${v.toFixed(2)}`);
   });
   push();
   push('Bosses (B-06 — what a boss actually costs, in guesses)');
@@ -256,17 +277,15 @@ export function formatReport(report: Report): string {
     // hardcoded label would have gone on quietly reporting the wrong boss.
     const boss = BOSSES[i as 0 | 1 | 2];
     const shape =
-      boss.ownPool !== null
-        ? `${boss.words} words, own pool ${boss.ownPool}`
+      boss.words > 1
+        ? `${boss.words} words`
         : boss.deferralDepth > 0
           ? `deferral ${boss.deferralDepth}`
           : boss.modifiers.join(' ').toLowerCase() || 'plain';
     push(`  act ${i + 1} ${`${boss.name} (${shape})`.padEnd(38)} ${v ? v.toFixed(2) : '—'}`);
   });
-  push(
-    '  §2.2 counts the Twins as 2 word-equivalents (7.3 guesses). §13 I-10 expects it to',
-  );
-  push('  cost less because information is shared — and the measurement agrees.');
+  push('  §8.1 pays each of the Twins\' two solutions separately, so its guesses buy two');
+  push('  payouts. §12.1 flags the boss ORDER as the first thing to measure under §2.');
   push();
   push('Deaths');
   push(`  by act    I ${report.deathsByAct[0]}  II ${report.deathsByAct[1]}  III ${report.deathsByAct[2]}`);
@@ -278,9 +297,12 @@ export function formatReport(report: Report): string {
   push(`  mean emergency purchases        ${report.meanEmergencyPurchases.toFixed(2)}`);
   push(`  mean gold spent                 ${report.meanGoldSpent.toFixed(0)}`);
   push(`  mean gold unspent at end        ${report.meanFinalGold.toFixed(0)}`);
-  push(`  mean §2.5 reveals bought        ${report.meanRevealsBought.toFixed(2)}`);
+  push(`  mean §4.1 refills bought        ${report.meanRefillsBought.toFixed(2)}`);
+  push(`  median relics held at end       ${report.medianRelicsHeld}          §11.5 wants 3-5 at death`);
+  push(`  median relics held at death     ${report.medianRelicsHeldAtDeath}`);
+  push(`  §11.2 doomed before dead        ${pct(report.doomedRate)} of runs, median ${report.medianDoomedWords} words`);
   push(
-    `  deaths holding the ${String(CONFIG.emergencyCosts[0]).padEnd(3)} out       ` +
+    `  deaths holding the ${String(CONFIG.economy.emergencyCosts[0]).padEnd(3)} out       ` +
       `${pct(report.deathsHoldingGold)}   ← R-020, was 99.1%`,
   );
   push(`  median words reached            ${report.medianWordsReached}`);

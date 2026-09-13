@@ -14,6 +14,8 @@ import eventsJson from '../../../events.json';
 
 export type EventEffect =
   | { gold_delta: number }
+  | { bankroll_delta: number }
+  /** v1.3 spelling, still honoured so an unmigrated event file keeps working. */
   | { pool_delta: number }
   | { relic_grant: { rarity: string; choose: boolean; count: number } }
   | { relic_destroy: { mode: 'choice' | 'random'; count: number } }

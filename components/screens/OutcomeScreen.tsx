@@ -24,7 +24,7 @@ import { useMotion } from '@/lib/store/useMotion';
  * one for the moment a run ends.
  */
 const CAUSE_COPY: Record<DeathCause, string> = {
-  POOL_EXHAUSTED: 'THE POOL RAN DRY',
+  BANKROLL_EXHAUSTED: 'THE BANKROLL RAN DRY',
   EMERGENCY_DECLINED: 'YOU TURNED DOWN THE WAY OUT',
   EMERGENCY_UNAFFORDABLE: 'THE WAY OUT COST MORE THAN YOU HAD',
   GAUNTLET: 'THE GAUNTLET CLOSED',
@@ -73,7 +73,7 @@ export function OutcomeScreen({ state }: { state: GameState }) {
         <StatCell label="WORDS SOLVED" value={String(solved)} tone={won ? 'text-accent' : 'text-fg0'} />
         <StatCell label="AVG / WORD" value={average} tone="text-fg0" />
         <StatCell label="GUESSES SPENT" value={String(state.stats.guessesSpent)} tone="text-fg0" />
-        <StatCell label="REFUNDED" value={String(state.stats.refundsGranted)} tone="text-accent" />
+        <StatCell label="PAID OUT" value={String(state.stats.payoutsGranted)} tone="text-accent" />
         <StatCell label="GOLD UNSPENT" value={`${state.gold}g`} tone="text-amber" />
         <StatCell
           label="EMERGENCY BUYS"

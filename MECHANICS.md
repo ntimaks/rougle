@@ -382,6 +382,33 @@ Two hard rules:
 
 ---
 
+### 6.8 Events
+
+Content in `events.json`, normative for names, prose, options, stakes and
+effects. Thirteen events, `EV.01`-`EV.13`.
+
+An EVENT node draws one, **without replacement within a run**, from the events
+whose `acts` list includes the current act. Thirteen against an expectation of
+2-5 events a run is enough that an act never exhausts its pool.
+
+Three rules the content has to keep, and the validator checks:
+
+- **Every event offers 2-3 options, and at least one is non-destructive.** It
+  need not be free — walking away from a good offer is a cost.
+- **An event never hides its odds.** The `stake` line states the full
+  consequence including the failure branch. Concealed risk is what modifiers and
+  relics are for; an event that lies breaks the contract that makes the other
+  systems readable.
+- **An option the player cannot take renders disabled with its requirement
+  stated, never hidden.** A door you can see is a reason to come back with gold.
+
+Effects are drawn from a closed vocabulary, listed in the file's
+`effect_vocabulary`. An event that needs a verb the list does not have is a
+signal the list is incomplete — extend it and say so, rather than encoding the
+effect as prose the engine cannot read.
+
+---
+
 ## 7. Modifiers
 
 Modifiers attach to words and are the entire difficulty curve.
@@ -611,6 +638,12 @@ One consequence is worth stating outright: **a payout bonus cannot be COMMON or 
 **R-049 · A calibration probes at the size it reports.** §11.4's handicap is tuned until `cleanBaseline` reads 3.9, and it probed 400 words. At n=400 that estimator carries about ±0.05 from two sources — which words are drawn, and which vocabulary slice the seed produces — so the search stopped at 3.893 while the converged value was **3.84**, six hundredths under target, and the test guarding it probed at the same 400 and passed throughout.
 → **Ruled:** the calibration probes 2500 and records `wordsPerProbe` in `calibration.json`; the Gate 1 test reads that field rather than hardcoding a size, so the two cannot drift apart. Re-derived, `vocabularyGap` moves 0.0938 → 0.1125 and the converged baseline is 3.868. The standing rule: **a search that stops inside its estimator's noise band has not converged, and a test at the same sample size cannot tell.**
 
+**R-050 · A relic's declared `hook` is where it RESOLVES, not how it is fired.** §6.1's hook list has no entry for "the player pressed the button", and the four activated relics — `RL.07` The Auditor, `RL.20` Blindfold, `RL.21` All In, `RL.28` Shaved Coin — plus `CH.03`'s innate are all things a player *does* rather than reactions to an event. The registry gives each of them the hook its effect lands on (`onGuessSubmit`, `onWordStart`, `onFeedbackTransform`), which is the right answer for the transform chain and the wrong one for the thing that fires them.
+→ **Ruled:** the `activation` block is what makes a relic fireable, and the implementation supplies an `onUse` handler for it; the JSON's `hook` continues to name the resolution point. The registry validator checks `activation` against the IMPLEMENTATION's `onUse`, not against the JSON's `hook` — which is the invariant that actually matters, because `USE_ITEM` dispatches through `resolveUse` and never reads the JSON hook at all. v1.3 required `hook: "onUse"` on any relic with an activation and the two agreed by construction; under v2.0's registry they do not, and the weaker of the two checks was the one being made.
+
+**R-051 · `RL.30` Ouroboros' MK.II breaks §6.7 rule 2, and ships anyway.** Rule 2 says a boss relic "upgrades by shrinking its drawback, never by raising magnitude". Ouroboros returns you to 8 at MK.II's 12, which is `magnitude` and is recorded as such in the registry. The alternative reading of its drawback — "once per run" — would upgrade to twice per run, which is a far larger change than +4 bankroll once.
+→ **Ruled:** the registry entry stands and the axis stays `magnitude`, as a NAMED exception rather than a silent one. Rule 2 exists to stop a free relic growing without a counterweight, and +4 bankroll once in a run is the smallest boss upgrade in the set — smaller than either `reach` upgrade, which each extend a relic across a whole new class of word. The validator reads the exception from this ruling rather than from a hardcoded list, so a second boss relic drifting to `magnitude` still fails.
+
 ### 12.1 Carried forward from v1.3
 
 v1.3 added R-017 through R-036. Most are still live engine behaviour with tests
@@ -639,6 +672,25 @@ against v1.1. Their status under v2.0:
 | R-034 A withheld row says when it will speak | **Stands.** Fog and the Cipher still defer. |
 | R-035 A forge offers three, and nothing is spent until you say so | **Half stands.** §6.7 grants one operation over *held* relics, so there is no offer to draw — but the select-then-commit rule came from a playtest where a misclick spent the operation on nothing, and that half is a UI requirement on every screen that spends a resource. |
 | R-036 A revealed letter is knowledge, not a result scored against a guess | **Stands.** §5.2's `meta.revealedLetters` is this ruling. |
+
+#### Carried forward from v1.0-v1.2
+
+The §12 log above is the v1.1 log plus v2.0's additions, so it skips rulings the
+v1.2 and v1.3 documents made and the engine still implements. Two are cited by
+`relics.json` and are restated here so every citation resolves:
+
+**R-001 · `RL.07` The Auditor charges gold, not a guess.** Its rule reads "name
+one untried letter and pay"; the currency was unstated. A guess cost would make
+it a worse `CH.03`, whose innate is exactly that trade. Gold, from the
+`activation.cost` block, so the engine charges it rather than the relic.
+
+**R-003 · A locked letter is never a solution letter.** Both Locked Key (§7) and
+`RL.19` The Moth remove letters from the keyboard, and either could otherwise
+make a word unsolvable. One shared `eligibleLettersForRemoval(solution)` helper
+draws for both, so neither relic sees the solution and neither can violate it.
+
+The remaining pre-v1.3 rulings are unchanged and uncited; the archived v1.3
+document holds their full text.
 
 #### One bookkeeping note
 
