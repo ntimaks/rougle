@@ -22,8 +22,12 @@ import type { MapNode, MapState, NodeId, NodeKind } from '../core/state';
  * because row 6 is always SOLVE and excluded from the elite draw.
  *
  * What is left for the weights is the interesting part, and it is where route
- * choice lives: WORD or ELITE within a solve row, SHOP or FORGE or EVENT within
- * a service row. The player picks a path, not just the next step.
+ * choice lives: WORD or ELITE within a solve row, FORGE or EVENT within a
+ * service row. The player picks a path, not just the next step.
+ *
+ * v2.0 removed SHOP from the service draw. §4 makes a shop open after every
+ * solve node — "not a map node and cannot be routed around" — so the service
+ * rows now hold only the two nodes that ARE a route choice.
  */
 
 const ROWS = 6;
@@ -31,11 +35,10 @@ const ROWS = 6;
  * Which rows may be SERVICE.
  *
  * Row 6 is excluded because §3.1 makes the pre-boss node a solve node. Row 1 is
- * excluded for an economic reason found in playtest: a run starts with 0 gold,
- * so opening on a shop is a node you can do nothing at — the first move of the
- * game spent looking at prices you cannot pay. Starting gold would fix it too
- * and was rejected: gold arriving free weakens the act-end conversion and the
- * R-025 trade, which are what make every coin mean a relic refused.
+ * excluded because it opens the act, and a run that starts on a service node
+ * spends its first move on something it has nothing to spend. That was found in
+ * playtest against the shop; it holds for a forge for the same reason, and a
+ * forge is now the only thing there that costs gold.
  */
 const SERVICE_CANDIDATES = [2, 3, 4, 5] as const;
 
@@ -86,21 +89,6 @@ function solveKind(
   );
 }
 
-function serviceKind(
-  seed: string,
-  actIndex: number,
-  salt: number,
-  weights: Readonly<Record<string, number>>,
-): NodeKind {
-  return drawWeighted<NodeKind>(
-    seed,
-    DOMAIN.map(actIndex),
-    400 + salt,
-    ['SHOP', 'FORGE', 'EVENT'],
-    [weights['SHOP']!, weights['FORGE']!, weights['EVENT']!],
-  );
-}
-
 function buildOnce(
   seed: string,
   actIndex: 0 | 1 | 2,
@@ -121,10 +109,10 @@ function buildOnce(
     for (let col = 0; col < width; col++) {
       const id: NodeId = `a${actIndex}-r${row}c${col}`;
       const salted = salt * 1000 + row * 10 + col;
-      let kind: NodeKind;
-      if (isService(row)) {
-        kind = serviceKind(seed, actIndex, salted, cfg.nodeWeights);
-      } else {
+      // A service row's kind is assigned below, per row, because §3.1's forge
+      // and event guarantees are per PATH. FORGE is a placeholder.
+      let kind: NodeKind = 'FORGE';
+      if (!isService(row)) {
         kind = solveKind(
           seed,
           actIndex,
@@ -153,22 +141,30 @@ function buildOnce(
     rows.push(ids);
   }
 
-  // §3.1 guarantees at least one shop AND at least one forge-or-event. The
-  // brief spells out only the shop rule; both service rows drawing SHOP is just
-  // as possible and leaves the act with no forge and no event.
+  // §3.1's constraint is per PATH: "guaranteed on every legal path — at least
+  // 1 forge, at least 1 event". Every path crosses every row exactly once, and
+  // there are exactly two service rows, so the two constraints fully determine
+  // them: one row is all forge and the other is all event. A mixed service row
+  // satisfies "the act contains a forge" while leaving a path that meets none.
   //
-  // Order matters. The forge fix targets the LATER service row and runs first;
-  // the shop fix targets the EARLIER one and runs last, so it always wins. Were
-  // it the other way round, forcing a forge could delete the only shop.
-  const kinds = () => rows.flat().map((id) => nodes[id]!.kind);
-  if (!kinds().some((k) => k === 'FORGE' || k === 'EVENT')) {
-    const forced = rows[serviceB - 1]![0]!;
-    nodes[forced] = { ...nodes[forced]!, kind: 'FORGE' };
-  }
-  if (!kinds().includes('SHOP')) {
-    const forced = rows[serviceA - 1]![0]!;
-    nodes[forced] = { ...nodes[forced]!, kind: 'SHOP' };
-  }
+  // That is a real cost and it is worth naming: route choice no longer lives in
+  // the service rows at all, only in WORD-vs-ELITE within the four solve rows.
+  // §4 removed SHOP from the draw and left two kinds against two guarantees,
+  // and two into two does not branch. The weights still decide WHICH row gets
+  // which, so the order varies run to run.
+  const forgeFirst =
+    drawWeighted<NodeKind>(
+      seed,
+      DOMAIN.map(actIndex),
+      500 + salt,
+      ['FORGE', 'EVENT'],
+      [cfg.nodeWeights.FORGE, cfg.nodeWeights.EVENT],
+    ) === 'FORGE';
+  const assign = (row: number, kind: NodeKind) => {
+    for (const id of rows[row - 1]!) nodes[id] = { ...nodes[id]!, kind, modifiers: [] };
+  };
+  assign(serviceA, forgeFirst ? 'FORGE' : 'EVENT');
+  assign(serviceB, forgeFirst ? 'EVENT' : 'FORGE');
 
   const bossId: NodeId = `a${actIndex}-boss`;
   nodes[bossId] = {
@@ -269,7 +265,6 @@ export function routeSpread(map: MapState): number {
     let s = acc;
     if (node.kind === 'ELITE') s += 3;
     if (node.kind === 'WORD') s += 1;
-    if (node.kind === 'SHOP') s -= 2;
     if (node.kind === 'FORGE') s -= 1;
     if (node.kind === 'EVENT') s -= 1;
     s += node.modifiers.length;

@@ -56,7 +56,7 @@ export function TitleCard() {
                   {c.name} <span className="text-fg3">{c.code}</span>
                 </span>
                 <span className="text-xs text-fg2">
-                  POOL {c.pool_modifier >= 0 ? `+${c.pool_modifier}` : c.pool_modifier} · {c.innate}
+                  BANKROLL {c.bankroll_start} · {c.innate}
                 </span>
                 {!playable && (
                   <span className="mt-1 text-[10px] text-red">

@@ -16,11 +16,29 @@ import type {
  * `reduce` (AGENTS.md non-negotiable 6).
  */
 export type Effect =
-  | { kind: 'POOL'; delta: number; reason: string }
-  /** NOT 'POOL'. Refunds are subject to the §2.4 floor; a POOL delta bypasses it. */
-  | { kind: 'REFUND'; amount: number; source: string }
+  /**
+   * §2.1 — move the bankroll. A positive delta overflows to gold at the §2.1
+   * cap; a negative one floors at 0.
+   *
+   * This replaces v1.3's three-way split of `POOL`, `POOL_MAX` and `REFUND`.
+   * There is no cap to raise, so `POOL_MAX` has nothing to address, and §2.5
+   * replaced the refund floor with two clamps applied at payout — so a refund
+   * is no longer a distinct kind of grant that has to bypass anything.
+   */
+  | { kind: 'BANKROLL'; delta: number; reason: string }
+  /**
+   * §2.5 Clamp B — offer a payout bonus for the word being solved. Collected,
+   * not applied: only the largest offered bonus survives the clamp, so a relic
+   * states its bid and `bank.applyPayout` decides.
+   */
+  | { kind: 'PAYOUT_BONUS'; amount: number; source: string }
+  /**
+   * `RL.13` Opening Gambit — compute the payout as though this many fewer
+   * guesses were used. NOT a bankroll grant: the guesses were spent and the
+   * bankroll already ticked down for them.
+   */
+  | { kind: 'PAYOUT_DISCOUNT'; guesses: number; source: string }
   | { kind: 'GOLD'; delta: number; reason: string }
-  | { kind: 'POOL_MAX'; delta: number; reason: string }
   | { kind: 'PRESET_TILE'; index?: number; letter?: string }
   | { kind: 'LOCK_LETTER'; letter?: string; source: string }
   | { kind: 'REVEAL_META'; field: 'vowelCount' | 'hasRepeat' | 'sharedLetter' }
@@ -39,7 +57,7 @@ export type Effect =
   | { kind: 'END_RUN'; outcome: 'WIN' | 'DEATH'; cause: DeathCause };
 
 export interface EffectContext {
-  /** Re-entry depth for POOL/GOLD effects that fire onPoolChange/onGoldChange. */
+  /** Re-entry depth for BANKROLL/GOLD effects that fire onBankrollChange/onGoldChange. */
   depth: number;
   /** Hook re-entry, injected by the reducer so effects.ts does not import hooks.ts. */
   reenter?: (state: GameState, effect: Effect, depth: number) => Effect[];
@@ -49,7 +67,7 @@ export class EffectDepthError extends Error {
   constructor(depth: number) {
     super(
       `Effect recursion exceeded ${CONFIG.maxEffectDepth} (reached ${depth}). ` +
-        'A relic pair is feeding itself through onPoolChange/onGoldChange.',
+        'A relic pair is feeding itself through onBankrollChange/onGoldChange.',
     );
     this.name = 'EffectDepthError';
   }

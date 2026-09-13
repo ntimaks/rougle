@@ -4,7 +4,8 @@ import type { RelicImpl } from '../types';
 
 /**
  * BLINDFOLD — "Choose to take no feedback on a guess. If that guess was within
- * one letter of the solution, gain 3 guesses. Otherwise nothing."
+ * one letter of the solution, gain 4 bankroll. Otherwise nothing." Within two
+ * at MK.II.
  *
  * Two halves. The activation ARMS the next guess: the chain's suppression step
  * reads `blindNodeId`/`blindTurn` and withholds that row. The payoff resolves
@@ -14,8 +15,9 @@ import type { RelicImpl } from '../types';
  * solution through the shared helper rather than inlining the comparison, so
  * the ruling has one home.
  *
- * The reward is a POOL gain, not a REFUND: it is a prize for a risk taken, not
- * compensation for a guess, so the §2.4 floor does not apply to it.
+ * A `BANKROLL` grant rather than a `PAYOUT_BONUS`: it pays on a guess, not on a
+ * solve, and it pays whether or not the word is ever solved. Clamp A still
+ * catches it, because Clamp A is stated on the word's net.
  */
 export default {
   hooks: {
@@ -41,8 +43,8 @@ export default {
       const armed =
         ctx.self.state['blindNodeId'] === word.nodeId && ctx.self.state['blindTurn'] === p.turn;
       if (!armed) return [];
-      const near = hammingDistance(p.guess, word.solutions) <= 1;
-      return near ? [{ kind: 'POOL', delta: 3, reason: 'RL.20' }] : [];
+      const near = hammingDistance(p.guess, word.solutions) <= (ctx.self.upgraded ? 2 : 1);
+      return near ? [{ kind: 'BANKROLL', delta: 4, reason: 'RL.20' }] : [];
     },
   },
 } satisfies RelicImpl;

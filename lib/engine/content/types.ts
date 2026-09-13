@@ -8,20 +8,29 @@ import type {
   WordState,
 } from '../core/state';
 
-/** MECHANICS.md §6.1, verbatim. No additions. */
+/**
+ * MECHANICS.md §6.1, verbatim. No additions.
+ *
+ * v1.3 carried four more — `onActStart`, `onActEnd`, `onNodeLeave` and
+ * `onWordFailed` — and v2.0 removed the reason for each. There is no act-end
+ * conversion and `RL.30` Ouroboros moved to `onBankrollChange`, so the two act
+ * hooks have no subscriber; `onNodeLeave` existed for `RL.16` The Pilgrim,
+ * which is retired; and §2.3 makes failing a word end the run, so there is
+ * nothing to hook after it.
+ */
 export const HOOK_NAMES = [
   'onRunStart',
-  'onActStart',
   'onNodeEnter',
-  'onNodeLeave',
   'onWordStart',
   'onGuessSubmit',
   'onFeedbackTransform',
   'onWordSolved',
-  'onWordFailed',
-  'onActEnd',
+  /** §6.1 — new in v2.0, and where every payout-modifying relic attaches. */
+  'onPayout',
+  /** §4 — the shop that opens after a solve node. `RL.22` Polyglot reads it. */
+  'onShopOpen',
   'onGoldChange',
-  'onPoolChange',
+  'onBankrollChange',
   'onUse',
 ] as const;
 
@@ -29,23 +38,29 @@ export type HookName = (typeof HOOK_NAMES)[number];
 
 export interface HookPayloads {
   onRunStart: Record<string, never>;
-  onActStart: { actIndex: number };
   onNodeEnter: { nodeId: string; kind: string };
-  /**
-   * Leaving a SHOP, FORGE or EVENT. Added for RL.16 The Pilgrim, which pays for
-   * passing a shop without buying — a thing that can only be known on the way
-   * out. AGENTS.md: a relic that cannot name a hook means the hook list is
-   * incomplete, so extend it rather than special-casing the relic.
-   */
-  onNodeLeave: { nodeId: string; kind: string; usedIt: boolean };
   onWordStart: { nodeId: string; solutions: string[]; previousSolution: string | null };
   onGuessSubmit: { guess: string; turn: number; newUniqueLetters: number };
   onFeedbackTransform: Record<string, never>;
-  onWordSolved: { nodeId: string; guessesUsed: number };
-  onWordFailed: { nodeId: string };
-  onActEnd: { actIndex: number; leftover: number };
+  /** Fires before `onPayout`, so a relic may pay gold and bid on the payout. */
+  onWordSolved: { nodeId: string; guessesUsed: number; length: number; kind: string };
+  /**
+   * §2.3 — the payout is about to be computed. A handler returns `PAYOUT_BONUS`
+   * (subject to Clamp B) or `PAYOUT_DISCOUNT`, never a `BANKROLL` grant: a
+   * grant would bypass both clamps, which is exactly what §2.5 forbids.
+   *
+   * `openerUniqueLetters` is on the payload because `RL.13` Opening Gambit
+   * gates on it and it is a fact about a guess that has long since resolved.
+   */
+  onPayout: {
+    guessesUsed: number;
+    length: number;
+    openerUniqueLetters: number;
+  };
+  /** §4 — a shop is rolling its stock. `RL.22` Polyglot raises the tier. */
+  onShopOpen: { nodeId: string; afterLength: number; afterKind: string };
   onGoldChange: { delta: number; gold: number };
-  onPoolChange: { delta: number; pool: number };
+  onBankrollChange: { delta: number; bankroll: number };
   onUse: { instanceId: string; payload: Record<string, unknown> };
 }
 
@@ -135,12 +150,23 @@ export interface RelicDef {
   hook: HookName;
   rule: string;
   flavor?: string;
-  pre_guess_reveal: boolean;
   transform_order?: number;
   anti_synergy?: string[];
   anti_synergy_reason?: string;
   synergy?: string[];
-  refund?: { amount: number | string; trigger: string };
+  /** §2.5 Clamp B — a declared payout bonus and what triggers it. */
+  payout_bonus?: { amount: number; trigger: string };
+  /** §6.5 — the run-long counter, for the six relics that carry one. */
+  scaling?: {
+    counter: string;
+    increments_on?: string;
+    resets_on?: string;
+    starts_at?: number;
+    effect: string;
+    cap?: number;
+  };
+  /** §6.5 — measured worth in bankroll per word over a 20-word run. */
+  value_note?: string;
   ruling?: string;
   engine_note?: string;
   balance_flag?: string;
@@ -182,10 +208,10 @@ export interface CharacterDef {
   code: CharacterCode;
   name: string;
   archetype: Archetype;
-  pool_modifier: number;
+  /** §9 — the character's starting bankroll, not a delta. */
+  bankroll_start: number;
   innate: string;
-  pre_guess_reveal: boolean;
-  refund?: { amount: number; trigger: string };
+  payout_bonus?: { amount: number; trigger: string };
   engine_note?: string;
   hook?: HookName;
   activation?: ActivationDef;

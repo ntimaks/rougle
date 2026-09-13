@@ -14,7 +14,7 @@ import { DEFAULT_SOLVER, type SolverConfig } from './solver';
  *   npm run sim -- --runs 1000
  *   npm run sim -- --runs 1000 --character CH.02 --snapshot 001
  *   npm run sim -- --runs 1000 --no-relics --no-reveals
- *   npm run sim -- --runs 1000 --gate3          # + the §10.3 no-relic target
+ *   npm run sim -- --runs 1000 --gate3          # + the §11.5 no-relic target
  *
  * This is also the CI canary for the engine boundary (ticket S-05). It runs
  * under plain `tsx` with no Next build; if it fails on module resolution,
@@ -35,7 +35,7 @@ interface Args {
    */
   noReveals: boolean;
   /**
-   * Also run the same number of no-relic runs, so the report can print §10.3's
+   * Also run the same number of no-relic runs, so the report can print §11.5's
    * second win-rate target and the Gate 3 verdict instead of both being checked
    * by hand every snapshot. Roughly doubles the runtime.
    */
@@ -92,16 +92,14 @@ function main(): void {
   const started = Date.now();
   const results = sweep(args.runs, args.character, solver, args.label, {
     noRelics: args.noRelics,
-    noReveals: args.noReveals,
   });
-  // Gate 3 is a §10.3 target, not a side quest: a relic-less run must die in
+  // Gate 3 is a §11.5 target, not a side quest: a relic-less run must die in
   // Act II AND win under 5%. Running it here rather than by hand is the only
   // way the second half of that gets checked at all.
   const noRelic =
     args.gate3 && !args.noRelics
       ? sweep(args.runs, args.character, solver, `${args.label}:gate3`, {
           noRelics: true,
-          noReveals: args.noReveals,
         })
       : null;
   const elapsed = Date.now() - started;

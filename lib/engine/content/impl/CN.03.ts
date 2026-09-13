@@ -1,15 +1,16 @@
 import type { RelicImpl } from '../types';
 
 /**
- * THE DECANTER — "Pours 3 guesses into the act pool. Does not raise the cap."
+ * THE DECANTER — "Pours 4 bankroll. Cannot exceed the cap of 24."
  *
- * A POOL effect, not a REFUND: it is not compensation for a guess and must not
- * go through the §2.4 floor. The cap is enforced by the pool reducer.
+ * The cap is `bank.grant`'s job, and anything over it converts to gold at 10g
+ * (§2.1) rather than being lost — so a Decanter drunk at 23 is not wasted, it
+ * is 1 bankroll and 30g, and both movements are narrated.
  */
 export default {
   hooks: {
     onUse: (ctx) => [
-      { kind: 'POOL', delta: 3, reason: 'CN.03' },
+      { kind: 'BANKROLL', delta: 4, reason: 'CN.03' },
       { kind: 'CONSUME', instanceId: ctx.self.instanceId },
     ],
   },

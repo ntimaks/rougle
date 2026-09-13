@@ -102,31 +102,6 @@ export function offerableConsumables(): readonly RelicDef[] {
   return RELIC_DEFS.filter((d) => d.isConsumable && isImplemented(d.code));
 }
 
-/**
- * MECHANICS.md §6.3: the pre-guess reveal effects the cap applies to.
- *
- * Includes CHARACTER INNATES. §6.3's prose lists six relics and does not mention
- * characters, but `relics.json` marks CH.01 The Linguist `pre_guess_reveal: true`
- * and its innate — "sees the solution vowel count on every word, before the
- * first guess" — is precisely the effect the cap exists to bound. The flag is
- * the data and the data is normative, so the flag wins; the prose list is the
- * thing that needs updating. Raised as §13 I-20.
- *
- * It matters: a Linguist holding Lexicon and Palimpsest is at the cap before
- * taking a single reveal relic, which changes what those relics are worth.
- */
-export const PRE_GUESS_REVEAL_CODES: readonly string[] = [
-  ...RELIC_DEFS.filter((d) => d.pre_guess_reveal).map((d) => d.code),
-  ...CHARACTERS.filter((c) => c.pre_guess_reveal).map((c) => c.code),
-];
-
-const REVEAL_SET = new Set(PRE_GUESS_REVEAL_CODES);
-
-/** Does this code produce a pre-guess reveal? Relics, consumables and innates. */
-export function isPreGuessReveal(code: string): boolean {
-  return REVEAL_SET.has(code);
-}
-
 export function isHookName(value: unknown): value is HookName {
   return typeof value === 'string' && (HOOK_NAMES as readonly string[]).includes(value);
 }

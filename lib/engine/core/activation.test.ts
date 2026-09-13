@@ -3,7 +3,7 @@ import { CONFIG } from './config';
 import { checkActivation, isBlindfolded, recordUse, usesThisWord } from './activation';
 import { hammingDistance } from './letters';
 import { initialState, reduce } from './reducer';
-import { activationFor, isActivated, offerableInAct, REGISTRY } from '../content/registry';
+import { activationFor, CHARACTER_BY_CODE, isActivated, offerableInAct, REGISTRY } from '../content/registry';
 import { projectBoard, renderStates } from '../index';
 import type { GameState, RelicInstance } from './state';
 import { enterFirstWord } from '../../../test/nav';
@@ -78,7 +78,7 @@ describe('timing windows', () => {
 
 describe('costs', () => {
   it('the engine charges gold, and refuses rather than consumes when unaffordable', () => {
-    const broke = inWord(['RL.07'], { gold: 4 });
+    const broke = inWord(['RL.07'], { gold: CONFIG.auditorCostGold - 1 });
     expect(checkActivation(broke, broke.relics.find((r) => r.code === 'RL.07')!)?.error?.code).toBe(
       'UNAFFORDABLE',
     );
@@ -87,13 +87,13 @@ describe('costs', () => {
     const holder = rich.relics.find((r) => r.code === 'RL.07')!;
     const out = reduce(rich, { type: 'USE_ITEM', instanceId: holder.instanceId, payload: { letter: 'Z' } });
     expect(out.error).toBeUndefined();
-    expect(out.state.gold).toBe(35);
+    expect(out.state.gold).toBe(40 - CONFIG.auditorCostGold);
     // The cap is only spent by a use that actually happened.
     expect(usesThisWord(out.state.relics.find((r) => r.code === 'RL.07')!, out.state.word!.nodeId)).toBe(1);
   });
 
-  it('a guess cost may never empty the pool', () => {
-    const s = inWord([], { characterCode: 'CH.03', pool: 1 });
+  it('a guess cost may never empty the bankroll', () => {
+    const s = inWord([], { characterCode: 'CH.03', bankroll: 1 });
     const innate = s.relics[0]!;
     expect(checkActivation({ ...s, relics: [{ ...innate, code: 'CH.03' }] }, { ...innate, code: 'CH.03' })?.error?.code).toBe('UNAFFORDABLE');
   });
@@ -154,31 +154,31 @@ describe('RL.20 Blindfold (R-017)', () => {
     expect(renderStates(projectBoard(s, s.word!).rows[0]!.results[0]!)).toBe('·····');
   });
 
-  it('pays 3 guesses when the blind guess was within one letter, and nothing otherwise', () => {
-    const base = inWord(['RL.20'], { pool: 10, poolMax: 30 });
+  it('pays 4 bankroll when the blind guess was within one letter, and nothing otherwise', () => {
+    const base = inWord(['RL.20'], { bankroll: 10 });
     const id = base.relics.find((r) => r.code === 'RL.20')!.instanceId;
     const solution = base.word!.solutions[0]!;
     const near = `${solution.slice(0, -1)}${solution.at(-1) === 'Z' ? 'Y' : 'Z'}`;
 
     let hit = reduce(base, { type: 'USE_ITEM', instanceId: id }).state;
-    const before = hit.pool;
+    const before = hit.bankroll;
     hit = { ...hit, word: { ...hit.word!, solutions: [near] } };
     // Guess the real solution against a near-miss target: distance 1.
     hit = reduce(hit, { type: 'SUBMIT_GUESS', guess: solution }).state;
-    expect(hit.pool).toBe(before - 1 + 3);
+    expect(hit.bankroll).toBe(before - 1 + 4);
 
     let miss = reduce(base, { type: 'USE_ITEM', instanceId: id }).state;
-    const missBefore = miss.pool;
+    const missBefore = miss.bankroll;
     miss = reduce(miss, { type: 'SUBMIT_GUESS', guess: farFrom(solution) }).state;
-    expect(miss.pool).toBe(missBefore - 1);
+    expect(miss.bankroll).toBe(missBefore - 1);
   });
 
   it('only pays on the guess it armed', () => {
-    let s = inWord(['RL.20'], { pool: 10, poolMax: 30 });
+    let s = inWord(['RL.20'], { bankroll: 10 });
     const id = s.relics.find((r) => r.code === 'RL.20')!.instanceId;
     s = reduce(s, { type: 'USE_ITEM', instanceId: id }).state;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: 'SLATE' }).state;
-    const afterFirst = s.pool;
+    const afterFirst = s.bankroll;
     if (s.word) s = reduce(s, { type: 'SUBMIT_GUESS', guess: s.word.solutions[0]! }).state;
     expect(afterFirst).toBe(9);
   });
@@ -192,7 +192,7 @@ function farFrom(solution: string): string {
 
 describe('RL.21 All In', () => {
   it('clamps the wager to the pool and ignores a zero wager', () => {
-    const s = inWord(['RL.21'], { pool: 5, poolMax: 30 });
+    const s = inWord(['RL.21'], { bankroll: 5 });
     const id = s.relics.find((r) => r.code === 'RL.21')!.instanceId;
     const big = reduce(s, { type: 'USE_ITEM', instanceId: id, payload: { wager: 99 } }).state;
     expect(big.relics.find((r) => r.code === 'RL.21')!.state['wager']).toBe(5);
@@ -200,36 +200,42 @@ describe('RL.21 All In', () => {
     expect(zero.relics.find((r) => r.code === 'RL.21')!.state['wager']).toBeUndefined();
   });
 
-  it('pays the wager back as a refund on a solve inside it', () => {
-    const base = inWord(['RL.21'], { pool: 12, poolMax: 30 });
+  it('returns the whole stake on a solve inside it', () => {
+    const base = inWord(['RL.21'], { bankroll: 12 });
     const id = base.relics.find((r) => r.code === 'RL.21')!.instanceId;
 
     let s = reduce(base, { type: 'USE_ITEM', instanceId: id, payload: { wager: 3 } }).state;
     const solution = s.word!.solutions[0]!;
+    const before = s.bankroll;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: farFrom(solution) }).state;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: 'SLATE' }).state;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: solution }).state;
-    // Solved in 3, wagered 3, so the wager comes back — floored to 2 by Rule A,
-    // which keeps the word costing at least one net guess.
-    expect(s.stats.refundsGranted).toBe(2);
+    // Solved in 3, wagered 3. v1.3 floored the return to 2 under the §2.4 rule
+    // that a word must cost at least one net guess; §2.5 replaced that floor
+    // with the two clamps, so the whole stake comes back — three guesses spent,
+    // three returned, plus §2.3's payout for a three-guess solve.
+    const payout = Math.max(0, CONFIG.economy.payoutBase[s.word?.length ?? 5] - 3);
+    expect(s.bankroll).toBe(before - 3 + 3 + payout);
   });
 
   it('takes the wager on a solve slower than it', () => {
-    const base = inWord(['RL.21'], { pool: 12, poolMax: 30 });
+    const base = inWord(['RL.21'], { bankroll: 12 });
     const id = base.relics.find((r) => r.code === 'RL.21')!.instanceId;
 
     let s = reduce(base, { type: 'USE_ITEM', instanceId: id, payload: { wager: 1 } }).state;
     const solution = s.word!.solutions[0]!;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: farFrom(solution) }).state;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: 'SLATE' }).state;
-    const before = s.pool;
+    const before = s.bankroll;
     s = reduce(s, { type: 'SUBMIT_GUESS', guess: solution }).state;
-    // One guess for the submit, one more for the lost wager.
-    expect(s.pool).toBe(before - 2);
+    // One guess for the submit, one more for the lost wager, then §2.3 pays for
+    // the three-guess solve.
+    const payout = Math.max(0, CONFIG.economy.payoutBase[5] - 3);
+    expect(s.bankroll).toBe(before - 2 + payout);
   });
 
   it('a wager on one word never follows you to the next', () => {
-    const base = inWord(['RL.21'], { pool: 12, poolMax: 30 });
+    const base = inWord(['RL.21'], { bankroll: 12 });
     const id = base.relics.find((r) => r.code === 'RL.21')!.instanceId;
     const s = reduce(base, { type: 'USE_ITEM', instanceId: id, payload: { wager: 4 } }).state;
     const relic = s.relics.find((r) => r.code === 'RL.21')!;
@@ -266,14 +272,14 @@ describe('CH.03 The Cryptographer', () => {
       characterCode: 'CH.03',
     });
     expect(started.error).toBeUndefined();
-    // pool_modifier −4 on Act I's 22.
-    expect(started.state.poolMax).toBe(CONFIG.acts[0].pool - 4);
+    // §9 states a starting bankroll outright rather than a modifier to add.
+    expect(started.state.bankroll).toBe(CHARACTER_BY_CODE['CH.03']!.bankroll_start);
 
     let s = enterFirstWord(started.state);
     const innate = s.relics.find((r) => r.code === 'CH.03')!;
-    const before = s.pool;
+    const before = s.bankroll;
     s = reduce(s, { type: 'USE_ITEM', instanceId: innate.instanceId, payload: { index: 0 } }).state;
-    expect(s.pool).toBe(before - 1);
+    expect(s.bankroll).toBe(before - 1);
     expect(s.word!.presetTiles).toEqual([
       { index: 0, letter: s.word!.solutions[0]![0], solutionIndex: 0 },
     ]);
@@ -336,7 +342,7 @@ describe('R-031 an empty activation costs nothing', () => {
       payload: { letter: 'Q' },
     });
     expect(out.error).toBeUndefined();
-    expect(out.state.gold).toBe(95);
+    expect(out.state.gold).toBe(100 - CONFIG.auditorCostGold);
     expect(out.state.word!.revealed.letters).toEqual([{ letter: 'Q', present: expect.any(Boolean) }]);
     expect(out.events.some((e) => e.type === 'LETTER_STAMPED')).toBe(true);
     // Second use this word is capped, not silently free.
@@ -346,7 +352,7 @@ describe('R-031 an empty activation costs nothing', () => {
       payload: { letter: 'Z' },
     });
     expect(again.error).toBeDefined();
-    expect(again.state.gold).toBe(95);
+    expect(again.state.gold).toBe(100 - CONFIG.auditorCostGold);
   });
 
   it('a relic firing is not reported as a consumable being used', () => {
