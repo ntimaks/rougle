@@ -1,7 +1,6 @@
 import { activationFor } from '../content/registry';
 import type { ActivationDef } from '../content/types';
 import type { EngineError } from './actions';
-import { currentPool } from './pool';
 import type { GameState, RelicInstance } from './state';
 
 /**
@@ -61,10 +60,10 @@ export function checkActivation(s: GameState, holder: RelicInstance): Activation
   if (def.cost.gold !== undefined && s.gold < def.cost.gold) {
     return fail('UNAFFORDABLE', `${holder.code} costs ${def.cost.gold}g.`);
   }
-  // A guess cost may not take the last guess: spending into an empty pool would
+  // A guess cost may not take the last guess: spending into an empty bankroll
   // be a death caused by an optional action, which the emergency ladder exists
   // to prevent (MECHANICS.md §2.3).
-  if (def.cost.guesses !== undefined && currentPool(s) <= def.cost.guesses) {
+  if (def.cost.guesses !== undefined && s.bankroll <= def.cost.guesses) {
     return fail('UNAFFORDABLE', `${holder.code} costs ${def.cost.guesses} guess.`);
   }
   return { def, error: null };

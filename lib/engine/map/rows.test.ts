@@ -50,21 +50,35 @@ describe('§3.1 constraints over 10k maps', () => {
       const all = Object.values(map.nodes);
       const where = `${seed} act ${act}`;
 
-      expect(all.filter((n) => n.kind === 'SHOP').length, `${where}: at least 1 shop`)
-        .toBeGreaterThanOrEqual(1);
-
-      const services = all.filter((n) => ['FORGE', 'EVENT'].includes(n.kind));
-      expect(services.length, `${where}: at least 1 forge or event`).toBeGreaterThanOrEqual(1);
+      // §4 — the shop is not a node type any more.
+      expect(all.filter((n) => n.kind === 'SHOP').length, `${where}: a shop node`).toBe(0);
 
       expect(all.filter((n) => n.kind === 'ELITE').length, `${where}: elite cap`)
         .toBeLessThanOrEqual(CONFIG.acts[act].maxElites);
 
-      // No two shops adjacent: no shop may point at a shop.
+      // No two service nodes adjacent: the two service ROWS are non-adjacent,
+      // so this holds by construction and is asserted rather than arranged.
       for (const node of all) {
-        if (node.kind !== 'SHOP') continue;
+        if (node.kind !== 'FORGE' && node.kind !== 'EVENT') continue;
         for (const next of node.next) {
-          expect(map.nodes[next]!.kind, `${where}: ${node.id} -> ${next} both shops`).not.toBe('SHOP');
+          const k = map.nodes[next]!.kind;
+          expect(k === 'FORGE' || k === 'EVENT', `${where}: ${node.id} -> ${next} both service`).toBe(
+            false,
+          );
         }
+      }
+
+      // §3.1 — at least 1 forge and at least 1 event, on EVERY legal path.
+      // Per-path, not per-act: an act holding one of each still fails if a path
+      // can miss one, which is why the service rows are uniform.
+      for (const kind of ['FORGE', 'EVENT'] as const) {
+        for (const row of map.rows) {
+          if (map.nodes[row[0]!]!.kind !== kind) continue;
+          for (const id of row) {
+            expect(map.nodes[id]!.kind, `${where}: ${id} breaks the ${kind} row`).toBe(kind);
+          }
+        }
+        expect(all.some((n) => n.kind === kind), `${where}: no ${kind}`).toBe(true);
       }
 
       // The node immediately before the boss is never an elite.

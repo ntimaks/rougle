@@ -148,7 +148,13 @@ describe('§6.8 content rules', () => {
     for (const e of EVENT_DEFS) {
       for (const o of e.options) {
         if (!o.effect.some((x) => 'relic_destroy' in x)) continue;
-        expect(o.requires?.relics_min, `${e.code}/${o.key} can empty a build`).toBeGreaterThanOrEqual(2);
+        // One, not two. v1.3 required holding a spare because relics arrived
+        // free and losing your only one was pure theft; §4 makes them BOUGHT
+        // and §4.2 lets you sell any of them in a shop anyway, so selling your
+        // last relic for 140g is a trade the player is allowed to make. What
+        // still has to hold is that the option is refused when there is nothing
+        // to take, rather than resolving into a silent no-op.
+        expect(o.requires?.relics_min, `${e.code}/${o.key} can destroy nothing`).toBeGreaterThanOrEqual(1);
       }
     }
   });
@@ -203,20 +209,41 @@ describe('§6.8 draw rules', () => {
     expect(EVENTS['EV.09']!.acts).toEqual([3]);
   });
 
-  it('EV.01 is preserved verbatim from the design (R-022)', () => {
+  it('EV.01 is preserved from the design, at v2.0 prices', () => {
     const e = EVENTS['EV.01']!;
     expect(e.name).toBe('THE WAGER');
+    expect(e.options.map((o) => o.key)).toEqual(['A', 'B', 'C']);
     expect(e.options.map((o) => o.label)).toEqual([
       'SIGN THE LEDGER',
-      'PAY THE CLERK 40g',
+      'PAY THE CLERK 60g',
       'WALK AWAY',
     ]);
+    // A priced label and its effect must agree, or the stake line is a lie.
+    const paid = e.options[1]!.effect.find((x) => 'gold_delta' in x) as { gold_delta: number };
+    expect(-paid.gold_delta).toBe(60);
+    expect(e.options[1]!.requires?.gold_min).toBe(60);
   });
 });
 
 describe('events.json and MECHANICS.md agree', () => {
   it('§6.8 names the right event count', () => {
-    const mechanics = LIVE_SPEC;
-    expect(mechanics).toContain(`\`EV.01\`–\`EV.${String(EVENT_DEFS.length).padStart(2, '0')}\``);
+    expect(LIVE_SPEC).toContain(
+      `\`EV.01\`-\`EV.${String(EVENT_DEFS.length).padStart(2, '0')}\``,
+    );
+  });
+
+  it('§6.8 — every effect a written event uses is in the declared vocabulary', () => {
+    // The file's own rule: an event needing a verb the list does not have means
+    // the list is incomplete, not that the event may improvise one.
+    const declared = new Set(EFFECT_VERBS);
+    for (const e of EVENT_DEFS) {
+      for (const o of e.options) {
+        for (const effect of o.effect) {
+          for (const verb of Object.keys(effect)) {
+            expect(declared, `${e.code}/${o.key} uses ${verb}`).toContain(verb);
+          }
+        }
+      }
+    }
   });
 });

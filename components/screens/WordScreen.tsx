@@ -1,21 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  BOSSES,
-  canDispatch,
-  currentPool,
-  emergencyCost,
-  projectBoard,
-  type GameState,
-} from '@/lib/engine';
+import { BOSSES, basePayout, canDispatch, projectBoard, type GameState } from '@/lib/engine';
 import { Grid } from '@/components/cmp/Grid';
 import { Keyboard } from '@/components/cmp/Keyboard';
 import { ChallengeBanner } from '@/components/cmp/ChallengeBanner';
 import { ModifierBanner } from '@/components/cmp/ModifierBanner';
 import { StampedLetters } from '@/components/cmp/StampedLetters';
-import { RevealBar } from '@/components/cmp/RevealBar';
-import { CRITICAL_AT } from '@/components/cmp/PoolMeter';
+import { CRITICAL_AT } from '@/components/cmp/BankrollMeter';
 import { useGame } from '@/lib/store/useGame';
 import { useMotion } from '@/lib/store/useMotion';
 
@@ -33,7 +25,7 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
 
   const word = state.word!;
   const view = useMemo(() => projectBoard(state, word), [state, word]);
-  const pool = currentPool(state);
+  const pool = state.bankroll;
   const critical = pool <= CRITICAL_AT;
 
   const guessError = canDispatch(state, { type: 'SUBMIT_GUESS', guess: typed });
@@ -65,11 +57,17 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
     return () => window.removeEventListener('keydown', onKey);
   }, [submit, type, view.locked]);
 
-  const spent = word.netGuessesSpent - word.refundsAppliedThisWord;
+  const spent = word.guessesSpent;
   const node = state.map.nodes[word.nodeId]!;
   const isBoss = node.kind === 'BOSS';
   const guessCost = events.some((e) => e.type === 'GUESS_SUBMITTED');
-  const refund = events.find((e) => e.type === 'REFUND_GRANTED');
+  // §2.3 — what solving RIGHT NOW would pay, so the player can read the trade
+  // before committing another guess. This is the whole loop on one line.
+  const nextPayout = basePayout(word.length, word.history.length + 1);
+  const payout = events.find(
+    (e): e is Extract<typeof e, { type: 'BANKROLL_CHANGED' }> =>
+      e.type === 'BANKROLL_CHANGED' && e.kind === 'PAYOUT',
+  );
 
   return (
     <div
@@ -94,7 +92,7 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
         </span>
         <span className="font-mono text-[9px] leading-none tracking-[0.14em] text-fg3">
           {/* The design's copy really does start with a double slash. */}
-          {'//'} SPENT {spent} THIS WORD
+          {'//'} SPENT {spent} · NEXT SOLVE PAYS {nextPayout}
         </span>
         {word.solutions.length > 1 && (
           <span className="ml-auto font-mono text-[9px] leading-none tracking-[0.14em] text-red">
@@ -127,13 +125,13 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
             −1 GUESS
           </div>
         )}
-        {refund && (
+        {payout && (
           <div
-            key={`refund-${batchId}`}
+            key={`payout-${batchId}`}
             className="pointer-events-none absolute right-[18px] top-[26px] font-mono text-[13px] font-bold leading-none text-accent"
             style={animate ? { animation: 'rg-cost 560ms cubic-bezier(0.2,0.8,0.2,1) both' } : undefined}
           >
-            +{refund.amount} REFUND
+            +{payout.delta} PAID OUT
           </div>
         )}
       </div>
@@ -143,8 +141,6 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
           {guessError.message}
         </p>
       )}
-
-      <RevealBar state={state} emergencyCost={emergencyCost(state)} />
 
       <Keyboard
         letterStates={view.keyboard}

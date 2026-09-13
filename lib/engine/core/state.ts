@@ -25,17 +25,18 @@ export type RunPhase =
   | 'MAP'
   | 'WORD'
   | 'REWARD'
+  /** §6.2 — pick which of the five a sixth relic destroys. */
+  | 'REPLACE'
   | 'SHOP'
   | 'FORGE'
   | 'EVENT'
   | 'BOSS_INTRO'
-  | 'ACT_END'
   | 'EMERGENCY'
   | 'DEATH'
   | 'VICTORY';
 
 export type DeathCause =
-  | 'POOL_EXHAUSTED'
+  | 'BANKROLL_EXHAUSTED'
   | 'EMERGENCY_DECLINED'
   | 'EMERGENCY_UNAFFORDABLE'
   | 'GAUNTLET'
@@ -98,25 +99,25 @@ export interface WordState {
   liarIndex: number | null;
   /** RL.28 Shaved Coin re-rolls this. null when nothing lies. */
   truthMask: boolean[] | null;
-  /** For the §2.4 Rule A floor. Per word, cumulative. */
-  netGuessesSpent: number;
-  /** Refund already granted this word, so Rule A can truncate correctly. */
-  refundsAppliedThisWord: number;
   /**
-   * Refunds that Rule A could not grant yet, retried on each later spend of the
-   * same word and dropped when the word ends. See ADR-0005 / §13 I-16: without
-   * this, a refund that fires on guess 1 is always truncated to nothing, which
-   * silently kills RL.13 Opening Gambit and RL.19 The Moth outright.
+   * Guesses spent on this word. The §2.3 payout formula's `guesses_used`, and
+   * the trigger every payout relic reads.
+   *
+   * v1.3 called this `netGuessesSpent` and it was net of refunds, because the
+   * §2.4 floor needed a running net to truncate against. There are no refunds
+   * under §2.5, so it is simply the count.
    */
-  pendingRefunds: Array<{ amount: number; source: string }>;
+  guessesSpent: number;
   /** Deferral depth in effect: 0 none, 1 Fog, 3 Cipher. */
   deferralDepth: number;
   /**
-   * How many §2.5 reveals have been bought on this word. Indexes the price
-   * ladder, and its length is the cap. Per word, so it resets with the word.
+   * Reveals granted before the first guess.
+   *
+   * v1.3 capped these at two and sold further ones on a price ladder. v2.0 cuts
+   * the ladder (§12.1) and §6.2 says the cap "becomes unnecessary and is
+   * removed" at five slots — five slots is itself the cap on how much
+   * information a board can hold.
    */
-  revealsPurchased: number;
-  /** Reveals granted before the first guess, after the §6.3 cap. */
   revealed: {
     vowelCount: number | null;
     hasRepeat: boolean | null;
@@ -125,8 +126,13 @@ export interface WordState {
     letters: Array<{ letter: string; present: boolean }>;
   };
   nodeId: NodeId;
-  /** Which pool this word draws from. The Gauntlet uses its own (MECHANICS §7.3). */
-  poolSource: 'ACT' | 'GAUNTLET';
+  /**
+   * §2.5 Clamp A is stated per WORD, and `RL.13` Opening Gambit changes the
+   * guess count the payout is computed from without refunding a guess. Both
+   * need the payout to be derived at solve time from stored facts rather than
+   * accumulated as it goes, so nothing else about the word is bookkeeping.
+   */
+  wagered: number | null;
 }
 
 export interface ShopStockItem {
@@ -136,8 +142,13 @@ export interface ShopStockItem {
 }
 
 export interface ShopState {
+  /** The solve node whose clear opened it. §4: a shop is not a map node. */
   nodeId: NodeId;
   stock: ShopStockItem[];
+  /** §4.2 — 20g, +10g per reroll WITHIN this shop. Resets with the shop. */
+  rerolls: number;
+  /** §4.1 — one refill per shop, off the run-long ladder in `stats`. */
+  refillsSold: number;
 }
 
 export interface ForgeState {
@@ -159,6 +170,26 @@ export interface ForgeState {
 export interface EventState {
   nodeId: NodeId;
   code: string;
+}
+
+/**
+ * §6.8's act-scoped effects. Reset wholesale at act start.
+ *
+ * `forcedModifiers` counts DOWN per word rather than storing an expiry index,
+ * because a run does not know how many words an act has left — the map
+ * branches, and `EV.03`/`EV.10`'s map_skip can remove some of them.
+ */
+export interface ActEffects {
+  /** `words: null` means the rest of the act. */
+  forcedModifiers: Array<{ id: ModifierId; words: number | null; source: string }>;
+  /** `EV.12` B — every modifier cleared for the rest of the act. */
+  modifiersSuppressed: boolean;
+  /** `EV.01` B — the first letter of every remaining word this act. */
+  firstLettersRevealed: boolean;
+}
+
+export function emptyActEffects(): ActEffects {
+  return { forcedModifiers: [], modifiersSuppressed: false, firstLettersRevealed: false };
 }
 
 export interface PendingChallenge {
@@ -198,29 +229,36 @@ export interface MapState {
   modifiersRevealed: boolean;
 }
 
+/**
+ * §3.3 — the boss's choice of 1 of 2 boss relics, and nothing else.
+ *
+ * v1.3 also used this for the three free relics every word node handed out.
+ * §4 makes relics bought rather than granted, so a boss clear is the only
+ * offer left in the game — and the only way a BOSS relic enters a run, since
+ * shops do not stock them.
+ */
 export interface Offer {
   kind: 'RELIC' | 'CONSUMABLE';
   codes: string[];
   sourceNodeId: NodeId;
-  /** Boss relics are guaranteed, not chosen from three. */
+  /** Whether declining is allowed. §3.3: for boss relics it is. */
   forced: boolean;
-  /**
-   * R-025. Gold the player gets INSTEAD of taking a relic, on a word node.
-   * null where the node already paid its gold (elite, boss), so refusing buys
-   * nothing and the screen must not pretend it is a trade.
-   */
-  goldInstead: number | null;
 }
 
 export interface RunStats {
   guessesSpent: number;
-  refundsGranted: number;
+  /** §2.3 payout, run total. The mirror of `guessesSpent`; together, the bleed. */
+  payoutsGranted: number;
   wordsSolved: number;
   wordsFailed: number;
   guessesPerWord: number[];
   goldEarned: number;
   goldSpent: number;
   emergencyPurchases: number;
+  /** §4.1 — how many rungs of the shared refill ladder the run has bought. */
+  refillsBought: number;
+  /** §11.5 — the acquisition curve is a balance number now. */
+  relicsBought: number;
   relicsTaken: RelicCode[];
   nodesVisited: NodeId[];
   deathNodeId: NodeId | null;
@@ -236,17 +274,23 @@ export interface GameState {
   characterCode: CharacterCode;
   phase: RunPhase;
   actIndex: 0 | 1 | 2;
-  pool: number;
-  /** Act base + character modifier + relic modifiers. */
-  poolMax: number;
+  /**
+   * §2.1 — ONE number for the whole run. No refills, no act reset, no second
+   * pool for the Gauntlet. It is the health bar, the clock and the score at
+   * once, which is why every screen shows it and why `bank.ts` is the only
+   * module allowed to move it.
+   */
+  bankroll: number;
   gold: number;
-  emergencyPurchasesThisAct: number;
+  /** §2.4 — RUN-scoped, not per act. Three rungs, then no valve at all. */
+  emergencyPurchases: number;
   /** Acquisition order. Load-bearing for hook order and §6.3 suppression. */
   relics: RelicInstance[];
   consumables: ConsumableInstance[]; // cap CONFIG.consumableSlots
   map: MapState;
   word: WordState | null;
-  gauntlet: { pool: number; wordIndex: number } | null;
+  /** §8.3 — five words back to back. The separate pool is gone; the index is not. */
+  gauntlet: { wordIndex: number } | null;
   pendingOffer: Offer | null;
   /** Stock for the SHOP node being stood in. Rolled on entry, discarded on leaving. */
   shop: ShopState | null;
@@ -266,14 +310,31 @@ export interface GameState {
    */
   pendingChallenge: PendingChallenge | null;
   /**
-   * EV.08 The Undertaker. A one-shot revival at pool zero, distinct from RL.30
-   * Ouroboros: it restores this many guesses and continues the act rather than
-   * restarting it. Resolves AFTER the §2.3 emergency offer, so a player who can
-   * pay gold still pays gold first and keeps the revival.
+   * §6.8 — event effects that outlive the node that granted them, and die with
+   * the act. `startAct` clears the whole object, which is the point: three
+   * separate act-scoped booleans is three chances to forget one, and the bug
+   * that produces (a modifier still forced two acts later) is invisible.
    */
-  actRevivalGuesses: number | null;
-  /** Serialized state written at onActStart, for RL.30 Ouroboros. */
-  actStartSnapshot: string | null;
+  actEffects: ActEffects;
+  /**
+   * `EV.13` The Sixth Shelf — a PERMANENT change to §6.2's five, for the rest
+   * of the run. Not in `actEffects`: it is the one event effect that survives
+   * the act, and the vocabulary says so.
+   */
+  bonusRelicSlots: number;
+  /**
+   * §6.2 — a relic acquired at a full board, held while the player names which
+   * of the five it destroys. The incoming relic is visible alongside the five
+   * held, so it has to exist somewhere before it is owned.
+   */
+  pendingReplace: { code: RelicCode } | null;
+  /**
+   * EV.08 The Undertaker. A one-shot revival at bankroll zero. Resolves AFTER
+   * the §2.4 emergency offer, so a player who can pay gold still pays gold
+   * first and keeps the revival.
+   */
+  revivalBankroll: number | null;
+  /** `RL.30` Ouroboros (§6.1 `onBankrollChange`). One return per run. */
   ouroborosSpent: boolean;
   /**
    * Every solution the run has served, so a run never repeats a word. Also the
@@ -283,30 +344,29 @@ export interface GameState {
   /** Ad-hoc counters. Also the source of RNG indices where none is natural. */
   counters: Record<string, number>;
   stats: RunStats;
-  /**
-   * The act-end receipt, held while phase is ACT_END.
-   *
-   * The conversion has to be legible as a TRADE, not a total: leftover guesses
-   * count down while gold counts up. That needs both numbers at once, so they
-   * are kept rather than folded into `gold` and forgotten.
-   */
-  actReceipt: { actIndex: number; leftover: number; goldGained: number; rate: number } | null;
   /** Terminal outcome, set with phase DEATH or VICTORY. */
   outcome: { result: 'WIN' | 'DEATH'; cause: DeathCause | null } | null;
 }
 
-export const SAVE_VERSION = 3;
+/**
+ * 4 — the v2.0 bankroll. A v3 save describes a per-act pool with no bankroll in
+ * it, and there is no honest conversion (what is 11-of-14 in Act II worth as a
+ * run-long stake?), so `local.ts` discards rather than migrates.
+ */
+export const SAVE_VERSION = 4;
 
 export function emptyStats(): RunStats {
   return {
     guessesSpent: 0,
-    refundsGranted: 0,
+    payoutsGranted: 0,
     wordsSolved: 0,
     wordsFailed: 0,
     guessesPerWord: [],
     goldEarned: 0,
     goldSpent: 0,
     emergencyPurchases: 0,
+    refillsBought: 0,
+    relicsBought: 0,
     relicsTaken: [],
     nodesVisited: [],
     deathNodeId: null,

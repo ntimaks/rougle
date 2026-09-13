@@ -3,9 +3,13 @@
 import { useMemo, useState } from 'react';
 import {
   CHARACTER_BY_CODE,
+  CONFIG,
   REGISTRY,
   activationFor,
   checkActivation,
+  heldRelics,
+  relicSlots,
+  scalingCounter,
   usesThisWord,
   type GameState,
   type RelicInstance,
@@ -70,7 +74,8 @@ export function RelicDrawer({
             RELICS
           </span>
           <span className="font-mono text-[9px] leading-none tracking-[0.14em] text-fg3">
-            {state.relics.length} HELD · {state.consumables.length}/3 CONSUMABLE
+            {heldRelics(state).length}/{relicSlots(state, CONFIG)} RELICS ·{' '}
+            {state.consumables.length}/{CONFIG.consumableSlots} CONSUMABLE
           </span>
           <button
             type="button"
@@ -114,6 +119,22 @@ export function RelicDrawer({
                 <p className="mt-[6px] font-mono text-[10px] leading-[1.55] text-fg2">
                   {def?.rule ?? character?.innate}
                 </p>
+
+                {/* §6.5 — the counter, spelled out here where there is room for
+                    its name. The chip carries the bare number. */}
+                {(() => {
+                  const counter = scalingCounter(state, holder);
+                  if (!counter) return null;
+                  return (
+                    <p className="mt-[6px] flex items-baseline gap-2 font-mono text-[9px] leading-none tracking-[0.14em]">
+                      <span className="text-fg3">{counter.label}</span>
+                      <span className="font-bold text-accent">
+                        {counter.value}
+                        {counter.cap !== null && ` / ${counter.cap}`}
+                      </span>
+                    </p>
+                  );
+                })()}
 
                 {usable && (
                   <ActivationControl

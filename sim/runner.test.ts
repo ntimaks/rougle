@@ -17,7 +17,7 @@ import { buildReport } from './report';
 
 const calibration = JSON.parse(
   readFileSync(resolve(__dirname, 'calibration.json'), 'utf8'),
-) as { solver: SolverConfig; target: number; measured: number };
+) as { solver: SolverConfig; target: number; measured: number; wordsPerProbe?: number };
 
 describe('Gate 1 — determinism', () => {
   it('the same seed plays the same run', () => {
@@ -76,7 +76,13 @@ describe('H-01 — the solver', () => {
   });
 
   it('the committed calibration still reproduces its measurement', () => {
-    const measured = cleanBaseline(400, calibration.solver, 5);
+    // At the sample size the calibration actually used. This probed 400 for a
+    // long time, which is where the estimator's own noise is about ±0.05 —
+    // wide enough that the calibration could stop 0.06 short of its target and
+    // this test would still pass. `wordsPerProbe` is recorded in the file so
+    // the check and the calibration cannot drift apart again.
+    const n = calibration.wordsPerProbe ?? 400;
+    const measured = cleanBaseline(n, calibration.solver, 5);
     expect(measured).toBeCloseTo(calibration.measured, 1);
     expect(Math.abs(measured - calibration.target)).toBeLessThan(0.06);
   });
@@ -102,9 +108,10 @@ describe('runs terminate and stay inside the rules', () => {
       playRun(sweepSeed('terminate', i), 'CH.01', calibration.solver),
     ).filter((r) => r.won);
     expect(wins.length).toBeGreaterThan(0);
-    // 12 solve nodes + 3 boss encounters, the Gauntlet counting as five words
-    // but resolving as one node.
-    for (const w of wins) expect(w.guessesPerWord.length).toBe(19);
+    // §3.2 — 12 solve nodes plus three bosses of 2, 1 and 5 words. The Twins'
+    // two are two SOLUTIONS of one word, so the run resolves 16 words and pays
+    // out 20 times.
+    for (const w of wins) expect(w.guessesPerWord.length).toBe(12 + 1 + 1 + 5);
   });
 
   it('gold never goes negative', () => {
@@ -115,7 +122,7 @@ describe('runs terminate and stay inside the rules', () => {
 });
 
 describe('the report', () => {
-  it('reports every §10.3 metric and names what is still missing', () => {
+  it('reports every §11.5 metric and names what is still missing', () => {
     const results = Array.from({ length: 30 }, (_, i) =>
       playRun(sweepSeed('report', i), 'CH.01', calibration.solver),
     );
@@ -124,14 +131,16 @@ describe('the report', () => {
     expect(report.winRate).toBeGreaterThanOrEqual(0);
     expect(report.meanGuessesPerWord).toBeGreaterThan(1);
     expect(report.deathsByAct).toHaveLength(3);
-    expect(report.unimplemented.length).toBeGreaterThan(0);
+    // Empty, and that is the assertion: every one of the 22 relics is live.
+    // The three that were pending were each blocked by something v2.0 deleted.
+    expect(report.unimplemented).toEqual([]);
     // Absent unless the second sweep was actually run, so a report that did not
     // measure the no-relic target cannot quietly print a 0% and pass it.
     expect(report.noRelicWinRate).toBeNull();
     expect(report.noRelicDeathsByAct).toBeNull();
   });
 
-  it('reports §10.3\'s no-relic target when given the second sweep', () => {
+  it('reports §11.5\'s no-relic target when given the second sweep', () => {
     const seeds = Array.from({ length: 20 }, (_, i) => sweepSeed('report', i));
     const withRelics = seeds.map((s) => playRun(s, 'CH.01', calibration.solver));
     const without = seeds.map((s) =>

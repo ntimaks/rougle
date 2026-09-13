@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LIVE_SPEC } from '../../../test/spec';
+import { SPEC, tableAfter } from '../../../test/spec';
 import {
   CHARACTERS,
   PENDING_IMPLEMENTATION,
@@ -9,7 +9,6 @@ import {
   impl,
   isHookName,
   isImplemented,
-  isPreGuessReveal,
   activationFor,
 } from './registry';
 import { IMPLEMENTATIONS } from './impl';
@@ -98,34 +97,23 @@ describe('registry validation', () => {
     }
   });
 
-  it('7. pre_guess_reveal matches the MECHANICS.md §6.3 affected list', () => {
-    // §6.3: "Affected: Lexicon, Palimpsest, The Concordance, Rosetta Slab,
-    // Hot Streak's free green, Skeleton Key."
-    const expected = new Set(['RL.01', 'RL.03', 'RL.05', 'RL.31', 'RL.12', 'CN.05']);
-    const flagged = new Set(RELIC_DEFS.filter((d) => d.pre_guess_reveal).map((d) => d.code));
-    expect([...flagged].sort()).toEqual([...expected].sort());
-  });
-
-  it('7a. character innates that reveal are under the cap too (§13 I-20)', () => {
-    // §6.3's prose lists only relics, but relics.json flags CH.01 The Linguist
-    // pre_guess_reveal: true and the flag is what the cap reads. The prose is
-    // the thing that is out of date.
-    expect(isPreGuessReveal('CH.01')).toBe(true);
-    expect(isPreGuessReveal('CH.02')).toBe(false);
-    expect(isPreGuessReveal('CH.03')).toBe(false);
-  });
-
-  it('7b. §6.3\'s "not affected" list really is not flagged', () => {
-    // "Not affected: Rangefinder, The Auditor, The Lantern — these resolve
-    // during a word, not before it."
-    for (const code of ['RL.04', 'RL.07', 'RL.26']) {
-      expect(REGISTRY[code]!.pre_guess_reveal, code).toBe(false);
+  it('7. the information cap is gone, and so is the field that fed it', () => {
+    // §6.2: "At 5 slots the v1.1 information cap becomes unnecessary and is
+    // removed." `pre_guess_reveal` existed only to feed it, and a registry
+    // field nothing reads is drift with a delay on it — so it went too.
+    expect(SPEC).toContain('the v1.1 information cap becomes unnecessary and is removed');
+    for (const d of RELIC_DEFS) {
+      expect(d, `${d.code} still carries pre_guess_reveal`).not.toHaveProperty(
+        'pre_guess_reveal',
+      );
     }
   });
 
-  it('8. every ruling reference resolves to a MECHANICS.md §11 entry', () => {
-    // The v1.3 spec: these are v1.3 relics citing v1.3 rulings. See test/spec.ts.
-    const mechanics = LIVE_SPEC;
+  it('8. every ruling reference resolves to a MECHANICS.md §12 entry', () => {
+    // §12.1 restates the two pre-v1.3 rulings the registry still cites, so a
+    // citation resolving is a real check again rather than one pointed at an
+    // archived document.
+    const mechanics = SPEC;
     for (const d of RELIC_DEFS) {
       if (!d.ruling) continue;
       expect(mechanics, `${d.code} cites ${d.ruling}`).toContain(`**${d.ruling} ·`);
@@ -144,13 +132,19 @@ describe('registry validation', () => {
     }
   });
 
-  it('9. a non-consumable on hook onUse declares an activation, and vice versa', () => {
-    // R-015 opened onUse to relics. The block is what makes that legal, so the
-    // two must never drift apart: an onUse relic without one would be a relic
-    // nothing can fire, and an activation on another hook would never run.
+  it('9. an activation and an onUse handler imply each other (R-050)', () => {
+    // Checked against the IMPLEMENTATION, not against the JSON's `hook`.
+    // `USE_ITEM` dispatches through `resolveUse`, which reads the impl and never
+    // reads the JSON hook at all — so this is the invariant that can actually
+    // break. v1.3 also required `hook: "onUse"` in the JSON and the two agreed
+    // by construction; v2.0's registry gives an activated relic the hook its
+    // effect RESOLVES on, and the weaker of the two checks was the one being
+    // made. An activation with no handler is a relic nothing can fire; a
+    // handler with no activation is one nothing may legally fire.
     for (const d of RELIC_DEFS) {
       if (d.isConsumable) continue;
-      expect(d.hook === 'onUse', `${d.code}`).toBe(d.activation !== undefined);
+      const fireable = IMPLEMENTATIONS[d.code]?.hooks?.onUse !== undefined;
+      expect(fireable, `${d.code}`).toBe(d.activation !== undefined);
     }
   });
 
@@ -193,10 +187,24 @@ describe('registry shape', () => {
     expect(runs, 'codes group by archetype — sorting by code would look correct').toBeGreaterThan(4);
   });
 
-  it('every character has a pool modifier and an innate', () => {
+  it('every character has a starting bankroll and an innate', () => {
     for (const c of CHARACTERS) {
-      expect(typeof c.pool_modifier).toBe('number');
+      // §9 states a starting bankroll outright rather than a modifier to add to
+      // three act pools, which is what v1.3's `pool_modifier` was.
+      expect(typeof c.bankroll_start).toBe('number');
+      expect(c.bankroll_start).toBeGreaterThan(0);
       expect(c.innate.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('§9 — the characters start where the spec says they do', () => {
+    const rows = tableAfter('| Character | Start | Innate |');
+    expect(rows).toHaveLength(CHARACTERS.length);
+    for (const row of rows) {
+      const name = row[0]!.toUpperCase();
+      const held = CHARACTERS.find((c) => c.name === name);
+      expect(held, `${name} is not in the registry`).toBeDefined();
+      expect(Number(row[1]), `${name}'s start`).toBe(held!.bankroll_start);
     }
   });
 
@@ -230,23 +238,39 @@ describe('§6.7 forge upgrades', () => {
     }
   });
 
-  it('rule 1 — no upgrade introduces a pre_guess_reveal the base relic lacks', () => {
-    // §6.3 caps pre-guess reveals at 2. An upgrade that added one could push a
-    // player over a cap they could not have anticipated when they routed here.
+  it('rule 1 — an upgrade stays on the axis it declares', () => {
+    // v1.3 checked here that no upgrade introduced a pre-guess reveal, because
+    // §6.3 capped them at two and an upgrade that added one could push a player
+    // over a cap they could not have anticipated. §6.2 removed the cap, so the
+    // hazard is gone; what is left is that `axis` is auditable data and has to
+    // describe the rule it sits next to.
+    const axes = ['magnitude', 'duration', 'reach', 'reliability', 'cost'];
+    const seen = new Map<string, number>();
     for (const d of RELIC_DEFS) {
-      if (!d.upgrade || d.pre_guess_reveal) continue;
-      expect(
-        /before (your |the )?first guess|at word start|opens with|already carved|reveal(s|ed)? (one|a) (letter|green)/i.test(
-          d.upgrade.rule,
-        ),
-        `${d.code} MK.II reads like a pre-guess reveal: "${d.upgrade.rule}"`,
-      ).toBe(false);
+      if (!d.upgrade) continue;
+      expect(axes, `${d.code} MK.II axis`).toContain(d.upgrade.axis);
+      seen.set(d.upgrade.axis, (seen.get(d.upgrade.axis) ?? 0) + 1);
     }
+    // §6.7 records the axis "so the distribution can be audited rather than
+    // drifting toward 'a number goes up' thirty-one times". Assert it has not.
+    expect(seen.size, 'the upgrade set uses one or two axes').toBeGreaterThanOrEqual(4);
+    expect(
+      (seen.get('magnitude') ?? 0) / RELIC_DEFS.filter((d) => d.upgrade).length,
+    ).toBeLessThan(0.6);
   });
 
   it('rule 3 — boss relics upgrade on cost or reach, never raw magnitude', () => {
+    // R-051 names ONE exception and the test reads it from the document rather
+    // than hardcoding a list, so a second boss relic drifting to `magnitude`
+    // still fails here.
+    const excused = [...SPEC.matchAll(/\*\*R-051 · `(RL\.\d+)`/g)].map((m) => m[1]);
+    expect(excused, 'R-051 no longer names its exception').toHaveLength(1);
     for (const d of RELIC_DEFS) {
       if (d.rarity !== 'BOSS' || !d.upgrade) continue;
+      if (excused.includes(d.code)) {
+        expect(d.upgrade.axis, `${d.code} is excused but no longer magnitude`).toBe('magnitude');
+        continue;
+      }
       expect(['cost', 'reach'], `${d.code} MK.II is ${d.upgrade.axis}`).toContain(d.upgrade.axis);
     }
   });

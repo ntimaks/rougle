@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FORGE_GOLD_PER_GUESS, REGISTRY, canDispatch, type Action, type GameState } from '@/lib/engine';
+import { CONFIG, REGISTRY, canDispatch, refillCost, type Action, type GameState } from '@/lib/engine';
 import { Button } from '@/components/cmp/Button';
 import { RARITY_TEXT, glyphFor } from '@/components/cmp/rarity';
 import { useGame } from '@/lib/store/useGame';
@@ -21,13 +21,16 @@ import { useGame } from '@/lib/store/useGame';
  * playtest: "I wanted to upgrade the relic and I ended up doing nothing."
  * Selecting is free and reversible here; exactly one button spends anything.
  */
-type Choice = { kind: 'relic'; instanceId: string } | { kind: 'guesses'; n: number } | null;
+type Choice = { kind: 'relic'; instanceId: string } | { kind: 'refill' } | null;
 
 export function ForgeScreen({ state }: { state: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const [choice, setChoice] = useState<Choice>(null);
   const forge = state.forge;
   const operations = forge?.operationsLeft ?? 0;
+  // R-046 — the same §4.1 ladder the shop sells from, indexed by the RUN.
+  const price = refillCost(state);
+  const spent = state.stats.refillsBought;
 
   // The offer, not the collection (R-035). Instance ids are resolved against
   // what is held so a relic that left the run cannot render as a ghost row.
@@ -40,7 +43,7 @@ export function ForgeScreen({ state }: { state: GameState }) {
       ? null
       : choice.kind === 'relic'
         ? { type: 'FORGE_UPGRADE', instanceId: choice.instanceId }
-        : { type: 'FORGE_CONVERT', guesses: choice.n };
+        : { type: 'FORGE_REFILL' };
   const blocked = action ? canDispatch(state, action) : null;
 
   const commit = () => {
@@ -52,7 +55,7 @@ export function ForgeScreen({ state }: { state: GameState }) {
   const label = () => {
     if (blocked) return blocked.message;
     if (choice === null) return 'CHOOSE AN OPERATION';
-    if (choice.kind === 'guesses') return `POUR ${choice.n} INTO THE POOL`;
+    if (choice.kind === 'refill') return `BUY 1 GUESS FOR ${price}g`;
     const held = offered.find((r) => r.instanceId === choice.instanceId);
     return held ? `FORGE ${REGISTRY[held.code]!.name.toUpperCase()}` : 'FORGE';
   };
@@ -138,31 +141,29 @@ export function ForgeScreen({ state }: { state: GameState }) {
 
         <section className="flex flex-col gap-[6px] border-t border-line-soft pt-3">
           <span className="font-mono text-[9px] leading-none tracking-[0.18em] text-fg2">
-            B · BUY GUESSES · {FORGE_GOLD_PER_GUESS}g EACH
+            B · BUY ONE GUESS
           </span>
-          <div className="flex items-center gap-2">
-            <div className="flex flex-1 gap-[5px]">
-              {[1, 2, 3, 5].map((n) => {
-                const picked = choice?.kind === 'guesses' && choice.n === n;
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => setChoice({ kind: 'guesses', n })}
-                    className={`flex-1 border py-2 font-mono text-[12px] font-bold leading-none ${
-                      picked ? 'border-accent text-accent' : 'border-line-soft text-fg2'
-                    }`}
-                  >
-                    +{n}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="w-[52px] flex-none text-right font-mono text-[11px] font-bold leading-none text-fg2">
-              {choice?.kind === 'guesses' ? `${choice.n * FORGE_GOLD_PER_GUESS}g` : ''}
+          {/*
+            R-046 — the same ladder the shop sells from, and the screen has to
+            say so. When the forge had its own flat price the two shops were
+            selling the same thing at different rates, and nobody ever used the
+            dearer one. The rung and the run cap are both stated because "40g"
+            alone reads as a price rather than as a position on a ladder.
+          */}
+          <button
+            type="button"
+            aria-pressed={choice?.kind === 'refill'}
+            disabled={price === null}
+            onClick={() => setChoice({ kind: 'refill' })}
+            className={`flex items-baseline gap-2 border px-[10px] py-2 text-left font-mono text-[12px] font-bold leading-none ${
+              choice?.kind === 'refill' ? 'border-accent text-accent' : 'border-line-soft text-fg2'
+            }`}
+          >
+            <span>{price === null ? 'LADDER SPENT' : `+1 FOR ${price}g`}</span>
+            <span className="ml-auto text-[9px] font-normal tracking-[0.12em] text-fg3">
+              RUNG {spent + 1} OF {CONFIG.economy.refillCosts.length} · SHARED WITH THE SHOP
             </span>
-          </div>
+          </button>
         </section>
       </div>
 

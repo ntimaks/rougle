@@ -6,7 +6,7 @@ import {
   CONFIG,
   REGISTRY,
   canDispatch,
-  currentPool,
+
   emergencyCost,
   projectBoard,
   type GameState,
@@ -210,7 +210,7 @@ function Chrome({ state }: { state: GameState }) {
     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-dark3 pb-2 text-[11px]">
       <span className="text-fg3">SEED {state.seed}</span>
       <span className="text-fg0">
-        POOL {currentPool(state)}/{word?.poolSource === 'GAUNTLET' ? CONFIG.gauntlet.pool : state.poolMax}
+        BANKROLL {state.bankroll}/{CONFIG.economy.bankrollCap}
       </span>
       <span className="text-amber">{state.gold}g</span>
       <span className="text-fg3">ACT {state.actIndex + 1}</span>

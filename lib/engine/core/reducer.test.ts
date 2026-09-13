@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG, withConfig } from './config';
 import { EffectDepthError } from './effects';
 import { resolveHook } from './hooks';
-import { applyEffects, canDispatch, emergencyCost, initialState, reduce } from './reducer';
-import { refillPool } from './pool';
+import { applyEffects, canDispatch, initialState, reduce } from './reducer';
+import { emergencyCost, refillCost } from './bank';
 import { deserialize, serialize } from './serialize';
-import { SAVE_VERSION } from './state';
+import { CHARACTER_BY_CODE } from '../content/registry';
 import type { Action, GameState } from '../index';
 import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
@@ -66,30 +66,36 @@ describe('E-04 — effects', () => {
     expect(out.state.gold).toBe(0);
   });
 
-  it('a granted guess may push the pool above poolMax (R-024)', () => {
-    // This asserted the opposite until R-024. Clamping made every mechanic that
-    // GRANTS guesses a no-op at full pool — the forge conversion, the Decanter,
-    // the Infirmary, Blindfold's payout, the Vault (§13 I-15) — and did it
-    // silently, in exactly the situation you would want the grant.
-    const s = { ...start(), pool: 5, poolMax: 10 };
-    const out = applyEffects(s, [{ kind: 'POOL', delta: 99, reason: 'test' }]);
-    expect(out.state.pool).toBe(104);
-    expect(out.state.poolMax, 'a grant does not raise the cap').toBe(10);
+  it('§2.1 — a grant over the cap becomes gold, immediately and visibly', () => {
+    // v1.3's R-024 let the pool sit above its cap because clamping made every
+    // grant a no-op at full pool. §2.1 has a HARD cap and an automatic
+    // conversion instead, which solves the same problem without the overflow
+    // state — and the player is paid rather than quietly robbed.
+    const cap = CONFIG.economy.bankrollCap;
+    const s = { ...start(), bankroll: cap - 1, gold: 0 };
+    const out = applyEffects(s, [{ kind: 'BANKROLL', delta: 5, reason: 'test' }]);
+    expect(out.state.bankroll).toBe(cap);
+    expect(out.state.gold).toBe(4 * CONFIG.economy.overflowGoldPerGuess);
+    expect(out.events.some((e) => e.type === 'BANKROLL_CHANGED' && e.kind === 'OVERFLOW_TO_GOLD')).toBe(
+      true,
+    );
   });
 
-  it('poolMax is still the refill target at act start', () => {
-    // The other half of R-024: the cap governs the REFILL. An overflow is a
-    // thing you carry, not a new ceiling.
-    const s = { ...start(), pool: 40, poolMax: 10 };
-    const refilled = refillPool(s, 10, 'act start');
-    expect(refilled.state.pool).toBe(10);
+  it('§2.1 — a bankroll charge floors at zero and never goes negative', () => {
+    const s = { ...start(), bankroll: 2 };
+    const out = applyEffects(s, [{ kind: 'BANKROLL', delta: -5, reason: 'RL.09' }]);
+    expect(out.state.bankroll).toBe(0);
   });
 
-  it('POOL_MAX cuts the live pool too, clamped at 1 (§13 I-07 / ADR-0004)', () => {
-    const s = { ...start(), pool: 2, poolMax: 20 };
-    const out = applyEffects(s, [{ kind: 'POOL_MAX', delta: -3, reason: 'RL.31' }]);
-    expect(out.state.poolMax).toBe(17);
-    expect(out.state.pool).toBe(1);
+  it('§2.5 — a payout bid outside a payout does nothing', () => {
+    // Clamp B decides which bid wins, and it can only do that where every bid
+    // is visible. A bid that reaches applyEffect fired outside `payWord` —
+    // deliberately silent, because a payout relic held through a failed word is
+    // not a bug.
+    const s = { ...start(), bankroll: 5 };
+    const out = applyEffects(s, [{ kind: 'PAYOUT_BONUS', amount: 9, source: 'test' }]);
+    expect(out.state.bankroll).toBe(5);
+    expect(out.events).toEqual([]);
   });
 
   it('guards runaway effect recursion', () => {
@@ -115,86 +121,134 @@ describe('E-07 — hooks fire in acquisition order', () => {
     const s: GameState = {
       ...start(),
       relics: [
-        { instanceId: 'RL.23#5', code: 'RL.23', state: {}, acquiredAt: 5, upgraded: false },
-        { instanceId: 'RL.13#2', code: 'RL.13', state: {}, acquiredAt: 2, upgraded: false },
+        { instanceId: 'RL.23#5', code: 'RL.23', state: { rate: 2 }, acquiredAt: 5, upgraded: false },
+        { instanceId: 'RL.26#2', code: 'RL.26', state: { lit: 0 }, acquiredAt: 2, upgraded: false },
       ],
       word: toFirstWord(start()).word,
     };
     const effects = resolveHook(s, 'onGuessSubmit', {
       guess: 'CRANE',
-      turn: 0,
+      turn: 2,
       newUniqueLetters: 5,
     });
-    // RL.13 was acquired first, so its refund is collected before Tin Cup's gold.
-    expect(effects[0]!.kind).toBe('REFUND');
-    expect(effects[1]!.kind).toBe('GOLD');
+    // RL.26 was acquired first, so its reveal is collected before Tin Cup's
+    // gold. Order is what Clamp B and the transform chain both depend on.
+    expect(effects[0]!.kind).toBe('PRESET_TILE');
+    expect(effects.at(-1)!.kind).toBe('GOLD');
   });
 });
 
 describe('E-10 — the emergency ladder', () => {
+  const wrongGuess = (s: GameState) => (s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE');
+  const onOneGuess = (over: Partial<GameState> = {}) => {
+    const s = toFirstWord({ ...start(), gold: 500, ...over });
+    return { ...s, bankroll: 1 };
+  };
+
   // The ladder's SHAPE, read off the config rather than three literals: three
   // rungs, each at least double the last, then nothing. The prices themselves
   // are balance and move with a snapshot; `config.test.ts` pins them against
-  // the §2.3 table so a tuning change still has to be written down.
+  // the §2.4 table so a tuning change still has to be written down.
   it('escalates, doubles, and then runs out', () => {
     const s = start();
-    const rungs = CONFIG.emergencyCosts;
+    const rungs = CONFIG.economy.emergencyCosts;
     expect(rungs).toHaveLength(3);
     rungs.forEach((cost, i) => {
-      expect(emergencyCost({ ...s, emergencyPurchasesThisAct: i }, CONFIG)).toBe(cost);
+      expect(emergencyCost({ ...s, emergencyPurchases: i }, CONFIG)).toBe(cost);
       if (i > 0) expect(cost).toBeGreaterThanOrEqual(rungs[i - 1]! * 2);
     });
-    expect(emergencyCost({ ...s, emergencyPurchasesThisAct: rungs.length }, CONFIG)).toBeNull();
+    expect(emergencyCost({ ...s, emergencyPurchases: rungs.length }, CONFIG)).toBeNull();
   });
 
-  /** MECHANICS.md §2.3: the offer is mandatory, not optional UI. */
+  it('§2.4 — the ladder is RUN-scoped, so an act boundary does not reset it', () => {
+    // v1.3 reset it every act, which is what let a player buy nine emergency
+    // guesses a run and is why gold never ran out.
+    const s = { ...start(), emergencyPurchases: 3 };
+    expect(emergencyCost(s, CONFIG)).toBeNull();
+    const nextAct = { ...s, actIndex: 1 as const };
+    expect(emergencyCost(nextAct, CONFIG)).toBeNull();
+  });
+
+  /** MECHANICS.md §2.4: the offer is mandatory, not optional UI. */
   it('always shows the offer before death when it is affordable', () => {
-    let s = toFirstWord({ ...start(), gold: 500 });
-    s = { ...s, pool: 1, poolMax: 22 };
-    const wrong = s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE';
-    const out = reduce(s, { type: 'SUBMIT_GUESS', guess: wrong });
+    const out = reduce(onOneGuess(), { type: 'SUBMIT_GUESS', guess: wrongGuess(onOneGuess()) });
     expect(out.state.phase).toBe('EMERGENCY');
     expect(out.events.some((e) => e.type === 'EMERGENCY_OFFERED')).toBe(true);
   });
 
   it('distinguishes declining from being unable to pay', () => {
-    let s = toFirstWord({ ...start(), gold: 500 });
-    s = { ...s, pool: 1 };
-    const wrong = s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE';
-    const offered = reduce(s, { type: 'SUBMIT_GUESS', guess: wrong }).state;
+    const s = onOneGuess();
+    const offered = reduce(s, { type: 'SUBMIT_GUESS', guess: wrongGuess(s) }).state;
     expect(reduce(offered, { type: 'DECLINE_EMERGENCY' }).state.outcome?.cause).toBe(
       'EMERGENCY_DECLINED',
     );
 
-    let broke = toFirstWord({ ...start(), gold: 0 });
-    broke = { ...broke, pool: 1 };
-    const dead = reduce(broke, { type: 'SUBMIT_GUESS', guess: wrong });
+    const broke = onOneGuess({ gold: 0 });
+    const dead = reduce(broke, { type: 'SUBMIT_GUESS', guess: wrongGuess(broke) });
     expect(dead.state.outcome?.cause).toBe('EMERGENCY_UNAFFORDABLE');
     expect(dead.events.some((e) => e.type === 'EMERGENCY_OFFERED')).toBe(true);
   });
 
-  it('buying returns a guess and charges the ladder price', () => {
-    let s = toFirstWord({ ...start(), gold: 500 });
-    s = { ...s, pool: 1 };
-    const wrong = s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE';
-    const offered = reduce(s, { type: 'SUBMIT_GUESS', guess: wrong }).state;
+  it('§2.4 — buying grants three, not one, and charges the ladder price', () => {
+    const s = onOneGuess();
+    const offered = reduce(s, { type: 'SUBMIT_GUESS', guess: wrongGuess(s) }).state;
     const bought = reduce(offered, { type: 'BUY_EMERGENCY' }).state;
-    expect(bought.gold).toBe(offered.gold - CONFIG.emergencyCosts[0]!);
-    expect(bought.pool).toBe(1);
+    expect(bought.gold).toBe(offered.gold - CONFIG.economy.emergencyCosts[0]!);
+    expect(bought.bankroll).toBe(CONFIG.economy.emergencyGrant);
     expect(bought.phase).toBe('WORD');
   });
 
-  it('the Gauntlet has no ladder — its pool is fixed and separate', () => {
+  it('§8.3 — the Gauntlet reaches the ladder like anywhere else', () => {
+    // v1.3 died outright inside the Gauntlet because its separate 14-guess pool
+    // had no valve attached. There is one bankroll now, so there is one valve.
     const base = toFirstWord(start());
-    const s: GameState = {
-      ...base,
-      gold: 500,
-      gauntlet: { pool: 1, wordIndex: 0 },
-      word: { ...base.word!, poolSource: 'GAUNTLET' },
+    const s: GameState = { ...base, gold: 500, bankroll: 1, gauntlet: { wordIndex: 0 } };
+    const out = reduce(s, { type: 'SUBMIT_GUESS', guess: wrongGuess(s) });
+    expect(out.state.phase).toBe('EMERGENCY');
+  });
+
+  it('§6.5 — Ouroboros resolves AFTER the offer, never instead of it', () => {
+    const s = onOneGuess();
+    const withRelic: GameState = {
+      ...s,
+      relics: [
+        ...s.relics,
+        { instanceId: 'RL.30#9', code: 'RL.30', state: { spent: false }, acquiredAt: 9, upgraded: false },
+      ],
     };
-    const wrong = s.word!.solutions[0] === 'SLATE' ? 'CRANE' : 'SLATE';
-    const out = reduce(s, { type: 'SUBMIT_GUESS', guess: wrong });
-    expect(out.state.outcome?.cause).toBe('GAUNTLET');
+    // Gold in hand: the offer comes first and the relic is untouched.
+    const offered = reduce(withRelic, { type: 'SUBMIT_GUESS', guess: wrongGuess(withRelic) });
+    expect(offered.state.phase).toBe('EMERGENCY');
+    expect(offered.state.ouroborosSpent).toBe(false);
+
+    // Declined: now it fires, and the word continues rather than restarting.
+    const revived = reduce(offered.state, { type: 'DECLINE_EMERGENCY' });
+    expect(revived.state.phase).toBe('WORD');
+    expect(revived.state.bankroll).toBe(8);
+    expect(revived.state.ouroborosSpent).toBe(true);
+    expect(revived.events.some((e) => e.type === 'OUROBOROS_TRIGGERED')).toBe(true);
+  });
+});
+
+describe('§4.1 — the shared refill ladder (R-046)', () => {
+  it('the shop and the forge index the same run counter', () => {
+    const s = start();
+    const rungs = CONFIG.economy.refillCosts;
+    rungs.forEach((cost, i) => {
+      expect(refillCost({ ...s, stats: { ...s.stats, refillsBought: i } }, CONFIG)).toBe(cost);
+    });
+    expect(
+      refillCost({ ...s, stats: { ...s.stats, refillsBought: rungs.length } }, CONFIG),
+    ).toBeNull();
+  });
+
+  it('is monotonically dearer, and dearer than relic parity throughout', () => {
+    // R-042's rule: gold buys builds, and buys survival at a penalty. An
+    // uncommon relic at 110g closing ~0.4 a word over ten words is ~27g per
+    // bankroll, so every rung has to be worse than that.
+    const rungs = CONFIG.economy.refillCosts;
+    for (let i = 1; i < rungs.length; i++) expect(rungs[i]!).toBeGreaterThan(rungs[i - 1]!);
+    for (const cost of rungs) expect(cost).toBeGreaterThan(27);
   });
 });
 
@@ -223,34 +277,18 @@ describe('E-13 — serialisation', () => {
    * field, so without this the node would come back silently dead — every
    * upgrade refused, with the screen showing nothing to pick.
    */
-  it('backfills a v1 forge with the offer R-035 added', () => {
-    const s = start();
-    const legacy = JSON.parse(serialize(s)) as Record<string, unknown>;
-    legacy['version'] = 1;
-    legacy['phase'] = 'FORGE';
-    legacy['forge'] = { nodeId: 'n1', operationsLeft: 1, upgraded: [] };
-    const loaded = deserialize(JSON.stringify(legacy));
-    expect(loaded).not.toBeNull();
-    expect(loaded!.version).toBe(SAVE_VERSION);
-    expect(Array.isArray(loaded!.forge!.candidates)).toBe(true);
-  });
-
-  it('backfills the solution a preset tile describes, added by R-036', () => {
-    const s = toFirstWord(start());
-    const legacy = JSON.parse(serialize(s)) as Record<string, unknown>;
-    legacy['version'] = 1;
-    (legacy['word'] as Record<string, unknown>)['presetTiles'] = [{ index: 0, letter: 'N' }];
-    const loaded = deserialize(JSON.stringify(legacy));
-    expect(loaded!.version).toBe(SAVE_VERSION);
-    expect(loaded!.word!.presetTiles).toEqual([{ index: 0, letter: 'N', solutionIndex: 0 }]);
-  });
-
-  it('leaves a v1 save with no forge alone', () => {
+  it('discards a v1.3 save rather than inventing a bankroll for it', () => {
+    // There is no honest conversion. 11-of-14 in Act II is not a number of
+    // run-long guesses, because the v1.3 run was counting on a refill v2.0
+    // deleted — so any mapping invents a stake the player never earned. The
+    // shape check rejects it before the migrator is reached, and the player
+    // gets the title screen instead of a run they cannot trust.
     const legacy = JSON.parse(serialize(start())) as Record<string, unknown>;
-    legacy['version'] = 1;
-    const loaded = deserialize(JSON.stringify(legacy));
-    expect(loaded!.version).toBe(SAVE_VERSION);
-    expect(loaded!.forge).toBeNull();
+    legacy['version'] = 3;
+    delete legacy['bankroll'];
+    legacy['pool'] = 11;
+    legacy['poolMax'] = 14;
+    expect(deserialize(JSON.stringify(legacy))).toBeNull();
   });
 });
 
@@ -285,9 +323,18 @@ describe('Gate 1 — determinism', () => {
   });
 
   it('a config override changes the run without changing the engine', () => {
-    const tight = withConfig({ acts: [{ ...CONFIG.acts[0], pool: 5 }, CONFIG.acts[1], CONFIG.acts[2]] });
-    const s = reduce(initialState(SEED, 'CH.01'), script[0]!, tight).state;
-    expect(s.poolMax).toBe(5 + 2); // CH.01's +2
+    const tight = withConfig({ economy: { ...CONFIG.economy, bossBankroll: 99 } });
+    expect(tight.economy.bossBankroll).toBe(99);
+    expect(CONFIG.economy.bossBankroll, 'withConfig mutated CONFIG').not.toBe(99);
+  });
+
+  it('§9 — the character sets the starting bankroll, once', () => {
+    // v1.3 read a `pool_modifier` and added it to each act's pool, three times
+    // a run. §2.1 has one stake, so §9 states it outright.
+    for (const code of ['CH.01', 'CH.02', 'CH.03'] as const) {
+      const s = reduce(initialState(SEED, code), { type: 'START_RUN', seed: SEED, characterCode: code }).state;
+      expect(s.bankroll, code).toBe(CHARACTER_BY_CODE[code]!.bankroll_start);
+    }
   });
 });
 
@@ -304,7 +351,7 @@ describe('run shape', () => {
     for (let i = 0; i < 40 && s.phase !== 'DEATH' && s.phase !== 'VICTORY'; i++) {
       if (s.phase === 'MAP') s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }).state;
       else if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') s = reduce(s, { type: 'LEAVE_NODE' }).state;
-      else if (s.phase === 'REWARD') s = reduce(s, { type: 'SKIP_OFFER' }).state;
+      else if (s.phase === 'REWARD' || s.phase === 'REPLACE') s = reduce(s, { type: 'SKIP_OFFER' }).state;
       else if (s.phase === 'WORD') s = reduce(s, { type: 'SUBMIT_GUESS', guess: s.word!.solutions[0]! }).state;
       else s = reduce(s, { type: 'ADVANCE' }).state;
     }

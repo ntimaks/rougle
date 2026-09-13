@@ -30,6 +30,12 @@ interface WordSlot {
   /** §4 — a shop opens after every solve node, elites included. Not after bosses. */
   shopAfter: boolean;
   /**
+   * §3.1 guarantees at least one forge node an act. It is a map node rather
+   * than a solve node, so it is pinned here to one point mid-act — enough to
+   * measure §6.7 B's conversion, not enough to claim the routing is modelled.
+   */
+  forgeAfter: boolean;
+  /**
    * True only on the LAST word of a boss. §3.3 pays a boss 120g and +4 bankroll
    * for CLEARING it, and §8 says the same — once, not once per word. The Twins
    * is 2 words and the Gauntlet is 5, so paying per word invents 20 bankroll and
@@ -60,6 +66,7 @@ export function runStructure(
       const isElite = n >= 4 - elites[act]!;
       slots.push({
         paysReward: true,
+        forgeAfter: n === 1 && FORGES_PER_ACT > 0,
         act,
         // §7 — Long Word is Act II+, Longer Word is Act III. Modifier frequency
         // is unspecified in v2.0, so `longWords` brackets it: off is the
@@ -77,6 +84,7 @@ export function runStructure(
         length: 5,
         kind: 'BOSS',
         shopAfter: false,
+        forgeAfter: false,
         paysReward: w === boss.words - 1,
         label: boss.label,
       });
@@ -104,8 +112,13 @@ export interface BleedOptions {
   elites: readonly number[];
   /** Scales §3.3's node gold, to ask how much of the economy the refill valve is. */
   goldScale: number;
-  /** §4.1's per-shop refill limit. The spec's is 3. */
-  refillsPerShop: number;
+  /**
+   * §6.7 operation B — forges convert gold to bankroll at 20g each, "any
+   * quantity affordable", with at least one forge per act. Off by default
+   * because the spec's own numbers make it the cheapest and only UNCAPPED
+   * bankroll in the game; turning it on measures that.
+   */
+  useForge: boolean;
   /**
    * What one guess costs the bankroll. §2.1 says 1. Raising it alongside the
    * payout base and every budget scales the whole economy without changing its
@@ -142,12 +155,16 @@ export interface BleedResult {
    * anyway — so the bound §4.1 actually states needs the per-shop numbers.
    */
   refillsByShop: number[];
+  /** §6.7 B bankroll bought at forges. */
+  forgedBankroll: number;
   emergenciesBought: number;
   /** Total bankroll a relic-less run ends up short by. The relic budget. */
   deficit: number;
 }
 
 const GOLD = { WORD: 40, ELITE: 70, BOSS: 120 } as const;
+/** §3.1 guarantees at least one forge an act. */
+const FORGES_PER_ACT = 1;
 
 /**
  * §11.2 — "doomed" means no reachable line of play reaches the next boss.
@@ -163,12 +180,14 @@ function stillReachable(
   gold: number,
   remaining: readonly WordSlot[],
   emergenciesUsed: number,
+  refillsUsedIn: number,
   cfg: Readonly<EconomyConfig>,
   opts: BleedOptions,
 ): boolean {
   let br = bankroll;
   let g = gold;
   let rungs = emergenciesUsed;
+  let refillsUsed = refillsUsedIn;
   for (const slot of remaining) {
     const best = 2;
     const gross = basePayout(slot.length, best, cfg) + opts.payoutBonus(best);
@@ -179,11 +198,16 @@ function stillReachable(
     }
     if (slot.shopAfter) {
       let n = 0;
-      while (n < opts.refillsPerShop && g >= cfg.refillCost && br < cfg.bankrollCap) {
-        g -= cfg.refillCost;
+      let rung = refillsUsed;
+      while (n < cfg.refillsPerShop && br < cfg.bankrollCap) {
+        const price = cfg.refillCosts[rung];
+        if (price === undefined || g < price) break;
+        g -= price;
         br += 1;
         n += 1;
+        rung += 1;
       }
+      refillsUsed = rung;
     }
     while (br <= 0) {
       const cost = cfg.emergencyCosts[rungs];
@@ -206,6 +230,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
   let goldEarned = 0;
   let goldSpent = 0;
   let refills = 0;
+  let forged = 0;
   const refillsByShop: number[] = [];
   let emergencies = 0;
   const bankrollByWord: number[] = [];
@@ -216,7 +241,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]!;
 
-    if (doomedAt < 0 && !stillReachable(bankroll, gold, slots.slice(i), emergencies, cfg, opts)) {
+    if (doomedAt < 0 && !stillReachable(bankroll, gold, slots.slice(i), emergencies, refills, cfg, opts)) {
       doomedAt = i;
     }
 
@@ -268,14 +293,31 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
 
     if (slot.shopAfter && opts.buyRefills) {
       let bought = 0;
-      while (bought < opts.refillsPerShop && gold >= cfg.refillCost && bankroll < cfg.bankrollCap) {
-        gold -= cfg.refillCost;
-        goldSpent += cfg.refillCost;
+      while (bought < cfg.refillsPerShop && bankroll < cfg.bankrollCap) {
+        // §4.1's ladder escalates across the RUN; its length is the run cap.
+        const price = cfg.refillCosts[refills];
+        if (price === undefined || gold < price) break;
+        gold -= price;
+        goldSpent += price;
         bankroll += 1;
         bought += 1;
         refills += 1;
       }
       refillsByShop.push(bought);
+    }
+
+    // §6.7 B — the forge draws from the SAME §4.1 ladder, so a run buys at most
+    // `refillCosts.length` bankroll however it splits them between shop and
+    // forge. `useForge: false` measures the counterfactual, not a second rule.
+    if (opts.useForge && slot.forgeAfter && bankroll < cfg.bankrollCap) {
+      const price = cfg.refillCosts[refills];
+      if (price !== undefined && gold >= price) {
+        gold -= price;
+        goldSpent += price;
+        bankroll += 1;
+        refills += 1;
+        forged += 1;
+      }
     }
     bankrollByWord.push(bankroll);
   }
@@ -292,6 +334,7 @@ export function playBleed(seed: string, opts: BleedOptions): BleedResult {
     goldSpent,
     refillsBought: refills,
     refillsByShop,
+    forgedBankroll: forged,
     emergenciesBought: emergencies,
     // What relics would have had to supply. Zero for a run that finished.
     deficit: survived ? 0 : slots.length - diedAt,
@@ -303,7 +346,7 @@ export const DEFAULT_BLEED: Omit<BleedOptions, 'start'> = {
   longWords: false,
   elites: [1, 2, 3],
   goldScale: 1,
-  refillsPerShop: 3,
+  useForge: false,
   guessCost: 1,
   payoutBonus: () => 0,
   solver: DEFAULT_SOLVER,

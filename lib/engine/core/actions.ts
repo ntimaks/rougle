@@ -13,11 +13,19 @@ export type Action =
   | { type: 'ACCEPT_OFFER'; code: string }
   | { type: 'SKIP_OFFER' }
   | { type: 'BUY_EMERGENCY' }
-  | { type: 'BUY_REVEAL'; index: number }
   | { type: 'BUY_STOCK'; slot: number }
+  /** §4.1 — the one refill this shop will sell, off the run-long ladder. */
+  | { type: 'BUY_REFILL' }
+  /** §4.2 — 20g, +10g per reroll within the same shop. */
+  | { type: 'REROLL_SHOP' }
+  /** §4.2 — sell a held relic for half its price, rounded down. */
+  | { type: 'SELL_RELIC'; instanceId: string }
+  /** §6.2 — destroy one of the five to make room for the sixth. */
+  | { type: 'REPLACE_RELIC'; instanceId: string }
   | { type: 'LEAVE_NODE' }
   | { type: 'FORGE_UPGRADE'; instanceId: string }
-  | { type: 'FORGE_CONVERT'; guesses: number }
+  /** §6.7 B — the forge sells off the same §4.1 ladder (R-046). */
+  | { type: 'FORGE_REFILL' }
   | { type: 'CHOOSE_EVENT_OPTION'; key: string }
   | { type: 'DECLINE_EMERGENCY' }
   | { type: 'ADVANCE' }
@@ -35,7 +43,8 @@ export type EngineErrorCode =
   | 'NOT_IN_OFFER'
   | 'UNAFFORDABLE'
   | 'EMERGENCY_EXHAUSTED'
-  | 'REVEAL_EXHAUSTED'
+  | 'REFILL_EXHAUSTED'
+  | 'BANKROLL_FULL'
   | 'REVEAL_UNAVAILABLE'
   | 'POSITION_KNOWN'
   | 'NO_EFFECT'
@@ -58,17 +67,26 @@ export interface EngineError {
  * Narration for the UI to animate. GameEvent never carries rules: replaying
  * events must never be needed to reconstruct state, which is already correct
  * when reduce returns. A batch is drained atomically so co-ordinated frames
- * (Tin Cup's +5g on the pool-tick frame) land together.
+ * (Tin Cup's gold on the bankroll-tick frame) land together.
  */
 export type GameEvent =
   | { type: 'RUN_STARTED'; seed: string; characterCode: CharacterCode }
-  | { type: 'ACT_STARTED'; actIndex: number; pool: number }
+  | { type: 'ACT_STARTED'; actIndex: number; bankroll: number }
   | { type: 'NODE_ENTERED'; nodeId: NodeId }
   | { type: 'WORD_STARTED'; nodeId: NodeId; length: number; modifiers: string[] }
   | { type: 'GUESS_SUBMITTED'; guess: string; turn: number }
-  | { type: 'POOL_CHANGED'; delta: number; pool: number; reason: string }
-  | { type: 'REFUND_GRANTED'; amount: number; source: string; pool: number }
-  | { type: 'POOL_MAX_CHANGED'; delta: number; poolMax: number; reason: string }
+  /**
+   * §2 — every movement of the bankroll, whatever caused it. `kind` is the
+   * `BankrollEvent` type underneath, so the UI can animate a payout differently
+   * from a guess without the reducer emitting five near-identical events.
+   */
+  | {
+      type: 'BANKROLL_CHANGED';
+      delta: number;
+      bankroll: number;
+      reason: string;
+      kind: 'BANKROLL_SPENT' | 'BANKROLL_GRANTED' | 'OVERFLOW_TO_GOLD' | 'PAYOUT' | 'EMERGENCY_BOUGHT';
+    }
   | { type: 'GOLD_CHANGED'; delta: number; gold: number; reason: string }
   | { type: 'FEEDBACK_READY'; turn: number }
   | { type: 'WORD_SOLVED'; nodeId: NodeId; guessesUsed: number }
@@ -85,17 +103,19 @@ export type GameEvent =
   | { type: 'MODIFIERS_CLEARED' }
   | { type: 'EMERGENCY_OFFERED'; cost: number; affordable: boolean }
   | { type: 'EMERGENCY_BOUGHT'; cost: number }
-  | { type: 'REVEAL_BOUGHT'; index: number; letter: string; cost: number; nth: number }
   | { type: 'SHOP_OPENED'; nodeId: NodeId; slots: number }
   | { type: 'STOCK_BOUGHT'; code: string; price: number }
+  | { type: 'SHOP_REROLLED'; cost: number; nth: number }
+  | { type: 'RELIC_SOLD'; code: string; gold: number }
+  | { type: 'RELIC_DESTROYED'; code: string; instanceId: string }
+  | { type: 'REFILL_BOUGHT'; cost: number; nth: number }
   | { type: 'FORGE_OPENED'; nodeId: NodeId; operations: number }
   | { type: 'RELIC_UPGRADED'; code: string; instanceId: string }
-  | { type: 'GOLD_CONVERTED'; gold: number; guesses: number }
   | { type: 'EVENT_OPENED'; nodeId: NodeId; code: string }
   | { type: 'EVENT_RESOLVED'; code: string; option: string }
   | { type: 'CHALLENGE_RESOLVED'; source: string; met: boolean }
-  | { type: 'ACT_ENDED'; actIndex: number; leftover: number; goldGained: number }
-  | { type: 'OUROBOROS_TRIGGERED'; actIndex: number }
+  | { type: 'ACT_ENDED'; actIndex: number }
+  | { type: 'OUROBOROS_TRIGGERED'; bankroll: number }
   | { type: 'RUN_ENDED'; outcome: 'WIN' | 'DEATH'; cause: string | null };
 
 export interface ReduceResult {

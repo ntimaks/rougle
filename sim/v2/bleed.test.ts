@@ -78,7 +78,12 @@ describe('the model plays the economy it says it does', () => {
         // because the §2.1 cap and running out of gold both bite first, so it
         // cannot see a broken per-shop limit at all.
         expect(r.refillsByShop.length, '§4 twelve shops').toBeLessThanOrEqual(12);
-        for (const n of r.refillsByShop) expect(n, '§4.1 three a shop').toBeLessThanOrEqual(3);
+        for (const n of r.refillsByShop) {
+          expect(n, '§4.1 per-shop cap').toBeLessThanOrEqual(ECONOMY.refillsPerShop);
+        }
+        expect(r.refillsBought, '§4.1 run cap is the ladder length').toBeLessThanOrEqual(
+          ECONOMY.refillCosts.length,
+        );
         if (!buyRefills) {
           expect(r.refillsBought).toBe(0);
           expect(r.refillsByShop.every((n) => n === 0)).toBe(true);
