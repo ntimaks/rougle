@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CONFIG, type GameState } from '@/lib/engine';
+import { CONFIG, scalingCounter, type GameState } from '@/lib/engine';
 import { BankrollMeter } from './cmp/BankrollMeter';
 import { RelicChip } from './cmp/RelicChip';
 import { RelicDrawer } from './cmp/RelicDrawer';
@@ -76,6 +76,7 @@ export function Chrome({ state, batchId }: { state: GameState; batchId: number }
               <RelicChip
                 key={r.instanceId}
                 code={r.code}
+                counter={scalingCounter(state, r)}
                 fired={fired.get(r.code) ?? null}
                 batchId={batchId}
                 onTap={() => setDrawerOpen(true)}

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
-import { initialState, reduce } from './reducer';
-import { FORGE_CANDIDATES, drawForgeCandidates, rerollCost, sellPrice, shopPrice } from './nodes';
-import { EVENTS } from '../content/events';
+import { applyEffects, heldRelics, initialState, reduce, relicSlots } from './reducer';
+import { FORGE_CANDIDATES, drawForgeCandidates, optionAvailable, rerollCost, sellPrice, shopPrice } from './nodes';
+import { EVENTS, EVENT_DEFS } from '../content/events';
 import { REGISTRY } from '../content/registry';
 import type { GameState, NodeId, NodeKind } from './state';
 import '../words/all';
@@ -514,3 +514,207 @@ describe('a boss is whatever the NODE says it is', () => {
     expect(entered.word!.solutions.length).toBe(1);
   });
 });
+
+/**
+ * §6.8's effect vocabulary, end to end.
+ *
+ * Five of its verbs used to be recorded as `unapplied:<verb>` counters and do
+ * nothing — which meant eight of the thirteen events had an option that read
+ * like a decision and was not one. These fire them through `reduce` rather than
+ * asserting on the translation, because the translation was never the part that
+ * was wrong.
+ */
+describe('§6.8 the effect vocabulary actually fires', () => {
+  /** Stand a run in an EVENT node with a chosen event and unlimited gold. */
+  function atEvent(code: string, over: Partial<GameState> = {}): GameState {
+    const s = reach('EVENT')!;
+    return { ...s, gold: 2000, event: { nodeId: s.event!.nodeId, code }, ...over };
+  }
+
+  it('every verb in the vocabulary reaches an implementation', () => {
+    // The catch-all records an unknown verb as `unapplied:<verb>`. Nothing in
+    // the shipped content may land there — a verb that does nothing is an
+    // option that reads like a decision and is not one.
+    let s = reach('EVENT')!;
+    s = { ...s, gold: 2000, bankroll: 20 };
+    for (const def of EVENT_DEFS) {
+      for (const option of def.options) {
+        const at = { ...s, event: { nodeId: s.event!.nodeId, code: def.code } };
+        if (!optionAvailable(at, option.requires)) continue;
+        const out = reduce(at, { type: 'CHOOSE_EVENT_OPTION', key: option.key }, CONFIG);
+        const dropped = Object.keys(out.state.counters).filter((k) => k.startsWith('unapplied:'));
+        expect(dropped, `${def.code}/${option.key}`).toEqual([]);
+      }
+    }
+  });
+
+  it('EV.13 THE SIXTH SHELF really is a sixth shelf', () => {
+    const s = atEvent('EV.13', { bankroll: 20 });
+    const out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'A' }, CONFIG).state;
+    expect(relicSlots(out, CONFIG)).toBe(CONFIG.relicSlots + 1);
+    expect(out.bankroll).toBe(16);
+
+    // And the cap it raises is the one GRANT_RELIC enforces, or the 4 bankroll
+    // bought nothing. The incoming code has to be one the five do not already
+    // hold, or the grant no-ops for an unrelated reason and the test passes on
+    // the wrong thing.
+    const planted = plantRelics(CONFIG.relicSlots);
+    const five = { ...out, relics: [...out.relics, ...planted] };
+    const incoming = Object.values(REGISTRY).find(
+      (d) => !d.isConsumable && !five.relics.some((r) => r.code === d.code),
+    )!;
+    const granted = applyEffects(five, [{ kind: 'GRANT_RELIC', code: incoming.code }], CONFIG).state;
+    expect(granted.pendingReplace, 'the sixth slot was not honoured').toBeNull();
+    expect(heldRelics(granted)).toHaveLength(CONFIG.relicSlots + 1);
+
+    // Without the shelf, the same grant stops at five and asks.
+    const noShelf = { ...five, bonusRelicSlots: 0 };
+    const capped = applyEffects(noShelf, [{ kind: 'GRANT_RELIC', code: incoming.code }], CONFIG).state;
+    expect(capped.pendingReplace?.code).toBe(incoming.code);
+  });
+
+  it('EV.08 THE UNDERTAKER arms a revival that the engine can find', () => {
+    // It charged 160g and armed nothing: events.json calls the flag
+    // `undertaker_revival` and the reducer looked for two other names.
+    const s = atEvent('EV.08');
+    const out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'A' }, CONFIG).state;
+    expect(out.revivalBankroll).toBe(6);
+    expect(out.gold).toBe(2000 - 160);
+  });
+
+  it('EV.09 forces LIAR LETTER onto every word left in the act, and no further', () => {
+    const s = atEvent('EV.09');
+    let out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'A' }, CONFIG).state;
+    expect(out.actEffects.forcedModifiers.map((f) => f.id)).toEqual(['LIAR_LETTER']);
+    // A boss relic came with it, so the run is standing at the offer.
+    expect(out.pendingOffer?.codes.length).toBe(1);
+    out = reduce(out, { type: 'SKIP_OFFER' }, CONFIG).state;
+
+    const word = walkToWord(out);
+    expect(word.word!.modifiers).toContain('LIAR_LETTER');
+    expect(word.word!.liarIndex).not.toBeNull();
+
+    // §6.8 — it dies with the act.
+    const nextAct = { ...word, actEffects: { ...word.actEffects } };
+    expect(startNextAct(nextAct).actEffects.forcedModifiers).toEqual([]);
+  });
+
+  it('EV.11 forces LOCKED KEY for exactly three words, then stops', () => {
+    const s = atEvent('EV.11');
+    let out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'B' }, CONFIG).state;
+    expect(out.actEffects.forcedModifiers[0]).toMatchObject({ id: 'LOCKED_KEY', words: 3 });
+    // Three consumables came with it; §6.2 caps them at 2, so the third is
+    // dropped rather than overflowing.
+    expect(out.consumables.length).toBeLessThanOrEqual(CONFIG.consumableSlots);
+
+    const seen: boolean[] = [];
+    for (let i = 0; i < 4; i++) {
+      out = walkToWord(out);
+      seen.push(out.word!.modifiers.includes('LOCKED_KEY'));
+      out = solveCurrentWord(out);
+    }
+    expect(seen.slice(0, 3), 'the first three words').toEqual([true, true, true]);
+  });
+
+  it('EV.12 B clears every modifier for the rest of the act', () => {
+    const s = atEvent('EV.12');
+    let out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'B' }, CONFIG).state;
+    expect(out.actEffects.modifiersSuppressed).toBe(true);
+    expect(out.gold).toBe(2000 - 120);
+    out = walkToWord(out);
+    expect(out.word!.modifiers).toEqual([]);
+  });
+
+  it('EV.12 A rerolls the act, and can make it worse', () => {
+    // "IT MAY GET WORSE" is the stake, so the reroll has to be able to. A
+    // reroll that only ever removed modifiers would be a free Compositor.
+    // Sampled across ROLLS, not across one state forty times. The reroll is
+    // addressed off `modifierRerolls`, so varying that is what varies the draw
+    // — an earlier version of this loop rebuilt the same state each pass and
+    // got the same answer forty times, which passed "it changes something" and
+    // could never have caught "it only ever helps".
+    const base = atEvent('EV.12', {});
+    const before = unvisitedModifierCount(base);
+    let changed = 0;
+    let worse = 0;
+    for (let roll = 0; roll < 40; roll++) {
+      const seeded = { ...base, counters: { ...base.counters, modifierRerolls: roll } };
+      const after = unvisitedModifierCount(
+        reduce(seeded, { type: 'CHOOSE_EVENT_OPTION', key: 'A' }, CONFIG).state,
+      );
+      if (after !== before) changed++;
+      if (after > before) worse++;
+    }
+    expect(changed, 'the reroll never changed anything').toBeGreaterThan(0);
+    expect(worse, 'the reroll can only ever help — "IT MAY GET WORSE" is a lie').toBeGreaterThan(0);
+  });
+
+  it('EV.02 B grants a rare outright; EV.04 A offers two to keep one', () => {
+    const unseen = reduce(atEvent('EV.02'), { type: 'CHOOSE_EVENT_OPTION', key: 'B' }, CONFIG).state;
+    const taken = heldRelics(unseen);
+    expect(taken).toHaveLength(1);
+    expect(REGISTRY[taken[0]!.code]!.rarity).toBe('RARE');
+    expect(unseen.pendingOffer, 'granted outright, not offered').toBeNull();
+
+    const s = atEvent('EV.04', { relics: [...atEvent('EV.04').relics, ...plantRelics(1)] });
+    const offered = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'A' }, CONFIG).state;
+    expect(offered.pendingOffer?.codes).toHaveLength(2);
+    for (const code of offered.pendingOffer!.codes) {
+      expect(REGISTRY[code]!.rarity).toBe('RARE');
+    }
+  });
+
+  it('EV.01 B shows the first letter of every remaining word this act', () => {
+    const s = atEvent('EV.01');
+    let out = reduce(s, { type: 'CHOOSE_EVENT_OPTION', key: 'B' }, CONFIG).state;
+    expect(out.actEffects.firstLettersRevealed).toBe(true);
+    for (let i = 0; i < 2; i++) {
+      out = walkToWord(out);
+      const first = out.word!.presetTiles.find((p) => p.index === 0);
+      expect(first?.letter, `word ${i + 1}`).toBe(out.word!.solutions[0]![0]);
+      out = solveCurrentWord(out);
+    }
+  });
+});
+
+/** Walk forward until a WORD is in progress. Throws rather than looping. */
+function walkToWord(start: GameState): GameState {
+  let s = start;
+  for (let i = 0; i < 30; i++) {
+    if (s.phase === 'WORD' && s.word) return s;
+    if (s.phase === 'MAP') {
+      s = reduce(s, { type: 'SELECT_NODE', nodeId: s.map.available[0]! }, CONFIG).state;
+      continue;
+    }
+    if (s.phase === 'SHOP' || s.phase === 'FORGE' || s.phase === 'EVENT') {
+      s = reduce(s, { type: 'LEAVE_NODE' }, CONFIG).state;
+      continue;
+    }
+    if (s.phase === 'REWARD' || s.phase === 'REPLACE') {
+      s = reduce(s, { type: 'SKIP_OFFER' }, CONFIG).state;
+      continue;
+    }
+    break;
+  }
+  throw new Error(`walkToWord: stuck in ${s.phase}`);
+}
+
+function solveCurrentWord(s: GameState): GameState {
+  let next = s;
+  for (const solution of s.word!.solutions) {
+    next = reduce(next, { type: 'SUBMIT_GUESS', guess: solution }, CONFIG).state;
+  }
+  return next;
+}
+
+/** Modifiers still ahead of the player in this act. */
+function unvisitedModifierCount(s: GameState): number {
+  return Object.values(s.map.nodes)
+    .filter((n) => !n.visited && (n.kind === 'WORD' || n.kind === 'ELITE'))
+    .reduce((n, node) => n + node.modifiers.length, 0);
+}
+
+/** Clear the act's effects the way `startAct` does, without a whole act. */
+function startNextAct(s: GameState): GameState {
+  return reduce({ ...s, word: null, phase: 'MAP', map: { ...s.map, currentId: s.map.bossId, available: [] } }, { type: 'ADVANCE' }, CONFIG).state;
+}

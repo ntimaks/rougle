@@ -1,5 +1,5 @@
 import { bossFor } from '../content/bosses';
-import { lengthFor } from '../content/modifiers';
+import { lengthFor, rollModifiers } from '../content/modifiers';
 import {
   CHARACTER_BY_CODE,
   offerableRelics,
@@ -44,6 +44,7 @@ import {
 import { DOMAIN, draw, drawInt } from './rng';
 import {
   SAVE_VERSION,
+  emptyActEffects,
   emptyMap,
   emptyStats,
   type CharacterCode,
@@ -306,6 +307,8 @@ export function initialState(seed: string, characterCode: CharacterCode): GameSt
     event: null,
     seenEvents: [],
     pendingChallenge: null,
+    actEffects: emptyActEffects(),
+    bonusRelicSlots: 0,
     pendingReplace: null,
     revivalBankroll: null,
     ouroborosSpent: false,
@@ -387,6 +390,9 @@ function startAct(s: GameState, actIndex: 0 | 1 | 2, cfg: Readonly<GameConfig>):
     gauntlet: null,
     word: null,
     pendingOffer: null,
+    // §6.8 — every act-scoped event effect dies here. `EV.09`'s Liar Letter on
+    // "every word this act" must not follow you into the next one.
+    actEffects: emptyActEffects(),
     map: generateAct(s.seed, actIndex, cfg).map,
     phase: 'MAP',
   };
@@ -716,7 +722,7 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   // Cipher's 3-turn deferral over a two-solution word, which is six blank rows
   // and no way to read them.
   const boss = bossFor(node.actIndex, cfg);
-  const modifiers: ModifierId[] = [...node.modifiers];
+  const modifiers: ModifierId[] = applyActEffects(s, node.modifiers);
   const baseLength = cfg.acts[s.actIndex].wordLength;
   const length: WordLength = isBoss
     ? boss.code === 'GAUNTLET'
@@ -782,6 +788,20 @@ function startWord(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): Red
   const events: GameEvent[] = [
     { type: 'WORD_STARTED', nodeId, length, modifiers: [...modifiers] },
   ];
+
+  // §6.8 — a forced modifier that counts words ticks here, once per word,
+  // whether or not the word is ever solved. `EV.11`'s three Locked Keys are
+  // three words of Locked Key even if two of them end the run.
+  next = { ...next, actEffects: tickActEffects(next.actEffects) };
+
+  // `EV.01` B — the first letter of every remaining word this act. Bought once
+  // and applied on every word start after it, which is what "every remaining
+  // word" means and is why it lives on the act rather than on a word.
+  if (next.actEffects.firstLettersRevealed) {
+    const revealed = applyEffects(next, [{ kind: 'PRESET_TILE', index: 0 }], cfg);
+    next = revealed.state;
+    events.push(...revealed.events);
+  }
 
   // MECHANICS.md §5: the Locked Key modifier never takes a solution letter.
   if (modifiers.includes('LOCKED_KEY')) {
@@ -1207,10 +1227,126 @@ function applyEventEffect(
   }
   if ('flag_set' in effect) {
     const spec = effect['flag_set'] as { flag: string; value: number };
-    if (spec.flag === 'act_revival_available' || spec.flag === 'revival_available') {
+    // `undertaker_revival` is the name events.json uses. The engine checked for
+    // two other spellings and neither existed, so `EV.08` charged 160g and
+    // armed nothing — a purchased revival that silently did not exist. All
+    // three names are honoured rather than only the current one, because the
+    // failure mode of getting this wrong is invisible in exactly the moment it
+    // matters.
+    const REVIVAL = ['undertaker_revival', 'act_revival_available', 'revival_available'];
+    if (REVIVAL.includes(spec.flag)) {
       return { state: { ...s, revivalBankroll: spec.value }, events: [] };
     }
     return { state: { ...s, counters: { ...s.counters, [spec.flag]: spec.value } }, events: [] };
+  }
+
+  if ('relic_grant' in effect) {
+    const spec = effect['relic_grant'] as {
+      rarity: string;
+      choose: boolean;
+      count: number;
+    };
+    const pool = offerableRelics().filter(
+      (d) => d.rarity === spec.rarity && !s.relics.some((r) => r.code === d.code),
+    );
+    if (pool.length === 0) return { state: s, events: [] };
+
+    // `choose: true` draws `count` and keeps ONE — "DRAW 2 RARE, KEEP 1". It is
+    // the same screen as a boss offer, so it is the same `pendingOffer`.
+    if (spec.choose) {
+      const codes: string[] = [];
+      let remaining = pool;
+      for (let i = 0; i < spec.count && remaining.length > 0; i++) {
+        const pick = remaining[drawInt(s.seed, DOMAIN.offer(source), 900 + i, remaining.length)]!;
+        codes.push(pick.code);
+        remaining = remaining.filter((d) => d.code !== pick.code);
+      }
+      return {
+        state: {
+          ...s,
+          pendingOffer: {
+            kind: 'RELIC',
+            codes,
+            sourceNodeId: s.map.currentId ?? source,
+            forced: false,
+          },
+        },
+        events: [],
+      };
+    }
+
+    // `choose: false` grants outright — "UNSEEN UNTIL TAKEN".
+    let next = s;
+    const events: GameEvent[] = [];
+    let remaining = pool;
+    for (let i = 0; i < spec.count && remaining.length > 0; i++) {
+      const pick = remaining[drawInt(next.seed, DOMAIN.offer(source), 920 + i, remaining.length)]!;
+      const granted = applyEffects(next, [{ kind: 'GRANT_RELIC', code: pick.code }], cfg);
+      next = granted.state;
+      events.push(...granted.events);
+      remaining = remaining.filter((d) => d.code !== pick.code);
+    }
+    return { state: next, events };
+  }
+
+  if ('modifier_apply' in effect) {
+    const spec = effect['modifier_apply'] as {
+      modifier: string;
+      scope: 'next_word' | 'next_n_words' | 'rest_of_act';
+      n?: number;
+    };
+    // `EV.12` B pays to CLEAR every modifier for the rest of the act, and says
+    // so as `modifier: "NONE"`. It is the absence of a modifier, not one.
+    if (spec.modifier === 'NONE') {
+      return {
+        state: { ...s, actEffects: { ...s.actEffects, modifiersSuppressed: true } },
+        events: [],
+      };
+    }
+    const words =
+      spec.scope === 'rest_of_act' ? null : spec.scope === 'next_n_words' ? (spec.n ?? 1) : 1;
+    return {
+      state: {
+        ...s,
+        actEffects: {
+          ...s.actEffects,
+          forcedModifiers: [
+            ...s.actEffects.forcedModifiers,
+            { id: spec.modifier as ModifierId, words, source },
+          ],
+        },
+      },
+      events: [],
+    };
+  }
+
+  if ('modifier_reroll' in effect) {
+    // "REROLL EVERY MODIFIER ON THE REST OF THE ACT. IT MAY GET WORSE." — and
+    // it must be able to. Addressed off a counter so the reroll is
+    // reproducible and so a second Compositor in one run rolls differently.
+    const roll = (s.counters['modifierRerolls'] ?? 0) + 1;
+    const nodes = { ...s.map.nodes };
+    for (const node of Object.values(s.map.nodes)) {
+      if (node.visited || node.kind === 'BOSS') continue;
+      if (node.kind !== 'WORD' && node.kind !== 'ELITE') continue;
+      nodes[node.id] = {
+        ...node,
+        modifiers: rollModifiers(s.seed, `${node.id}:reroll${roll}`, node.actIndex, node.kind),
+      };
+    }
+    return {
+      state: {
+        ...s,
+        map: { ...s.map, nodes },
+        counters: { ...s.counters, modifierRerolls: roll },
+      },
+      events: [],
+    };
+  }
+
+  if ('slot_delta' in effect) {
+    const delta = effect['slot_delta'] as number;
+    return { state: { ...s, bonusRelicSlots: s.bonusRelicSlots + delta }, events: [] };
   }
   if ('map_skip' in effect) {
     const spec = effect['map_skip'] as { nodes: number };
@@ -1223,10 +1359,17 @@ function applyEventEffect(
     if (spec.scope === 'act_map') {
       return { state: { ...s, map: { ...s.map, modifiersRevealed: true } }, events: [] };
     }
+    if (spec.scope === 'act_first_letters') {
+      return {
+        state: { ...s, actEffects: { ...s.actEffects, firstLettersRevealed: true } },
+        events: [],
+      };
+    }
     return { state: { ...s, counters: { ...s.counters, [`reveal:${spec.scope}`]: 1 } }, events: [] };
   }
-  // modifier_apply, modifier_reroll and relic_grant need the offer and modifier
-  // systems, which Phase 3 wires next. Recorded rather than silently dropped.
+  // Nothing in `effect_vocabulary` reaches here any more. An unknown verb is
+  // recorded rather than silently dropped, so a new one added to events.json
+  // without an implementation shows up in the report instead of doing nothing.
   return {
     state: { ...s, counters: { ...s.counters, [`unapplied:${Object.keys(effect)[0]}`]: 1 } },
     events: [],
@@ -1636,7 +1779,7 @@ function applyEffect(
       // the player names which of the five it destroys. That is the rule that
       // "turns every subsequent offer into a comparison", so it must not
       // silently drop the relic and it must not silently exceed the cap.
-      if (heldRelics(s).length >= cfg.relicSlots) {
+      if (heldRelics(s).length >= relicSlots(s, cfg)) {
         return { state: { ...s, pendingReplace: { code: effect.code } }, events: [] };
       }
       const acquiredAt = nextAcquisitionOrdinal(s);
@@ -1763,6 +1906,42 @@ function applyEffect(
  * hold four bought relics to a Gambler's five would be a balance change nobody
  * wrote down.
  */
+/**
+ * §6.2's five, plus anything `EV.13` The Sixth Shelf added. Read this, never
+ * `cfg.relicSlots`, or the shelf is a 4-bankroll purchase that does nothing.
+ */
+export function relicSlots(s: GameState, cfg: Readonly<GameConfig> = CONFIG): number {
+  return cfg.relicSlots + s.bonusRelicSlots;
+}
+
+/**
+ * The modifiers a word actually carries: the node's own, plus anything §6.8's
+ * events forced on it, minus everything if `EV.12` B was paid.
+ *
+ * Suppression wins over forcing, and it is the later purchase in every ordering
+ * that can occur — you cannot pay the Compositor to clear the act and then have
+ * an earlier Liar's Bargain re-impose itself, because the Bargain is already in
+ * `forcedModifiers` when the payment lands.
+ */
+function applyActEffects(s: GameState, nodeModifiers: readonly ModifierId[]): ModifierId[] {
+  if (s.actEffects.modifiersSuppressed) return [];
+  const out = [...nodeModifiers];
+  for (const forced of s.actEffects.forcedModifiers) {
+    if (forced.words !== null && forced.words <= 0) continue;
+    if (!out.includes(forced.id)) out.push(forced.id);
+  }
+  return out;
+}
+
+/** One word has passed: count down the word-limited forced modifiers. */
+function tickActEffects(effects: GameState['actEffects']): GameState['actEffects'] {
+  if (effects.forcedModifiers.length === 0) return effects;
+  const forcedModifiers = effects.forcedModifiers
+    .map((f) => (f.words === null ? f : { ...f, words: f.words - 1 }))
+    .filter((f) => f.words === null || f.words >= 0);
+  return { ...effects, forcedModifiers };
+}
+
 export function heldRelics(s: GameState): readonly RelicInstance[] {
   return s.relics.filter((r) => r.code !== s.characterCode);
 }

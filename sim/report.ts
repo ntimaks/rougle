@@ -45,6 +45,12 @@ export interface Report {
   meanFinalGold: number;
   /** §4.1 — rungs of the shared refill ladder, shop and forge together. */
   meanRefillsBought: number;
+  /**
+   * §11.3 — "scaling-relic counter values at run end". Mean per relic across
+   * every run that ended holding it, so a relic nobody buys reads as absent
+   * rather than as a zero that looks like a broken counter.
+   */
+  scalingAtEnd: Array<{ code: string; label: string; mean: number; runs: number }>;
   /** §11.5 — median relics held, and at death specifically. Target 3-5. */
   medianRelicsHeld: number;
   medianRelicsHeldAtDeath: number;
@@ -176,6 +182,20 @@ export function buildReport(
     medianEmergencyPurchases: median(results.map((r) => r.emergencyPurchases)),
     meanFinalGold: mean(results.map((r) => r.finalGold)),
     meanRefillsBought: mean(results.map((r) => r.refillsBought)),
+    scalingAtEnd: (() => {
+      const by = new Map<string, { label: string; total: number; runs: number }>();
+      for (const r of results) {
+        for (const c of r.scalingAtEnd) {
+          const row = by.get(c.code) ?? { label: c.label, total: 0, runs: 0 };
+          row.total += c.value;
+          row.runs += 1;
+          by.set(c.code, row);
+        }
+      }
+      return [...by.entries()]
+        .map(([code, row]) => ({ code, label: row.label, mean: row.total / row.runs, runs: row.runs }))
+        .sort((a, b) => b.runs - a.runs);
+    })(),
     medianRelicsHeld: median(results.map((r) => r.relicsHeld)),
     medianRelicsHeldAtDeath: median(results.filter((r) => !r.won).map((r) => r.relicsHeld)),
     doomedRate: results.length
@@ -306,6 +326,16 @@ export function formatReport(report: Report): string {
       `${pct(report.deathsHoldingGold)}   ← R-020, was 99.1%`,
   );
   push(`  median words reached            ${report.medianWordsReached}`);
+  push();
+  push('§6.5 scaling counters at run end (mean, over runs still holding it)');
+  if (report.scalingAtEnd.length === 0) {
+    push('  none held at the end of any run');
+  }
+  for (const c of report.scalingAtEnd) {
+    push(
+      `  ${c.code} ${c.label.padEnd(22)} ${c.mean.toFixed(1).padStart(6)}   n=${c.runs}`,
+    );
+  }
   push();
   push('Relic pick rate (offered-and-taken / runs)');
   for (const [code, rate] of Object.entries(report.relicPickRate).slice(0, 15)) {

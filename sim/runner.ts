@@ -9,6 +9,7 @@ import {
   reduce,
   heldRelics,
   refillCost,
+  scalingCounters,
   shopPrice,
   type CharacterCode,
   type GameConfig,
@@ -69,6 +70,8 @@ export interface RunResult {
   relicsTaken: string[];
   /** §11.5 — "median relics held at death", target 3-5. */
   relicsHeld: number;
+  /** §11.3 — "scaling-relic counter values at run end". */
+  scalingAtEnd: Array<{ code: string; label: string; value: number }>;
   /** §11.3 — the bankroll after each word, so the curve can be plotted. */
   bankrollByWord: number[];
   /**
@@ -360,6 +363,7 @@ export function playRun(
     emergencyPurchases: s.stats.emergencyPurchases,
     relicsTaken: s.stats.relicsTaken,
     relicsHeld: heldRelics(s).length,
+    scalingAtEnd: scalingCounters(s).map(({ code, label, value }) => ({ code, label, value })),
     bankrollByWord,
     doomedWords:
       doomedAtWord === null ? null : Math.max(0, bankrollByWord.length - doomedAtWord),

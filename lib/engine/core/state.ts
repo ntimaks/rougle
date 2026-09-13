@@ -172,6 +172,26 @@ export interface EventState {
   code: string;
 }
 
+/**
+ * §6.8's act-scoped effects. Reset wholesale at act start.
+ *
+ * `forcedModifiers` counts DOWN per word rather than storing an expiry index,
+ * because a run does not know how many words an act has left — the map
+ * branches, and `EV.03`/`EV.10`'s map_skip can remove some of them.
+ */
+export interface ActEffects {
+  /** `words: null` means the rest of the act. */
+  forcedModifiers: Array<{ id: ModifierId; words: number | null; source: string }>;
+  /** `EV.12` B — every modifier cleared for the rest of the act. */
+  modifiersSuppressed: boolean;
+  /** `EV.01` B — the first letter of every remaining word this act. */
+  firstLettersRevealed: boolean;
+}
+
+export function emptyActEffects(): ActEffects {
+  return { forcedModifiers: [], modifiersSuppressed: false, firstLettersRevealed: false };
+}
+
 export interface PendingChallenge {
   /** Guesses the next word must fall within. null means "just clear it". */
   limit: number | null;
@@ -289,6 +309,19 @@ export interface GameState {
    * is why it lives on run state rather than on the word.
    */
   pendingChallenge: PendingChallenge | null;
+  /**
+   * §6.8 — event effects that outlive the node that granted them, and die with
+   * the act. `startAct` clears the whole object, which is the point: three
+   * separate act-scoped booleans is three chances to forget one, and the bug
+   * that produces (a modifier still forced two acts later) is invisible.
+   */
+  actEffects: ActEffects;
+  /**
+   * `EV.13` The Sixth Shelf — a PERMANENT change to §6.2's five, for the rest
+   * of the run. Not in `actEffects`: it is the one event effect that survives
+   * the act, and the vocabulary says so.
+   */
+  bonusRelicSlots: number;
   /**
    * §6.2 — a relic acquired at a full board, held while the player names which
    * of the five it destroys. The incoming relic is visible alongside the five
