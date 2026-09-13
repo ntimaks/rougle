@@ -60,6 +60,64 @@ describe('config.ts matches the spec the engine implements (v1.3)', () => {
     expect(gold(by('Boss'))).toBe(CONFIG.rewards.boss);
   });
 
+  it('§6.4 — the rarity table, per act', () => {
+    const rows = tableAfter('| | Act I | Act II | Act III |');
+    // Rows are `| COMMON | 60% | 42% | 26% |`; BOSS's row is em dashes, and its
+    // being 0 in code is the rule, not an omission.
+    const stated = Object.fromEntries(
+      rows.map((r) => [r[0]?.replace(/\*/g, ''), r.slice(1, 4).map((c) => c.replace(/[*%]/g, ''))]),
+    );
+    for (const rarity of ['COMMON', 'UNCOMMON', 'RARE'] as const) {
+      expect(stated[rarity], `§6.4 has no ${rarity} row`).toBeDefined();
+      ([0, 1, 2] as const).forEach((act) => {
+        expect(Number(stated[rarity]![act]) / 100, `act ${act + 1} ${rarity}`).toBeCloseTo(
+          CONFIG.rarityWeights[act][rarity],
+          5,
+        );
+      });
+    }
+    ([0, 1, 2] as const).forEach((act) => {
+      expect(CONFIG.rarityWeights[act].BOSS, `act ${act + 1} BOSS is drawn only at a boss`).toBe(0);
+      expect(CONFIG.rarityWeights[act].CONSUMABLE, `act ${act + 1} CONSUMABLE`).toBe(0);
+      const sum = (['COMMON', 'UNCOMMON', 'RARE'] as const).reduce(
+        (a, r) => a + CONFIG.rarityWeights[act][r],
+        0,
+      );
+      expect(sum, `act ${act + 1} shares do not total 1`).toBeCloseTo(1, 5);
+    });
+  });
+
+  it('§6.4b — the price table and its bands', () => {
+    const rows = tableAfter('| Item | Base | Band (±15%) |');
+    const named: Record<string, keyof typeof CONFIG.prices> = {
+      'Common relic': 'COMMON',
+      'Uncommon relic': 'UNCOMMON',
+      'Rare relic': 'RARE',
+      'Boss relic': 'BOSS',
+      Consumable: 'CONSUMABLE',
+    };
+    for (const [label, rarity] of Object.entries(named)) {
+      const row = rows.find((r) => r[0] === label);
+      expect(row, `§6.4b has no ${label} row`).toBeDefined();
+      expect(gold(row![1]!), label).toBe(CONFIG.prices[rarity]);
+      // The stated band must be what `priceVariance` actually produces.
+      const [lo, hi] = row![2]!.split('–').map(Number);
+      expect(lo, `${label} band floor`).toBe(
+        Math.round((CONFIG.prices[rarity] * (1 - CONFIG.priceVariance)) / 5) * 5,
+      );
+      expect(hi, `${label} band ceiling`).toBe(
+        Math.round((CONFIG.prices[rarity] * (1 + CONFIG.priceVariance)) / 5) * 5,
+      );
+    }
+  });
+
+  it('§6.4a — the shelf is 3 relics and a reserved consumable slot', () => {
+    const m = SPEC.match(/stocks \*\*(\d+) relics\*\*.*?plus \*\*(\d+) consumable\*\*/);
+    expect(m, '§6.4a no longer states the shelf').not.toBeNull();
+    expect(Number(m![1])).toBe(CONFIG.shopRelicSlots);
+    expect(Number(m![2])).toBe(CONFIG.shopConsumableSlots);
+  });
+
   it('§2.2 and §7.3 — the Gauntlet pool, in all three places it is written', () => {
     const stated = [...SPEC.matchAll(/(?:fixed,?\s+separate|separate)\s+pool\s+of\s+(\d+)/gi)].map(
       (m) => Number(m[1]),

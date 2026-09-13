@@ -155,7 +155,10 @@ Shop is no longer a node type (§4).
 | Elite | 70g | Shop opens on clear |
 | Boss | 120g | +4 bankroll, and choice of 1 of 2 boss relics |
 
-Boss relics occupy a slot like any other. The player may decline both.
+Boss relics occupy a slot like any other. The player may decline both. A boss
+leads its offer with the boss relics the player does not hold and fills the rest
+of the table from the ordinary pool (§6.6) — so a boss always pays a relic, even
+once every boss relic is held or while some are unimplemented.
 
 ---
 
@@ -168,23 +171,44 @@ This is what makes gold matter continuously and what makes relic acquisition an 
 ### 4.1 Stock
 
 Each shop rolls:
-- **3 relics**, weighted by archetype (§6.6)
-- **1 consumable**
+- **3 relics**, weighted by rarity and archetype (§6.6)
+- **1 consumable** — a reserved slot, not a slot the consumables win
 - **Guess refills** — 25g each, maximum 3 per shop
+
+The consumable slot is reserved because a consumable drawn against the relics
+produces shelves with three of them and shelves with none, and because a rarity
+share is only meaningful over a fixed number of relic slots.
 
 ### 4.2 Prices
 
-| Item | Price |
-|---|---|
-| Common relic | 60g |
-| Uncommon relic | 110g |
-| Rare relic | 180g |
-| Consumable | 40g |
-| Guess refill (+1 bankroll) | 25g |
-| Reroll stock | 20g, +10g per reroll within the same shop |
-| Sell a held relic | 50% of price, rounded down |
+| Item | Price | Band (±15%) |
+|---|---|---|
+| Common relic | 35g | 30–40 |
+| Uncommon relic | 60g | 50–70 |
+| Rare relic | 95g | 80–110 |
+| Boss relic | 140g | 120–160 |
+| Consumable | 30g | 25–35 |
+| Guess refill (+1 bankroll) | 25g | |
+| Reroll stock | 20g, +10g per reroll within the same shop | |
+| Sell a held relic | 50% of price, rounded down | |
 
-Income runs roughly 300g per act. That funds about two relic purchases per act before rerolls, refills and consumables. A player cannot buy everything, which is the point.
+**Price is not what makes a RARE rare — §6.6 is.** R-042. The v2.0 draft priced
+a rare at 180g against roughly 300g of income an act, which does not restrict
+what a player owns so much as when: a player who wants the rare saves for it and
+buys it, and a player who does not have the gold walks past a shelf they cannot
+interact with. Both are worse than the thing scarcity is supposed to produce.
+So supply carries the restriction and the prices are set where a player can act
+on what the shelf actually offers.
+
+The swing is **±15%** and the bands above do not overlap. At ±20% a lucky COMMON
+outpriced an unlucky UNCOMMON, which reads as a mispriced shelf rather than as
+variance.
+
+A whole shelf costs **176g in Act I** and **220g in Act III** (measured) against
+income of roughly 300g an act. Two items off a shelf, three if they are cheap,
+and the third shelf of an act is one a player arrives at broke. A player still
+cannot buy everything; what changed is that they can buy *something*, every
+time.
 
 ---
 
@@ -283,6 +307,10 @@ At 5 slots the v1.1 information cap becomes unnecessary and is removed.
 
 Consumables are not relics, occupy their own slots, and are spent on use.
 
+Rarity is a **supply** statement, not a price tier. What a rarity means is how
+often a relic of that rarity is put in front of the player, and that is §6.6's
+table. A BOSS relic comes from a boss (§3.3) and from nowhere else.
+
 ### 6.4 The impact test — normative
 
 **A relic must change what you would type, when you would route, or what you would risk. If it only changes a number after the fact, it is a shop item or it is deleted.**
@@ -310,9 +338,37 @@ The split matters. Success-scaling relics reward a run already going well; failu
 
 Counters never reset between acts. Hot Streak's resets on a slow solve, by its own rule, and is the only one that does.
 
-### 6.6 Shop weighting
+### 6.6 Offer weighting — normative
 
-Offers bias toward archetypes the player already holds, with a floor so pivoting stays possible:
+Every relic slot, on a shelf or on a reward screen, is drawn against two
+weights multiplied together.
+
+**Rarity, by act.** R-042. The share of relic slots each rarity takes:
+
+| | Act I | Act II | Act III |
+|---|---|---|---|
+| COMMON | 60% | 42% | 26% |
+| UNCOMMON | 30% | 42% | 46% |
+| RARE | **10%** | **16%** | **28%** |
+| BOSS | — | — | — |
+
+Read these as a share of the DRAW, not as a per-relic weight. There are 8
+COMMON relics against 12 UNCOMMON and 7 RARE, so weighting each relic equally
+hands the largest tier the largest share — which is what the engine did before
+this table existed, and why RARE filled 23% of Act I's slots and meant nothing.
+A tier's weight is therefore divided by how many of that tier are still
+unheld, so the stated share is the share that lands and keeps landing as relics
+leave the pool: the last unheld RARE is as likely to appear as the first of
+seven was.
+
+The act column is the second half of it. A run should get better as it goes, and
+a RARE in Act I is a find precisely because Act I is mostly COMMON.
+
+BOSS has no share in any act. Boss relics are drawn from their own pool at a
+boss node (§3.3); a boss relic on a shelf is a bug.
+
+**Archetype.** Offers bias toward archetypes the player already holds, with a
+floor so pivoting stays possible:
 
 ```
 P(archetype) = 0.25 + 0.75 × (held_in_archetype / total_held)
@@ -505,6 +561,10 @@ The originals, and what v2.0 does to each, are in §12.1.
 **R-039 · Relic impact test.** Seven relics cut (§6.4). Metronome, Concordance, Ledger, Insurance and Pilgrim failed the test; Vault and Wishbone were made obsolete by the refill removal.
 
 **R-040 · Scaling.** Six relics carry run-long counters (§6.5). Counter value must be visible on the card at all times. **Design change filed** — the relic card needs a counter treatment it does not currently have.
+
+**R-042 · Rarity gates supply; price does not.** Rarity now carries a per-act share of every relic draw (§6.6) and BOSS is drawn only at a boss (§3.3). Prices drop to §4.2's table on the strength of it. Measured: RARE fell from 23% of Act I's slots to 10%, and a whole shelf from ~430g to 176g. Balance snapshot `v2-002`.
+
+**R-043 · The consumable slot is reserved.** §4.1's consumable is a fixed slot rather than an entry in the relic draw. A rarity share is only meaningful over a fixed number of relic slots, and a shelf that can roll three consumables or none is not one a player can plan around.
 
 **R-041 · Shop restructure.** Shop is no longer a map node. It opens automatically after every solve node. **Design change filed** — the map screen loses its shop node type, and S.05 Relic Reward is replaced entirely by the shop screen.
 

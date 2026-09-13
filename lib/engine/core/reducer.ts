@@ -2,12 +2,10 @@ import { bossFor } from '../content/bosses';
 import { lengthFor } from '../content/modifiers';
 import {
   CHARACTER_BY_CODE,
-  offerableRelics,
   REGISTRY,
   activationFor,
   impl as implFor,
   isImplemented,
-  offerableInAct,
   offerableConsumables,
 } from '../content/registry';
 import { annotateDistances } from '../feedback/chain';
@@ -26,14 +24,17 @@ import { ALPHABET, eligibleLettersForRemoval, isLetterAvailable } from './letter
 import {
   EVENTS,
   FORGE_GOLD_PER_GUESS,
+  bossRelicPool,
   drawEvent,
   drawForgeCandidates,
+  drawRelicSlots,
   forgeOperations,
+  offerPool,
   optionAvailable,
   rollShopStock,
 } from './nodes';
 import { addPool, addPoolMax, currentPool, offerRefund, refillPool, spendGuess } from './pool';
-import { DOMAIN, draw, drawInt, drawWeighted } from './rng';
+import { DOMAIN, draw, drawInt, drawShuffle } from './rng';
 import {
   SAVE_VERSION,
   emptyMap,
@@ -42,6 +43,7 @@ import {
   type GameState,
   type ModifierId,
   type NodeId,
+  type NodeKind,
   type RelicInstance,
   type WordState,
 } from './state';
@@ -853,7 +855,7 @@ function finishWord(
 
 function grantNodeReward(
   s: GameState,
-  kind: string,
+  kind: NodeKind,
   nodeId: NodeId,
   cfg: Readonly<GameConfig>,
 ): ReduceResult {
@@ -871,7 +873,7 @@ function grantNodeReward(
     events.push(...golded.events);
   }
 
-  const codes = rollOffer(next, nodeId, cfg);
+  const codes = rollOffer(next, nodeId, cfg, kind);
   if (codes.length > 0) {
     next = {
       ...next,
@@ -894,41 +896,47 @@ function grantNodeReward(
   return { state: next, events };
 }
 
+/** How many relics a reward node puts on the table. */
+export const OFFER_SLOTS = 3;
+
 /**
- * Three relics, weighted by MECHANICS.md §6.4 so offers bias toward archetypes
- * the player already holds, with a 0.25 floor so pivoting stays possible.
- * Without weighting, players accumulate anti-synergistic piles.
+ * The three relics a cleared node offers.
+ *
+ * Weighted twice: by MECHANICS.md §6.4 toward archetypes the player already
+ * holds (0.25 floor, so pivoting stays possible), and by §6.6 toward the
+ * rarities this act deals in. The second weighting is the one that decides
+ * whether finding a RARE is an event. Before it existed, every relic was
+ * equally likely and RARE — 7 of the 27 offerable relics — turned up in 23% of
+ * slots in Act I, which is to say it was not rare and there was nothing to be
+ * excited about. `cfg.rarityWeights` puts it at 10% in Act I and 28% in Act III,
+ * so the shelf improves as the run does.
+ *
+ * A BOSS node puts the boss relics it can still offer at the front of the
+ * table and fills the rest of the slots from the ordinary pool (§3.3). Filling
+ * matters while three of the four boss relics are unimplemented: without it a
+ * boss would hand over a one-card "choice", and the second and third bosses of
+ * a run would hand over nothing at all. As the boss pool fills out, the top-up
+ * shrinks to nothing on its own.
  */
-export function rollOffer(s: GameState, nodeId: NodeId, cfg: Readonly<GameConfig>): string[] {
-  const held = s.relics.filter((r) => REGISTRY[r.code]).map((r) => REGISTRY[r.code]!);
-  const available = offerableRelics().filter(
-    (d) =>
-      !d.isConsumable &&
-      !s.relics.some((r) => r.code === d.code) &&
-      offerableInAct(d, s.actIndex),
-  );
-  if (available.length === 0) return [];
-
-  const archetypeWeight = (archetype: string | undefined): number => {
-    if (!archetype || held.length === 0) return 1;
-    const inArchetype = held.filter((h) => h.archetype === archetype).length;
-    return cfg.shopArchetypeFloor + (1 - cfg.shopArchetypeFloor) * (inArchetype / held.length);
-  };
-
-  const picked: string[] = [];
-  let pool = available;
-  for (let slot = 0; slot < 3 && pool.length > 0; slot++) {
-    const chosen = drawWeighted(
-      s.seed,
-      DOMAIN.offer(nodeId),
-      slot,
-      pool,
-      pool.map((d) => archetypeWeight(d.archetype)),
-    );
-    picked.push(chosen.code);
-    pool = pool.filter((d) => d.code !== chosen.code);
-  }
-  return picked;
+export function rollOffer(
+  s: GameState,
+  nodeId: NodeId,
+  cfg: Readonly<GameConfig>,
+  nodeKind: NodeKind = 'WORD',
+): string[] {
+  const domain = DOMAIN.offer(nodeId);
+  // Boss relics are drawn flat: they are all one rarity, and §6.4's archetype
+  // bias on a pool this small would only make one boss re-offer another's.
+  const boss =
+    nodeKind === 'BOSS'
+      ? drawShuffle(s.seed, domain, 0, bossRelicPool(s))
+          .slice(0, OFFER_SLOTS)
+          .map((d) => d.code)
+      : [];
+  if (boss.length >= OFFER_SLOTS) return boss;
+  // Offset past the shuffle's addresses so the top-up never reuses one.
+  const fill = drawRelicSlots(s, offerPool(s), domain, 100, OFFER_SLOTS - boss.length, cfg);
+  return [...boss, ...fill];
 }
 
 function acceptOffer(s: GameState, code: string, cfg: Readonly<GameConfig>): ReduceResult {

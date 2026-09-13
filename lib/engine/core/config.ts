@@ -1,3 +1,5 @@
+import type { Rarity } from '../content/types';
+
 /**
  * Every tunable that appears in MECHANICS.md. Technical brief §1.6.
  *
@@ -50,6 +52,34 @@ export interface GameConfig {
   preGuessRevealCap: number;
   consumableSlots: number;
   shopArchetypeFloor: number;
+  /**
+   * MECHANICS.md §6.6 — the share of a relic draw each rarity takes, indexed by
+   * act. Rarity, not price, is what makes a RARE rare: these are the numbers
+   * that decide how often one is on the shelf at all.
+   *
+   * Read as a SHARE OF THE DRAW, not as a per-relic weight. There are 8 COMMON,
+   * 12 UNCOMMON and 7 RARE relics, so weighting each relic equally hands the
+   * biggest tier the biggest share — which is why RARE was appearing 23% of the
+   * time before this existed. `drawRelicSlots` divides a tier's share by how
+   * many of that tier are still in the pool, so the share holds as relics are
+   * taken and the ratio between tiers means what it says.
+   *
+   * BOSS is 0 in every act on purpose: boss relics come from bosses (§3.3) and
+   * are drawn from their own pool. CONSUMABLE is 0 because the shelf reserves a
+   * slot for one (§4.1) rather than letting it compete with the relics.
+   */
+  rarityWeights: readonly [
+    Readonly<Record<Rarity, number>>,
+    Readonly<Record<Rarity, number>>,
+    Readonly<Record<Rarity, number>>,
+  ];
+  /** §4.2 — the shelf price by rarity, before the ±`priceVariance` swing. */
+  prices: Readonly<Record<Rarity, number>>;
+  /** The swing on a shelf price, addressed off the slot so it never re-rolls. */
+  priceVariance: number;
+  /** §4.1 — the shelf is this many relics plus `shopConsumableSlots`. */
+  shopRelicSlots: number;
+  shopConsumableSlots: number;
   nodeWeights: Readonly<Record<'WORD' | 'ELITE' | 'SHOP' | 'FORGE' | 'EVENT', number>>;
   /** Cipher's deferral depth; Fog's is 1. MECHANICS.md §7.2. */
   cipherDeferralDepth: number;
@@ -73,7 +103,13 @@ export const CONFIG: Readonly<GameConfig> = Object.freeze({
     { pool: 14, solveNodes: 4, mapNodes: 6, maxElites: 3, wordLength: 6 },
   ],
   // A separate pool that never touches the act pool, in either direction.
-  gauntlet: { pool: 10, words: 5, wordLength: 5 },
+  //
+  // 9, not snapshot 007's 10. 007 measured 9 and held it: on that economy it
+  // took the win rate to 28.2%, low in the band and buying nothing. §6.6's
+  // rarity weighting and §4.2's prices are worth +6.5 points on their own, so
+  // the same guess now lands the run at 33.2% and closes §10.3's second
+  // win-rate target as 007 said it would. Balance snapshot v2-002.
+  gauntlet: { pool: 9, words: 5, wordLength: 5 },
   goldPerLeftoverGuess: 10,
   ledgerGoldPerLeftoverGuess: 15, // RL.24 The Ledger
   vaultCarryCap: 10, // RL.27 The Vault
@@ -86,6 +122,15 @@ export const CONFIG: Readonly<GameConfig> = Object.freeze({
   preGuessRevealCap: 2, // MECHANICS.md §6.3
   consumableSlots: 3,
   shopArchetypeFloor: 0.25, // MECHANICS.md §6.4
+  rarityWeights: [
+    Object.freeze({ COMMON: 0.6, UNCOMMON: 0.3, RARE: 0.1, BOSS: 0, CONSUMABLE: 0 }),
+    Object.freeze({ COMMON: 0.42, UNCOMMON: 0.42, RARE: 0.16, BOSS: 0, CONSUMABLE: 0 }),
+    Object.freeze({ COMMON: 0.26, UNCOMMON: 0.46, RARE: 0.28, BOSS: 0, CONSUMABLE: 0 }),
+  ],
+  prices: Object.freeze({ COMMON: 35, UNCOMMON: 60, RARE: 95, BOSS: 140, CONSUMABLE: 30 }),
+  priceVariance: 0.15,
+  shopRelicSlots: 3, // MECHANICS.md §4.1
+  shopConsumableSlots: 1,
   nodeWeights: { WORD: 0.55, ELITE: 0.15, SHOP: 0.12, FORGE: 0.1, EVENT: 0.08 },
   cipherDeferralDepth: 3,
   decayTurns: 1,

@@ -15,6 +15,7 @@ import {
   wordList,
 } from '../lib/engine';
 import { EVENTS } from '../lib/engine/content/events';
+import { REGISTRY } from '../lib/engine/content/registry';
 import '../lib/engine/words/all';
 import {
   DEFAULT_SOLVER,
@@ -188,6 +189,13 @@ export function playRun(
           const affordable = (s.shop?.stock ?? [])
             .map((item, slot) => ({ item, slot }))
             .filter(({ item }) => !item.sold && item.price <= s.gold)
+            // Gate 3 asks what a run is worth with NO relics taken, and a shelf
+            // is where relics are taken. `noRelics` used to skip only the reward
+            // screen, so the no-relic bot walked into every shop on its route
+            // and bought them there — the §10.3 figure it produced was "no FREE
+            // relics", not "no relics". Invisible while a relic cost 55g and the
+            // bot was usually broke; §6.4b's prices made it worth 6.8 points.
+            .filter(({ item }) => !options.noRelics || REGISTRY[item.code]?.isConsumable)
             .sort((a, b) => a.item.price - b.item.price);
           for (const { slot } of affordable) {
             const bought = reduce(s, { type: 'BUY_STOCK', slot }, cfg);

@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
-import { initialState, reduce } from './reducer';
-import { FORGE_CANDIDATES, FORGE_GOLD_PER_GUESS, drawForgeCandidates, shopPrice } from './nodes';
+import { OFFER_SLOTS, initialState, reduce, rollOffer } from './reducer';
+import {
+  FORGE_CANDIDATES,
+  FORGE_GOLD_PER_GUESS,
+  bossRelicPool,
+  drawForgeCandidates,
+  rollShopStock,
+  shopPrice,
+} from './nodes';
 import { EVENTS } from '../content/events';
 import { REGISTRY } from '../content/registry';
-import type { GameState, NodeId, NodeKind } from './state';
+import type { GameState, NodeId, NodeKind, RelicInstance } from './state';
 import '../words/all';
 
 /**
@@ -123,15 +130,133 @@ describe('§6.4 shop', () => {
     expect(a).toBe(b);
   });
 
-  it('rarity moves the price, and the design anchors are inside the band', () => {
-    // Lexicon COMMON sits near 55g, a RARE near 150g, per the prototype shelf.
-    const common = shopPrice('RL.01', 'BAND', 'a0-r1c0', 0);
-    const rare = shopPrice('RL.04', 'BAND', 'a0-r1c0', 0);
-    expect(common).toBeLessThan(rare);
-    expect(common).toBeGreaterThanOrEqual(44);
-    expect(common).toBeLessThanOrEqual(66);
-    expect(rare).toBeGreaterThanOrEqual(120);
-    expect(rare).toBeLessThanOrEqual(180);
+  it('every price sits inside its rarity band, read from the config', () => {
+    // Asserted against `cfg.prices` rather than against literals: the bases are
+    // a balance lever and a test that pins them stops the lever from moving.
+    const sample = { COMMON: 'RL.01', UNCOMMON: 'RL.03', RARE: 'RL.04', CONSUMABLE: 'CN.01' };
+    for (const [rarity, code] of Object.entries(sample)) {
+      const base = CONFIG.prices[rarity as keyof typeof CONFIG.prices];
+      for (let i = 0; i < 40; i++) {
+        const price = shopPrice(code, `BAND${i}`, 'a0-r1c0', i % 5);
+        expect(price, `${code} under ${base}g − variance`).toBeGreaterThanOrEqual(
+          Math.round((base * (1 - CONFIG.priceVariance)) / 5) * 5,
+        );
+        expect(price, `${code} over ${base}g + variance`).toBeLessThanOrEqual(
+          Math.round((base * (1 + CONFIG.priceVariance)) / 5) * 5,
+        );
+      }
+    }
+  });
+
+  it('the rarity bands do not overlap — a lucky COMMON never outprices an UNCOMMON', () => {
+    // The reason `priceVariance` is 0.15 and not 0.2. A shelf where the cheap
+    // thing costs more than the good thing reads as a bug, not as variance.
+    //
+    // CONSUMABLE is not in the ladder. It is a different class of item — one
+    // use against a permanent — not a rung below COMMON, so its band is allowed
+    // to sit alongside one.
+    const order = ['COMMON', 'UNCOMMON', 'RARE', 'BOSS'] as const;
+    for (let i = 1; i < order.length; i++) {
+      const lower = CONFIG.prices[order[i - 1]!] * (1 + CONFIG.priceVariance);
+      const upper = CONFIG.prices[order[i]!] * (1 - CONFIG.priceVariance);
+      expect(lower, `${order[i - 1]} tops out above ${order[i]}'s floor`).toBeLessThanOrEqual(upper);
+    }
+  });
+
+  it('a shelf is affordable — the whole thing costs less than a run earns', () => {
+    // "Slightly pricey, but you can afford them." A shelf a player can clear
+    // with one act's income is not a choice; a shelf they can never touch is
+    // not a shop. This pins the first half.
+    const s = reach('SHOP')!;
+    const shelf = s.shop!.stock.reduce((a, item) => a + item.price, 0);
+    expect(shelf).toBeGreaterThan(CONFIG.rewards.boss * 2);
+    expect(shelf).toBeLessThan(400);
+  });
+
+  it('the shelf reserves its consumable slot rather than rolling for it', () => {
+    for (let i = 0; i < 8; i++) {
+      const s = reach('SHOP', 20, `SHELF${i}`);
+      if (!s) continue;
+      const consumables = s.shop!.stock.filter((x) => REGISTRY[x.code]?.isConsumable).length;
+      expect(consumables, 'consumable slots').toBe(CONFIG.shopConsumableSlots);
+      expect(s.shop!.stock.length).toBe(CONFIG.shopRelicSlots + CONFIG.shopConsumableSlots);
+    }
+  });
+});
+
+describe('§6.6 rarity gates supply, not price', () => {
+  /** Every relic code a fresh run in this act would put in front of the player. */
+  function drawnCodes(actIndex: 0 | 1 | 2, seeds: number): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < seeds; i++) {
+      const base = initialState(`RW${actIndex}X${i}`, 'CH.01');
+      const s: GameState = { ...base, actIndex };
+      out.push(...rollOffer(s, `a${actIndex}-n0`, CONFIG));
+      out.push(...rollShopStock(s, `a${actIndex}-r2c0`, CONFIG).map((x) => x.code));
+    }
+    return out;
+  }
+
+  function share(codes: readonly string[], rarity: string): number {
+    const relics = codes.filter((c) => !REGISTRY[c]?.isConsumable);
+    return relics.filter((c) => REGISTRY[c]?.rarity === rarity).length / relics.length;
+  }
+
+  it('a RARE turns up about as often as the config says, not as often as it is numerous', () => {
+    // The bug this replaces: every relic was equally likely, so RARE — 7 of 27
+    // offerable relics — filled 23% of slots and was rare in name only.
+    for (const actIndex of [0, 1, 2] as const) {
+      const codes = drawnCodes(actIndex, 250);
+      for (const rarity of ['COMMON', 'UNCOMMON', 'RARE'] as const) {
+        const want = CONFIG.rarityWeights[actIndex][rarity];
+        expect(
+          Math.abs(share(codes, rarity) - want),
+          `act ${actIndex + 1} ${rarity}: ${(share(codes, rarity) * 100).toFixed(1)}% vs ${want * 100}%`,
+        ).toBeLessThan(0.06);
+      }
+    }
+  });
+
+  it('rares get commoner every act and commons get rarer', () => {
+    const rare = ([0, 1, 2] as const).map((a) => share(drawnCodes(a, 250), 'RARE'));
+    const common = ([0, 1, 2] as const).map((a) => share(drawnCodes(a, 250), 'COMMON'));
+    expect(rare[0]!).toBeLessThan(rare[1]!);
+    expect(rare[1]!).toBeLessThan(rare[2]!);
+    expect(common[0]!).toBeGreaterThan(common[1]!);
+    expect(common[1]!).toBeGreaterThan(common[2]!);
+  });
+
+  it('a boss relic never appears in a shop or at a word node', () => {
+    for (const actIndex of [0, 1, 2] as const) {
+      for (const code of drawnCodes(actIndex, 250)) {
+        expect(REGISTRY[code]!.rarity, `${code} leaked into act ${actIndex + 1}`).not.toBe('BOSS');
+      }
+    }
+  });
+
+  it('a boss leads with its boss relics and tops the table up to three', () => {
+    const s = initialState('BOSSOFFR', 'CH.01');
+    const codes = rollOffer(s, 'a0-boss', CONFIG, 'BOSS');
+    expect(codes.length).toBe(OFFER_SLOTS);
+    expect(new Set(codes).size, 'duplicate on the table').toBe(codes.length);
+    const bossRelics = codes.filter((c) => REGISTRY[c]!.rarity === 'BOSS');
+    expect(bossRelics.length).toBe(bossRelicPool(s).length ? Math.min(bossRelicPool(s).length, OFFER_SLOTS) : 0);
+    expect(codes.slice(0, bossRelics.length).every((c) => REGISTRY[c]!.rarity === 'BOSS')).toBe(true);
+  });
+
+  it('a boss still pays a relic once every boss relic is held', () => {
+    const base = initialState('BOSSDRY', 'CH.01');
+    const held: RelicInstance[] = bossRelicPool(base).map((d, i) => ({
+      instanceId: `b${i}`,
+      code: d.code,
+      state: {},
+      acquiredAt: i,
+      upgraded: false,
+    }));
+    const s: GameState = { ...base, relics: held };
+    const codes = rollOffer(s, 'a2-boss', CONFIG, 'BOSS');
+    expect(codes.length).toBe(OFFER_SLOTS);
+    expect(codes.some((c) => REGISTRY[c]!.rarity === 'BOSS')).toBe(false);
   });
 });
 

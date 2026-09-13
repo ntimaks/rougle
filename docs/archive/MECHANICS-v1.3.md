@@ -136,7 +136,7 @@ hits (§10.3's no-relic gate), and Act III is sized to its need because its boss
 is funded separately.
 
 Act III's words are 6- and 7-letter and cost more per word even with a good
-build. The Gauntlet runs on a **fixed, separate pool of 10** and does not draw
+build. The Gauntlet runs on a **fixed, separate pool of 9** and does not draw
 from the act pool.
 
 Baseline human performance is ~3.9 guesses/word on clean 5-letter words, ~3.5 for strong solvers, ~4.6 on 7-letter words. Every budget above sits below the relevant baseline. **A player with no relics should die in Act II.** This is the design intent and the primary thing simulation must confirm.
@@ -359,11 +359,15 @@ onGoldChange  onPoolChange  onUse
 an `activation` block in `relics.json` giving its timing window, uses per word,
 cost and required input. See §6.6 and R-013.
 
-### 6.2 Rarity
+### 6.2 Rarity — normative
 
 `COMMON` · `UNCOMMON` · `RARE` · `BOSS` · `CONSUMABLE`
 
 Consumables are not relics, do not occupy relic slots, and are consumed on use. The design's rarity treatment currently has no branch for them (§11).
+
+**Rarity is a statement about supply, not about price.** R-037. What a rarity means is how often a relic of that rarity is put in front of the player, and that is §6.4's table. Until R-037 it meant neither: no draw read the field, so a tier's share of a shelf was however many relics happened to be in it, and RARE — 7 of 27 offerable relics — filled 23% of Act I's slots.
+
+**A `BOSS` relic is drawn only at a boss node.** It has no share in any act and may not appear on a shelf or at a word node.
 
 ### 6.3 Information cap — normative
 
@@ -375,15 +379,54 @@ Affected: Lexicon, Palimpsest, The Concordance, Rosetta Slab, Hot Streak's free 
 
 Not affected: Rangefinder, The Auditor, The Lantern — these resolve during a word, not before it. The §2.5 reveal ladder is exempt for the same reason (Rule F), and is additionally gated behind the first guess so it cannot be stacked before one.
 
-### 6.4 Shop weighting
+### 6.4 Offer weighting — normative
 
-Offer pools bias toward archetypes the player already holds, with a floor so pivoting stays possible.
+Every relic slot, on a shelf or on a reward screen, is drawn against two weights multiplied together.
+
+**Rarity, by act.** R-037. The share of relic slots each rarity takes:
+
+| | Act I | Act II | Act III |
+|---|---|---|---|
+| COMMON | 60% | 42% | 26% |
+| UNCOMMON | 30% | 42% | 46% |
+| RARE | **10%** | **16%** | **28%** |
+| BOSS | — | — | — |
+
+These are a share of the **draw**, not a per-relic weight. There are 8 COMMON relics against 12 UNCOMMON and 7 RARE, so giving every relic its tier's weight hands the largest tier the largest share — which is the bug this replaces. A tier's weight is therefore divided by how many of that tier are still unheld, so the stated share is the share that lands and keeps landing as the pool empties: the last unheld RARE appears as often as the first of seven did.
+
+The act column is the other half. A run should get better as it goes, and a RARE in Act I is a find precisely because Act I is mostly COMMON.
+
+**Archetype.** Offer pools bias toward archetypes the player already holds, with a floor so pivoting stays possible.
 
 ```
 P(archetype) = 0.25 + 0.75 × (held_in_archetype / total_held)
 ```
 
 normalised across archetypes. The 0.25 floor guarantees every archetype stays reachable. Without weighting, players accumulate anti-synergistic piles — Tin Cup rewards slow play and Flywheel rewards fast play, and offering both at random produces a build that does nothing.
+
+### 6.4a The shelf — normative
+
+A shop stocks **3 relics** drawn per §6.4, plus **1 consumable** in a reserved slot. R-038. The consumable slot is reserved rather than won: drawn against the relics it produced shelves holding three consumables and shelves holding none, and a rarity share is only meaningful over a fixed number of relic slots.
+
+A reward node offers **3 relics**. A **boss** node leads its offer with the boss relics the player does not hold and fills the rest of the table from the §6.4 pool, so a boss always pays a relic — including once every boss relic is held, and while some are unimplemented.
+
+### 6.4b Prices — normative
+
+| Item | Base | Band (±15%) |
+|---|---|---|
+| Common relic | 35g | 30–40 |
+| Uncommon relic | 60g | 50–70 |
+| Rare relic | 95g | 80–110 |
+| Boss relic | 140g | 120–160 |
+| Consumable | 30g | 25–35 |
+
+Rounded to the nearest 5g and addressed on the slot, so a price never re-rolls on a re-render.
+
+**Price does not gate rarity — §6.4 does.** R-037. A rare at 150g against roughly 300g of income an act did not restrict what a player owned, only when: they saved two nodes and bought it. What it reliably produced was a player standing in a shop unable to interact with any of it. With supply carrying the restriction, prices sit where a player can act on what the shelf offers, and the decision is between two things on it rather than whether to engage at all.
+
+The **±15%** swing makes the bands disjoint. At ±20% a lucky COMMON outpriced an unlucky UNCOMMON, which reads as a mispriced shelf rather than as variance. CONSUMABLE is deliberately not a rung in that ladder — one use against a permanent is a different class of item, not a tier below COMMON — so its band may sit alongside COMMON's.
+
+A whole shelf costs **176g in Act I** and **220g in Act III** (measured, balance snapshot `v2-002`). Two items, three if they are cheap. A player still cannot buy everything; what changed is that they can buy something, every time.
 
 ### 6.5 Consumables
 
@@ -530,7 +573,7 @@ Solving one solution locks its row and continues the other. Both must be solved 
 
 ### 7.3 Act III — The Gauntlet
 
-Five words. **Fixed separate pool of 10.** No shop, forge or reward between them. Pure attrition against the assembled build.
+Five words. **Fixed separate pool of 9.** No shop, forge or reward between them. Pure attrition against the assembled build.
 
 **No emergency ladder.** §2.3 is not offered during the Gauntlet: its pool is the whole of what you get, and running it out ends the run with the gold still in your hand. This is why the Gauntlet's pool is the game's difficulty lever (§2.2) — it is the one budget gold cannot rescue — and why §10.1's "died holding the price of an out" excludes Gauntlet deaths.
 
@@ -725,6 +768,12 @@ So being stuck is not a shortage of resources. It is holding a resource with not
 
 **R-036 · A revealed letter is known about the answer; it is not a result scored against a guess.** Raised from playtest at the Twins — *"could it be that the automatically solved first letter obscures my second answer?"*, then *"if I had a yellow previously it completely obscures it, very annoying if I have Rangefinder."* Both correct, and the damage ran deeper than the display. The injection step stamped a `GREEN` over **every row** at the revealed index, on the reasoning that the player knows the letter from then on. Three consequences. A `YELLOW` at that position became a green showing a letter never typed there — `TRAIN` rendered as `NRAIN`, and the evidence that T was in the word was simply gone. The **Rangefinder distance** on that tile was nulled, which is the whole of what `RL.04` is bought for. And under Mirror it was not merely lossy but false: the preset is drawn from `solutions[0]`, so solution B's row was stamped with solution A's letter — a green claim about a word that does not contain it, against §7.2's *"two fully independent results, no merging, no reconciliation."*
 → **Ruled:** §2.5 Rule G. A row is what a guess scored and nothing writes into it afterwards; what the player knows is carried separately and rendered as its own thing (the `KNOWN` chips beside `STAMPED`). Each preset tile records the `solutionIndex` it is true of, which rules §13 I-19 for preset tiles — a reveal describes solution A, is marked `A`, and is never shown against B. **The cost of the bug was the whole point of the ladder.** A row is read against the word that was typed, so a green at index 0 of a row guessing `TRAIN` asserts the answer starts with T — contradicting the very reveal that produced it. Measured: on the old engine a bot buying reveals won **43.0%** against **55.8%** buying none, so §2.5 — the ladder R-020 built the entire gold economy around — was a **12.8-point penalty for using it**. After this ruling it is worth **+5.9** (76.7% against 70.8%), which is the direction it was designed to point.
+
+**R-037 · Rarity gates supply; price does not.** Rarity was decoration. `relics.json` carried the field, the card spine coloured itself from it, and the price table looked a number up in it — and no draw consulted it. `rollOffer` and `rollShopStock` weighted by archetype alone, so a tier's share of a shelf was however many relics happened to be in it: RARE filled **23.4%** of Act I's relic slots, the three acts drew from an identical shelf, and BOSS relics were in the ordinary pool priced as COMMON, because the price table had no BOSS row to fall through to. `RL.29` The Mask was a 55g shop staple with the highest pick rate in the game.
+→ **Ruled:** §6.2, §6.4 and §6.4b. Rarity carries a per-act share of every relic draw — RARE 10% in Act I, 16% in Act II, 28% in Act III — divided by the live count of that tier so the stated share is the one that lands. BOSS is drawn only at a boss (§6.4a). Prices drop about 35% behind it and the swing narrows to ±15% so the bands stop overlapping. Measured, 1000 runs: the win rate went to 40.4% on the change alone and `shopRelicSlots` 3 plus `gauntlet.pool` 9 brought it back to **33.2%**, in §10.3's band, with Act I's death rate at 9.4% and Act II still the wall. Reward gold was rejected as the corrective lever: it reaches the band by taking Act I's death rate to 14.7% against a 15% target. Balance snapshot `v2-002`, `ADR-0013`.
+
+**R-038 · The shelf's consumable slot is reserved.** A shop drew 5 slots from one pool holding both relics and consumables, so a shelf could hold three consumables or none, and neither is a shelf a player can plan around. It also made §6.4's rarity shares meaningless: a consumable taking a relic slot is a share nobody wrote down.
+→ **Ruled:** §6.4a. Three relic slots and one reserved consumable slot. The relic count is `shopRelicSlots` and drops from an effective 4 to 3, which is −3.2 points of win rate and does not move Act I's death rate at all.
 
 ## 12. Still open
 
