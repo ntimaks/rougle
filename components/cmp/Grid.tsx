@@ -17,13 +17,20 @@ import { TILE } from './tileStyles';
 export function Grid({
   rows,
   length,
-  typed,
+  letters,
+  activeIndex,
+  onSelectIndex,
   solutionCount,
   latestBatchId,
 }: {
   rows: readonly BoardRow[];
   length: number;
-  typed: string;
+  /** The row being typed. `null` at a position means that space is still empty. */
+  letters: readonly (string | null)[];
+  /** Which space in the typing row accepts the next keystroke. */
+  activeIndex: number;
+  /** Jumps the active space to `index` — a tap fills out of order, per MECHANICS.md typing UX. */
+  onSelectIndex: (index: number) => void;
   solutionCount: number;
   latestBatchId: number;
 }) {
@@ -78,18 +85,29 @@ export function Grid({
         </div>
       ))}
 
-      {/* The row being typed. */}
+      {/* The row being typed. Each space is independently tappable — a
+          player who knows the last letter can select it directly instead of
+          filling left to right. */}
       <div className="flex gap-[5px]" key={`typing-${latestBatchId}`}>
         {solutionCount > 1 && <span className="w-[14px] flex-none" aria-hidden />}
         {Array.from({ length }, (_, i) => (
-          <div
+          <button
             key={i}
+            type="button"
+            onClick={() => onSelectIndex(i)}
+            aria-label={`space ${i + 1}${letters[i] ? `, ${letters[i]}` : ', empty'}${
+              i === activeIndex ? ', selected' : ''
+            }`}
             className={`flex aspect-square max-h-[62px] flex-1 items-center justify-center border font-mono text-[24px] font-bold leading-none ${
-              typed[i] ? TILE.TYPED : TILE.EMPTY
+              i === activeIndex
+                ? 'border-accent text-accent'
+                : letters[i]
+                  ? TILE.TYPED
+                  : TILE.EMPTY
             }`}
           >
-            {typed[i] ?? ''}
-          </div>
+            {letters[i] ?? ''}
+          </button>
         ))}
       </div>
     </div>
