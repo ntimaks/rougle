@@ -682,6 +682,18 @@ One consequence is worth stating outright: **a payout bonus cannot be COMMON or 
 **R-053 · `RL.22` Polyglot raises what the shelf STOCKS, not what it charges.** Its rule is "the shop that follows them stocks one rarity tier higher". The implementation drew the shelf normally and then priced each relic one tier up, so a boss relic bought to improve the shop instead charged UNCOMMON money for a COMMON relic — the exact penalty its own code comment said it was avoiding. It was invisible because there was no notion of what a shelf stocks *at*: without §6.6 there was no tier to raise.
 → **Ruled:** §6.6. Tier-up shifts the act's rarity shares up one rung and prices every relic at its own rarity. Measured in Act I: RARE 10.3% → 42.6% and COMMON to zero. The shelf costs more because it is better, which is the direction a boss relic should move a price.
 
+**R-054 · §2's run-long bankroll reverses v1.3's boss-order finding; v2.0's order stands.** §12.1 flagged the boss order as "the first thing to measure once §2 lands": v1.3's R-019 pulled the Twins out of Act I because it measured **20.5% of all runs** ending there under the old per-act pools — half of every death in the game, from Mirror's variance landing on a wall at the end of the shortest act. §2's run-long bankroll removes that act boundary, and cuts the other way too — no refill waits on the far side any more, and §2.3 pays a Mirror word's two solutions as two payouts instead of one — so the conflict was genuinely open in either direction.
+→ **Ruled:** the engine's current order (Twins Act I, Cipher Act II) stands, no code change. Measured with `npm run sim`, 1200 runs, same seeds, only `BOSSES[0]`/`BOSSES[1]` swapped and nothing else in §2/§4/§6 touched:
+
+| | Twins in Act I (current) | Cipher in Act I (swapped) |
+|---|---|---|
+| Act I death rate | 10.0% | 16.3% |
+| Act II death rate | 16.8% | 18.8% |
+| Act III death rate | 15.0% | 11.5% |
+| Win rate | 58.2% | 53.4% |
+
+Reproduced on a second, independently-seeded 1200-run sweep: 10.0% / 16.9% / 15.8% / 57.3% against 16.1% / 18.8% / 11.8% / 53.4% — within noise of the first. Both placements land inside §11.5's 10–20% Act I band, but Twins-first sits at the band's safe edge while Cipher-first sits near its upper edge, and Twins-first wins 4–5pp more often overall. v1.3's finding does not carry: it was measured against per-act pools this document no longer has, and under the run-long pool the extra payout Mirror earns by going first outweighs the safety net it loses. §12.1's conflict 2 is closed on this measurement.
+
 ### 12.1 Carried forward from v1.3
 
 v1.3 added R-017 through R-036. Most are still live engine behaviour with tests
@@ -692,7 +704,7 @@ against v1.1. Their status under v2.0:
 |---|---|
 | R-017 `RL.08` The Fence | **Superseded.** The Fence was cut in §6.4. |
 | R-018 The refund floor and word-start refunds | **Superseded** by §2.5 Clamps A and B. |
-| R-019 The Twins is the Act II boss | **⚠ Conflict.** See below. |
+| R-019 The Twins is the Act II boss | **Resolved by R-054.** Measured under §2's run-long bankroll: v2.0's order (Twins Act I) stands. |
 | R-020 Gold is inert, and that is why the pool is not tense | **Fulfilled.** This is the diagnosis v2.0 is the treatment for. Gold now buys relics continuously (§4). |
 | R-021 Forge upgrade coverage | **Stands.** Every relic still carries exactly one MK.II (§6.7). |
 | R-022 Event content | **Superseded** by `events.json` v2.0. |
@@ -739,7 +751,7 @@ reveal-ladder relics, and the ladder is cut, so they are obsolete rather than
 cut on the §6.4 test — which is presumably why they fell out of the note. Fixed
 in the registry.
 
-#### ⚠ Two conflicts, unresolved
+#### ⚠ One conflict unresolved, one closed
 
 **1 · Silent Start (§7 vs R-028/R-029).** The §7 table says Silent Start's first
 guess "returns GREY only". That is the v1.1 wording, and v1.3 ruled it out twice.
@@ -756,20 +768,19 @@ reversal. If the reversal *is* intended, say so and it changes in one function �
 but the solver has to be told at the same time, or the next sweep will describe
 the bot rather than the game.
 
-**2 · Boss order (§8.1/§8.2 vs v1.3's R-019).** v2.0 puts the Twins in Act I and the
-Cipher in Act II. v1.3 swapped them, on measurement: the Twins in Act I ended
-**20.5% of all runs** — half of every death in the game, against 4.3% for the
-next worst node — not because Mirror is broken but because its variance landed
-on a hard wall at the end of the shortest act, with the fewest relics to absorb
-it. Raising Act I's pool to 28 barely moved it.
+**2 · Boss order (§8.1/§8.2 vs v1.3's R-019) — resolved, R-054.** v2.0 puts the
+Twins in Act I and the Cipher in Act II. v1.3 swapped them, on measurement: the
+Twins in Act I ended **20.5% of all runs** — half of every death in the game,
+against 4.3% for the next worst node — not because Mirror is broken but because
+its variance landed on a hard wall at the end of the shortest act, with the
+fewest relics to absorb it. Raising Act I's pool to 28 barely moved it.
 
 A run-long bankroll changes that arithmetic and could change the conclusion:
 there is no act boundary to be unprepared at any more. But it changes it in both
 directions — there is also no refill afterwards to recover from it, and §2.3
 makes a Mirror word two payouts rather than one.
 
-**The engine ships v2.0's order** (Twins in Act I) because it is stated as
-document structure rather than a table cell, and because it is exactly the kind
-of question the harness exists to answer. It is the first thing to measure once
-§2 lands, and the number to watch is the Act I death rate against §11.5's
-10–20%.
+**Measured (R-054):** with the run-long bankroll in place, Twins-first now
+measures 10.0% Act I deaths against Cipher-first's 16.3%, and wins 58.2% of
+runs against 53.4% — the run-long pool reverses v1.3's finding rather than just
+softening it. The engine keeps v2.0's order; no code change.
