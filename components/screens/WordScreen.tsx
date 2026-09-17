@@ -21,26 +21,73 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
   const dispatch = useGame((s) => s.dispatch);
   const events = useGame((s) => s.events);
   const { animate } = useMotion();
-  const [typed, setTyped] = useState('');
 
   const word = state.word!;
+
+  // Each space fills independently rather than strictly left-to-right — a
+  // player who already knows the last letter can tap that space and type it
+  // there, instead of being forced through every space before it.
+  const [letters, setLetters] = useState<(string | null)[]>(() => Array(word.length).fill(null));
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // A new word (or a new guess row within the same word) starts blank.
+  // Reset during render rather than in an effect, so the very first paint of
+  // a new word never shows the previous row's letters or length.
+  const wordKey = `${word.nodeId}:${word.history.length}:${word.length}`;
+  const [resetKey, setResetKey] = useState(wordKey);
+  if (resetKey !== wordKey) {
+    setResetKey(wordKey);
+    setLetters(Array(word.length).fill(null));
+    setActiveIndex(0);
+  }
+
   const view = useMemo(() => projectBoard(state, word), [state, word]);
   const pool = state.bankroll;
   const critical = pool <= CRITICAL_AT;
 
-  const guessError = canDispatch(state, { type: 'SUBMIT_GUESS', guess: typed });
-  const canSubmit = typed.length === word.length && guessError === null;
+  const isFull = letters.every((l): l is string => l !== null);
+  const typed = isFull ? letters.join('') : '';
+  const guessError = isFull ? canDispatch(state, { type: 'SUBMIT_GUESS', guess: typed }) : null;
+  const canSubmit = isFull && guessError === null;
 
   const submit = useCallback(() => {
     if (!canSubmit) return;
     dispatch({ type: 'SUBMIT_GUESS', guess: typed });
-    setTyped('');
-  }, [canSubmit, dispatch, typed]);
+    setLetters(Array(word.length).fill(null));
+    setActiveIndex(0);
+  }, [canSubmit, dispatch, typed, word.length]);
 
-  const type = useCallback(
-    (letter: string) => setTyped((t) => (t.length < word.length ? t + letter : t)),
-    [word.length],
-  );
+  // Fills the active space, then advances the cursor to the next empty one
+  // (wrapping past the end) so plain consecutive typing still works exactly
+  // as before — the only change is that a tap can move the cursor first.
+  const type = useCallback((letter: string) => {
+    setLetters((prev) => {
+      const next = [...prev];
+      next[activeIndex] = letter;
+      return next;
+    });
+    setActiveIndex((i) => {
+      const n = word.length;
+      for (let step = 1; step <= n; step++) {
+        const candidate = (i + step) % n;
+        if (letters[candidate] === null && candidate !== i) return candidate;
+      }
+      return i;
+    });
+  }, [activeIndex, letters, word.length]);
+
+  const backspace = useCallback(() => {
+    setLetters((prev) => {
+      const next = [...prev];
+      if (next[activeIndex] !== null) {
+        next[activeIndex] = null;
+      } else if (activeIndex > 0) {
+        next[activeIndex - 1] = null;
+      }
+      return next;
+    });
+    setActiveIndex((i) => (letters[i] === null && i > 0 ? i - 1 : i));
+  }, [activeIndex, letters]);
 
   // A physical keyboard is primary on pointer:fine. It routes through the same
   // predicate as the on-screen one, so it cannot bypass a Sieve lock.
@@ -49,13 +96,15 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'Enter') return submit();
-      if (e.key === 'Backspace') return setTyped((t) => t.slice(0, -1));
+      if (e.key === 'Backspace') return backspace();
+      if (e.key === 'ArrowLeft') return setActiveIndex((i) => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') return setActiveIndex((i) => Math.min(word.length - 1, i + 1));
       const letter = e.key.toUpperCase();
       if (/^[A-Z]$/.test(letter) && !locked.has(letter)) type(letter);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [submit, type, view.locked]);
+  }, [backspace, submit, type, view.locked, word.length]);
 
   const spent = word.guessesSpent;
   const node = state.map.nodes[word.nodeId]!;
@@ -105,7 +154,9 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
         <Grid
           rows={view.rows}
           length={word.length}
-          typed={typed}
+          letters={letters}
+          activeIndex={activeIndex}
+          onSelectIndex={setActiveIndex}
           solutionCount={word.solutions.length}
           latestBatchId={batchId}
         />
@@ -136,7 +187,7 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
         )}
       </div>
 
-      {typed.length === word.length && guessError && (
+      {isFull && guessError && (
         <p className="flex-none px-3 pb-1 font-mono text-[10px] text-red" role="status">
           {guessError.message}
         </p>
@@ -147,7 +198,7 @@ export function WordScreen({ state, batchId }: { state: GameState; batchId: numb
         locked={view.locked}
         onKey={type}
         onEnter={submit}
-        onBackspace={() => setTyped((t) => t.slice(0, -1))}
+        onBackspace={backspace}
         canSubmit={canSubmit}
       />
     </div>
