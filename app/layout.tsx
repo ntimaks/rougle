@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ROUGLE',
-  description: 'A roguelike Wordle. One pool of guesses per act.',
+  description: 'A roguelike Wordle. One bankroll for the whole run, and it never refills.',
   icons: {
     icon: [
       { url: '/icons/favicon.ico' },

@@ -31,6 +31,8 @@
   --color-accent: var(--term-fg);
   --color-amber: var(--term-amber);
   --color-red: var(--term-red);
+  --color-blue: var(--term-blue);
+  --color-magenta: var(--magenta);
   --color-ground: var(--term-bg);
 
   --color-fg0: var(--dark-fg-0);
@@ -67,6 +69,17 @@ button {
   font-family: inherit;
   cursor: pointer;
   border-radius: 0;
+}
+
+/*
+ * The design system's `a` rule (base.css, imported above) underlines every
+ * link. It reaches the page as unlayered CSS, which the cascade always ranks
+ * above Tailwind's `@layer utilities` regardless of specificity — so a
+ * Tailwind `no-underline` on a `<Link>` styled as a button cannot win against
+ * it. This is the same unlayered bucket, so it can.
+ */
+a.no-underline {
+  text-decoration: none;
 }
 
 /* Reduced motion collapses durations and stops loops. State still changes:
