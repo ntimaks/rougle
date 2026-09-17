@@ -18,3 +18,4 @@ same PR updates the brief and adds a record here.
 | [0010](ADR-0010-act-end-receipt.md) | The act end is a phase holding a receipt, not an atomic transition | Accepted |
 | [0011](ADR-0011-reveal-ladder.md) | Gold buys information on an escalating ladder; the inert second currency was why the pool felt loose | Accepted — MECHANICS R-020 |
 | [0012](ADR-0012-content-drop.md) | Forge upgrades and events merged in, not applied — the drop predated two merges | Accepted — MECHANICS R-021…R-023 |
+| [0013](ADR-0013-rarity-gates-supply.md) | Rarity carries a per-act share of every relic draw; prices and node gold drop behind it | Accepted — MECHANICS R-052, R-053 |

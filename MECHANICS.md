@@ -156,11 +156,13 @@ Shop is no longer a node type (§4).
 
 | Node | Gold | Other |
 |---|---|---|
-| Word | 40g | Shop opens on clear |
-| Elite | 70g | Shop opens on clear |
-| Boss | 120g | +4 bankroll, and choice of 1 of 2 boss relics |
+| Word | 30g | Shop opens on clear |
+| Elite | 50g | Shop opens on clear |
+| Boss | 90g | +4 bankroll, and choice of 1 of 2 boss relics |
 
 Boss relics occupy a slot like any other. The player may decline both.
+
+**Repriced from 40/70/120.** R-052. `v2-004` measured a run earning ~920g against five slots and named the income its first lever: at those prices the shelf was not a choice. §4.2's prices then came down about a third behind §6.6, which on its own makes the shelf less of a choice still, so the income comes down with them. Measured, the pair buys 8.8 relics a run against 11.2 and leaves 124g unspent against 166g — relics are more affordable each, and the run has less spare gold, which is the shape §4.2's last paragraph asks for.
 
 ---
 
@@ -173,27 +175,32 @@ This is what makes gold matter continuously and what makes relic acquisition an 
 ### 4.1 Stock
 
 Each shop rolls:
-- **3 relics**, weighted by archetype (§6.6)
-- **1 consumable**
+- **3 relics**, weighted by rarity and archetype (§6.6)
+- **1 consumable** — a reserved slot, not one the consumables win
 - **Guess refills** — **one per shop**, on a ladder that escalates across the run: 40 / 60 / 80 / 100 / 120 / 140g. **Six in a run, hard cap.**
 
 ### 4.2 Prices
 
 | Item | Price |
 |---|---|
-| Common relic | 60g |
-| Uncommon relic | 110g |
-| Rare relic | 180g |
-| Consumable | 40g |
+| Common relic | 40g |
+| Uncommon relic | 70g |
+| Rare relic | 110g |
+| Boss relic | 150g — never stocked; this is what it sells back at |
+| Consumable | 30g |
 | Guess refill (+1 bankroll) | 40 / 60 / 80 / 100 / 120 / 140g, escalating across the run |
 | Reroll stock | 20g, +10g per reroll within the same shop |
 | Sell a held relic | 50% of price, rounded down |
+
+**Price is not what makes a RARE rare — §6.6 is.** R-052. Until §6.6 existed nothing else did the job, and a price is bad at it: a player who wants the rare saves two nodes and buys it, and a player who cannot afford one walks past a shelf they can do nothing with. Neither is scarcity. With supply restricted the prices are free to be affordable, and are: a whole shelf costs **223g in Act I** and **255g in Act III** (measured) against roughly 220g an act of income.
+
+Flat, still — no variance. A ±20% swing on a rare is wider than the gap between two rarities, which turns "can I afford this" into a dice roll.
 
 **The refill valve is deliberately worse than a relic.** It was three refills a shop at a flat 25g: across twelve shops that is **36 purchasable bankroll against a non-relic economy of 24** (12 start + 12 from boss clears) — one and a half times the entire base economy, carried over from a per-act pool without redoing the multiplication for a twelve-shop run.
 
 The rate was backwards too. 25g bought one bankroll; an uncommon relic at 110g closing ~0.4 a word over ten remaining words is worth ~4 bankroll, about **27g each**. Gold bought survival more cheaply than it bought a build. **Gold should buy builds, and buy survival only at a penalty.** The ladder above is 540g for 6 bankroll — 90g each, comfortably worse than relic efficiency, and a quarter of the base economy rather than one and a half times it.
 
-Income runs roughly 300g per act. That funds about two relic purchases per act before rerolls, refills and consumables. A player cannot buy everything, which is the point.
+Income runs roughly 220g per act. That funds about two relic purchases per act before rerolls, refills and consumables. A player cannot buy everything, which is the point — and after R-052 they can reliably buy *something*, which is the other half of it.
 
 ---
 
@@ -286,11 +293,15 @@ The cap does two jobs. The obvious one is scarcity. The important one is that **
 
 At 5 slots the v1.1 information cap becomes unnecessary and is removed.
 
-### 6.3 Rarity
+### 6.3 Rarity — normative
 
 `COMMON` · `UNCOMMON` · `RARE` · `BOSS` · `CONSUMABLE`
 
 Consumables are not relics, occupy their own slots, and are spent on use.
+
+**Rarity is a statement about supply, not about price.** R-052. What a rarity means is how often a relic of that rarity is put in front of the player, and §6.6's table is where that lives. Until R-052 it meant neither: no draw read the field, so a tier's share of a shelf was however many relics happened to be in it, and RARE — 5 of the 18 shelf-eligible relics — took **23.7%** of every shelf in every act.
+
+A `BOSS` relic is stocked by no shop and drawn by no shelf. §3.3 is the only way to get one.
 
 ### 6.4 The impact test — normative
 
@@ -352,9 +363,30 @@ The split matters. Success-scaling relics reward a run already going well; failu
 
 Counters never reset between acts. Hot Streak's resets on a slow solve, by its own rule, and is the only one that does.
 
-### 6.6 Shop weighting
+### 6.6 Shop weighting — normative
 
-Offers bias toward archetypes the player already holds, with a floor so pivoting stays possible:
+Every relic slot on a shelf is drawn against two weights multiplied together.
+
+**Rarity, by act.** R-052. The share of relic slots each rarity takes:
+
+| | Act I | Act II | Act III |
+|---|---|---|---|
+| COMMON | 35% | 28% | 20% |
+| UNCOMMON | 55% | 55% | 52% |
+| RARE | **10%** | **17%** | **28%** |
+| BOSS | — | — | — |
+
+Read as a share of the **draw**, not as a per-relic weight. The registry holds 3 COMMON, 10 UNCOMMON and 5 RARE relics, so handing every relic its tier's weight gives the largest tier the largest share — which is exactly the bug this replaces: unweighted, those counts produce RARE at 27.8%. A tier's weight is therefore divided by how many of that tier are still unheld, so the stated share is the one that lands, and keeps landing as the pool empties: the last unheld RARE appears as often as the first of five did.
+
+**UNCOMMON is the backbone in every act**, rather than COMMON early and UNCOMMON late. §6.4's impact test left only three COMMON relics, and a curve that gave Act I to COMMON would hand 60% of its shelf slots to three relics — three relic slots would then show the same three relics in every early shop. What moves across the acts is the thing a player is meant to feel moving: **RARE, from a tenth of the shelf to over a quarter.**
+
+Twelve shops at three relic slots is 36 draws a run, so Act I shows about one RARE and Act III about three.
+
+BOSS has no share in any act: §3.3 hands boss relics out on a boss clear and nothing else draws them.
+
+**Tier-up.** `RL.22` Polyglot stocks the following shop "one rarity tier higher" (§6.5), which shifts this act's shares up one rung: COMMON's share goes to UNCOMMON and UNCOMMON's to RARE, and RARE keeps its own — there is nothing above it to promote into, and taking it away would make the relic lower the ceiling it is sold as raising. R-053.
+
+**Archetype.** Offers bias toward archetypes the player already holds, with a floor so pivoting stays possible:
 
 ```
 P(archetype) = 0.25 + 0.75 × (held_in_archetype / total_held)
@@ -643,6 +675,12 @@ One consequence is worth stating outright: **a payout bonus cannot be COMMON or 
 
 **R-051 · `RL.30` Ouroboros' MK.II breaks §6.7 rule 2, and ships anyway.** Rule 2 says a boss relic "upgrades by shrinking its drawback, never by raising magnitude". Ouroboros returns you to 8 at MK.II's 12, which is `magnitude` and is recorded as such in the registry. The alternative reading of its drawback — "once per run" — would upgrade to twice per run, which is a far larger change than +4 bankroll once.
 → **Ruled:** the registry entry stands and the axis stays `magnitude`, as a NAMED exception rather than a silent one. Rule 2 exists to stop a free relic growing without a counterweight, and +4 bankroll once in a run is the smallest boss upgrade in the set — smaller than either `reach` upgrade, which each extend a relic across a whole new class of word. The validator reads the exception from this ruling rather than from a hardcoded list, so a second boss relic drifting to `magnitude` still fails.
+
+**R-052 · Rarity gates supply; price does not.** Rarity was decoration. `relics.json` carried the field, the card spine coloured itself from it and §4.2 looked a number up in it, but no draw consulted it — `rollShopStock` weighted by archetype alone. A tier's share of a shelf was therefore however many relics happened to be in it: RARE filled **23%** of every shelf, in every act, and the three acts drew from an identical shelf. Price was the only thing making a rare feel rare, and a price cannot do that job: a player who wants it saves two nodes and buys it, while a player who cannot afford one is left with a shelf they can do nothing with.
+→ **Ruled:** §6.3, §6.6 and §4.2. A per-act rarity share on every relic draw — RARE 10% / 17% / 28% — divided by the live count of that tier so the stated share is the one that lands. §4.2's prices drop about a third behind it (60/110/180 → 40/70/110) and §3.3's node gold drops with them (40/70/120 → 30/50/90), which is `v2-004`'s first lever taken at its recommended size. Measured, 1000 runs on identical seeds: RARE 23.7% → 10.3% in Act I and 26.8% in Act III, a whole shelf 395g → 223g, relics bought 11.2 → 8.8, gold left unspent 166g → 124g. Win rate 59.6% → 58.1% and **Act I's death rate moves into §11.5's band** at 10.9%, so the change pays for itself; the 20–30% win-rate band is not reached and this ruling does not attempt it — see `v2-005` and §13. Balance snapshot `v2-005`, `ADR-0013`.
+
+**R-053 · `RL.22` Polyglot raises what the shelf STOCKS, not what it charges.** Its rule is "the shop that follows them stocks one rarity tier higher". The implementation drew the shelf normally and then priced each relic one tier up, so a boss relic bought to improve the shop instead charged UNCOMMON money for a COMMON relic — the exact penalty its own code comment said it was avoiding. It was invisible because there was no notion of what a shelf stocks *at*: without §6.6 there was no tier to raise.
+→ **Ruled:** §6.6. Tier-up shifts the act's rarity shares up one rung and prices every relic at its own rarity. Measured in Act I: RARE 10.3% → 42.6% and COMMON to zero. The shelf costs more because it is better, which is the direction a boss relic should move a price.
 
 ### 12.1 Carried forward from v1.3
 

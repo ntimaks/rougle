@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from './config';
 import { applyEffects, heldRelics, initialState, reduce, relicSlots } from './reducer';
-import { FORGE_CANDIDATES, drawForgeCandidates, optionAvailable, rerollCost, sellPrice, shopPrice } from './nodes';
+import {
+  FORGE_CANDIDATES,
+  drawForgeCandidates,
+  optionAvailable,
+  rerollCost,
+  rollShopStock,
+  sellPrice,
+  shopPrice,
+} from './nodes';
 import { EVENTS, EVENT_DEFS } from '../content/events';
 import { REGISTRY } from '../content/registry';
 import type { GameState, NodeId, NodeKind } from './state';
@@ -157,15 +165,21 @@ describe('§6.4 shop', () => {
     // differently. §4.2 is a table and it is normative — and a 72g spread on a
     // rare is wider than the gap between two rarities, which turns "can I
     // afford this" into a dice roll.
-    expect(shopPrice('RL.01')).toBe(60);
-    expect(shopPrice('RL.03')).toBe(110);
-    expect(shopPrice('RL.04')).toBe(180);
-    expect(shopPrice('CN.01')).toBe(40);
+    //
+    // Read from `cfg.prices` rather than from literals: §6.6 made the prices a
+    // balance lever, and a test that pins them stops the lever moving.
+    expect(shopPrice('RL.01', CONFIG)).toBe(CONFIG.prices.COMMON);
+    expect(shopPrice('RL.03', CONFIG)).toBe(CONFIG.prices.UNCOMMON);
+    expect(shopPrice('RL.04', CONFIG)).toBe(CONFIG.prices.RARE);
+    expect(shopPrice('CN.01', CONFIG)).toBe(CONFIG.prices.CONSUMABLE);
+    // The rungs must stay ordered, whatever the numbers become.
+    expect(CONFIG.prices.COMMON).toBeLessThan(CONFIG.prices.UNCOMMON);
+    expect(CONFIG.prices.UNCOMMON).toBeLessThan(CONFIG.prices.RARE);
   });
 
   it('§4.2 — selling returns half, rounded down', () => {
-    expect(sellPrice('RL.01', CONFIG)).toBe(30);
-    expect(sellPrice('RL.03', CONFIG)).toBe(55);
+    expect(sellPrice('RL.01', CONFIG)).toBe(Math.floor(CONFIG.prices.COMMON / 2));
+    expect(sellPrice('RL.03', CONFIG)).toBe(Math.floor(CONFIG.prices.UNCOMMON / 2));
   });
 
   it('§4.2 — a reroll costs more each time WITHIN a shop', () => {
@@ -232,9 +246,18 @@ describe('§6.4 shop', () => {
 
   it('§6.2 — a sixth relic waits for the player to destroy one of five', () => {
     const s = reach('SHOP')!;
-    const full = { ...s, relics: [...s.relics, ...plantRelics(CONFIG.relicSlots)], gold: 1000 };
+    const onShelf = s.shop!.stock.map((x) => x.code);
+    const full = {
+      ...s,
+      relics: [...s.relics, ...plantRelics(CONFIG.relicSlots, false, onShelf)],
+      gold: 1000,
+    };
     const slot = full.shop!.stock.findIndex(
       (x) => !REGISTRY[x.code]!.isConsumable && !full.relics.some((r) => r.code === x.code),
+    );
+    expect(slot, 'no unheld relic on the shelf to buy').toBeGreaterThanOrEqual(0);
+    expect(full.relics.filter((r) => r.code !== full.characterCode)).toHaveLength(
+      CONFIG.relicSlots,
     );
     const out = reduce(full, { type: 'BUY_STOCK', slot }, CONFIG);
     expect(out.state.pendingReplace?.code).toBe(full.shop!.stock[slot]!.code);
@@ -255,9 +278,15 @@ describe('§6.4 shop', () => {
 });
 
 /** N held relics that a forge can legally work on, plus optionally spent ones. */
-function plantRelics(n: number, alreadyUpgraded = false) {
+/**
+ * `exclude` keeps a planted board off a specific shelf. §6.6 concentrates a
+ * shelf's three slots on the rarities the act deals in, and the registry holds
+ * 18 shelf-eligible relics, so a fixed plant of five can now cover every slot
+ * on offer — which leaves "buy the thing you do not hold" with nothing to buy.
+ */
+function plantRelics(n: number, alreadyUpgraded = false, exclude: readonly string[] = []) {
   const codes = Object.values(REGISTRY)
-    .filter((d) => d.upgrade)
+    .filter((d) => d.upgrade && !exclude.includes(d.code))
     .slice(alreadyUpgraded ? 12 : 0, (alreadyUpgraded ? 12 : 0) + n);
   return codes.map((d, i) => ({
     instanceId: `${d.code}#planted${alreadyUpgraded ? 'U' : ''}${i}`,
@@ -267,6 +296,100 @@ function plantRelics(n: number, alreadyUpgraded = false) {
     upgraded: alreadyUpgraded,
   }));
 }
+
+describe('§6.6 rarity gates supply, not price', () => {
+  /** Every relic code a fresh run in this act would see on a shelf. */
+  function shelfCodes(actIndex: 0 | 1 | 2, seeds: number, tierUp = false): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < seeds; i++) {
+      const base = initialState(`RW${actIndex}X${i}`, 'CH.01');
+      const s: GameState = {
+        ...base,
+        actIndex,
+        counters: tierUp ? { ...base.counters, 'shop:tierUp': 1 } : base.counters,
+      };
+      out.push(...rollShopStock(s, `a${actIndex}-r2c0`, CONFIG).map((x) => x.code));
+    }
+    return out;
+  }
+
+  const share = (codes: readonly string[], rarity: string): number => {
+    const relics = codes.filter((c) => !REGISTRY[c]?.isConsumable);
+    return relics.filter((c) => REGISTRY[c]?.rarity === rarity).length / relics.length;
+  };
+
+  it('a RARE turns up as often as §6.6 says, not as often as it is numerous', () => {
+    // The bug this replaces: no draw read `rarity`, so every relic was equally
+    // likely and RARE — 7 of 27 offerable relics — filled 23% of every shelf.
+    for (const actIndex of [0, 1, 2] as const) {
+      const codes = shelfCodes(actIndex, 400);
+      for (const rarity of ['COMMON', 'UNCOMMON', 'RARE'] as const) {
+        const want = CONFIG.rarityWeights[actIndex][rarity];
+        expect(
+          Math.abs(share(codes, rarity) - want),
+          `act ${actIndex + 1} ${rarity}: ${(share(codes, rarity) * 100).toFixed(1)}% vs ${want * 100}%`,
+        ).toBeLessThan(0.06);
+      }
+    }
+  });
+
+  it('rares get commoner every act and commons get rarer', () => {
+    const rare = ([0, 1, 2] as const).map((a) => share(shelfCodes(a, 400), 'RARE'));
+    const common = ([0, 1, 2] as const).map((a) => share(shelfCodes(a, 400), 'COMMON'));
+    expect(rare[0]!).toBeLessThan(rare[1]!);
+    expect(rare[1]!).toBeLessThan(rare[2]!);
+    expect(common[0]!).toBeGreaterThan(common[1]!);
+    expect(common[1]!).toBeGreaterThan(common[2]!);
+  });
+
+  it('a boss relic is never on a shelf — §3.3 is the only way to hold one', () => {
+    for (const actIndex of [0, 1, 2] as const) {
+      for (const code of shelfCodes(actIndex, 300)) {
+        expect(REGISTRY[code]!.rarity, `${code} leaked onto an act ${actIndex + 1} shelf`).not.toBe(
+          'BOSS',
+        );
+      }
+    }
+    // And the weights say so too, so the rule survives the filter being relaxed.
+    for (const act of [0, 1, 2] as const) expect(CONFIG.rarityWeights[act].BOSS).toBe(0);
+  });
+
+  it('the shelf keeps its reserved consumable slot and its relic count', () => {
+    for (const actIndex of [0, 1, 2] as const) {
+      const codes = shelfCodes(actIndex, 100);
+      const perShelf = codes.length / 100;
+      expect(perShelf).toBe(CONFIG.shopRelics + CONFIG.shopConsumables);
+      const consumables = codes.filter((c) => REGISTRY[c]?.isConsumable).length;
+      expect(consumables / 100).toBe(CONFIG.shopConsumables);
+    }
+  });
+
+  it('a shelf is affordable — §4.2 prices it under one act of income', () => {
+    // "Slightly pricey, but you can afford them." A shelf nobody can touch is
+    // not a shop; one cleared out of pocket money is not a choice.
+    const s = reach('SHOP')!;
+    const shelf = s.shop!.stock.reduce((a, item) => a + item.price, 0);
+    expect(shelf).toBeGreaterThan(CONFIG.prices.RARE);
+    expect(shelf).toBeLessThan(CONFIG.rewards.word * 12);
+  });
+
+  it('§6.5 tier-up raises what RL.22 Polyglot stocks, and not what it charges', () => {
+    // It used to raise only the PRICE of whatever was drawn, so a boss relic
+    // bought to improve the shop charged uncommon money for a common relic.
+    const plain = shelfCodes(0, 400);
+    const raised = shelfCodes(0, 400, true);
+    expect(share(raised, 'COMMON'), 'tier-up should promote every COMMON away').toBe(0);
+    expect(share(raised, 'RARE')).toBeGreaterThan(share(plain, 'RARE'));
+    // Every price is still the price of the relic actually on the shelf.
+    const base = initialState('TIERPRICE', 'CH.01');
+    const s: GameState = { ...base, counters: { ...base.counters, 'shop:tierUp': 1 } };
+    for (const item of rollShopStock(s, 'a0-r2c0', CONFIG)) {
+      expect(item.price, `${item.code} is priced off its own rarity`).toBe(
+        shopPrice(item.code, CONFIG),
+      );
+    }
+  });
+});
 
 describe('§6.7 forge', () => {
   it('grants one operation, or two holding RL.09 The Anvil', () => {

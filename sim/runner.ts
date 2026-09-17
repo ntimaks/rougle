@@ -382,7 +382,7 @@ export function playRun(
  * therefore a lower bound.
  */
 function dropCheapest(s: GameState, cfg: Readonly<GameConfig>): GameState {
-  const held = [...heldRelics(s)].sort((a, b) => shopPrice(a.code) - shopPrice(b.code));
+  const held = [...heldRelics(s)].sort((a, b) => shopPrice(a.code, cfg) - shopPrice(b.code, cfg));
   const victim = held[0];
   if (!victim) return reduce(s, { type: 'SKIP_OFFER' }, cfg).state;
   const done = reduce(s, { type: 'REPLACE_RELIC', instanceId: victim.instanceId }, cfg);
