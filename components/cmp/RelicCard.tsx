@@ -1,6 +1,6 @@
 'use client';
 
-import { REGISTRY, type RelicDef } from '@/lib/engine';
+import { REGISTRY, type RelicDef, type ScalingCounter } from '@/lib/engine';
 import { RARITY_SPINE, RARITY_TEXT, glyphFor } from './rarity';
 import { useMotion } from '@/lib/store/useMotion';
 
@@ -23,6 +23,13 @@ export function RelicCard({
   dimmed,
   index,
   onTap,
+  /**
+   * §6.5's run-long counter, for a held relic that carries one — null for an
+   * offer that has not been taken yet, since the counter has not started.
+   * The caller reads it (RelicChip's own pattern) so the card stays a pure
+   * display component.
+   */
+  counter = null,
 }: {
   code: string;
   held: readonly string[];
@@ -30,6 +37,7 @@ export function RelicCard({
   dimmed: boolean;
   index: number;
   onTap: () => void;
+  counter?: ScalingCounter | null;
 }) {
   const { animate } = useMotion();
   const def = REGISTRY[code];
@@ -76,6 +84,22 @@ export function RelicCard({
 
       <div className="flex flex-col gap-[6px] px-[10px] py-[10px]">
         <p className="font-mono text-[11px] leading-[1.5] text-fg1">{def.rule}</p>
+        {counter && (
+          // §6.5 — the counter, visible on the card itself rather than a
+          // hover or tooltip. Same label/value shape as the drawer's line,
+          // so a scaling relic never reads two ways in two screens.
+          <p className="flex items-baseline gap-2 font-mono text-[9px] leading-none tracking-[0.14em]">
+            <span className="text-fg3">{counter.label}</span>
+            <span
+              className={`font-bold ${
+                counter.cap !== null && counter.value >= counter.cap ? 'text-amber' : 'text-accent'
+              }`}
+            >
+              {counter.value}
+              {counter.cap !== null && ` / ${counter.cap}`}
+            </span>
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <span className="font-mono text-[8px] leading-none tracking-[0.14em] text-fg3">
             {def.archetype ?? 'CONSUMABLE'} · {def.hook}

@@ -9,6 +9,7 @@ import {
   refillCost,
   relicSlots,
   rerollCost,
+  scalingCounter,
   sellPrice,
   type GameState,
 } from '@/lib/engine';
@@ -190,19 +191,39 @@ export function ShopScreen({ state }: { state: GameState }) {
               held.map((r) => {
                 const def = REGISTRY[r.code];
                 if (!def) return null;
+                // §6.5 — the counter has to be visible here too: selling a
+                // built-up scaling relic is exactly the decision it informs.
+                const counter = scalingCounter(state, r);
                 return (
                   <button
                     key={r.instanceId}
                     type="button"
                     onClick={() => dispatch({ type: 'SELL_RELIC', instanceId: r.instanceId })}
-                    className="flex items-baseline gap-2 border border-line-soft px-[10px] py-2 text-left"
+                    className="flex flex-col gap-[4px] border border-line-soft px-[10px] py-2 text-left"
                   >
-                    <span className="font-mono text-[10px] font-bold leading-none tracking-[0.1em]">
-                      {r.upgraded ? (def.upgrade?.name ?? def.name) : def.name}
+                    <span className="flex items-baseline gap-2">
+                      <span className="font-mono text-[10px] font-bold leading-none tracking-[0.1em]">
+                        {r.upgraded ? (def.upgrade?.name ?? def.name) : def.name}
+                      </span>
+                      <span className="ml-auto font-mono text-[10px] font-bold leading-none text-amber">
+                        +{sellPrice(r.code, CONFIG)}g
+                      </span>
                     </span>
-                    <span className="ml-auto font-mono text-[10px] font-bold leading-none text-amber">
-                      +{sellPrice(r.code, CONFIG)}g
-                    </span>
+                    {counter && (
+                      <span className="flex items-baseline gap-2 font-mono text-[9px] leading-none tracking-[0.14em]">
+                        <span className="text-fg3">{counter.label}</span>
+                        <span
+                          className={`font-bold ${
+                            counter.cap !== null && counter.value >= counter.cap
+                              ? 'text-amber'
+                              : 'text-accent'
+                          }`}
+                        >
+                          {counter.value}
+                          {counter.cap !== null && ` / ${counter.cap}`}
+                        </span>
+                      </span>
+                    )}
                   </button>
                 );
               })}

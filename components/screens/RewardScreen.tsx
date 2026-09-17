@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { heldRelics, type GameState } from '@/lib/engine';
+import { heldRelics, scalingCounter, type GameState } from '@/lib/engine';
 import { Button } from '@/components/cmp/Button';
 import { RelicCard } from '@/components/cmp/RelicCard';
 import { REGISTRY } from '@/lib/engine';
@@ -33,6 +33,12 @@ export function RewardScreen({ state }: { state: GameState }) {
   const codes = replacing ? heldRelics(state).map((r) => r.code) : offer!.codes;
   const instanceOf = (code: string) =>
     heldRelics(state).find((r) => r.code === code)?.instanceId ?? null;
+  // §6.5 — a held relic being weighed for destruction has to show its live
+  // counter; an unheld offer has not started scaling, so it reads null.
+  const counterFor = (code: string) => {
+    const instance = state.relics.find((r) => r.code === code);
+    return instance ? scalingCounter(state, instance) : null;
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -58,6 +64,7 @@ export function RewardScreen({ state }: { state: GameState }) {
             index={i}
             selected={picked === code}
             dimmed={picked !== null && picked !== code}
+            counter={counterFor(code)}
             onTap={() => setPicked(code)}
           />
         ))}
