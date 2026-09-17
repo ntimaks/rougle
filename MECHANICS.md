@@ -450,7 +450,7 @@ Modifiers attach to words and are the entire difficulty curve.
 | Modifier | Act | Effect |
 |---|---|---|
 | Locked Key | I+ | One random letter unusable. **Never a solution letter.** |
-| Silent Start | I+ | First guess returns GREY only |
+| Silent Start | I+ | First guess suppresses YELLOW to UNKNOWN; GREEN and GREY are unaffected |
 | Long Word | II+ | 6 letters (base 7) |
 | Decay | II+ | GREEN reverts to UNKNOWN after one turn |
 | Fog | II+ | Feedback for guess *n* shows only after guess *n+1* |
@@ -692,7 +692,7 @@ One consequence is worth stating outright: **a payout bonus cannot be COMMON or 
 | Act III death rate | 15.0% | 11.5% |
 | Win rate | 58.2% | 53.4% |
 
-Reproduced on a second, independently-seeded 1200-run sweep: 10.0% / 16.9% / 15.8% / 57.3% against 16.1% / 18.8% / 11.8% / 53.4% — within noise of the first. Both placements land inside §11.5's 10–20% Act I band, but Twins-first sits at the band's safe edge while Cipher-first sits near its upper edge, and Twins-first wins 4–5pp more often overall. v1.3's finding does not carry: it was measured against per-act pools this document no longer has, and under the run-long pool the extra payout Mirror earns by going first outweighs the safety net it loses. §12.1's conflict 2 is closed on this measurement.
+Reproduced on a second, independently-seeded 1200-run sweep: 10.0% / 16.9% / 15.8% / 57.3% against 16.1% / 18.8% / 11.8% / 53.4% — within noise of the first. Both placements land inside §11.5's 10–20% Act I band, but Twins-first sits at the band's safe edge while Cipher-first sits near its upper edge, and Twins-first wins 4–5pp more often overall. v1.3's finding does not carry: it was measured against per-act pools this document no longer has, and under the run-long pool the extra payout Mirror earns by going first outweighs the safety net it loses. §12.1's boss-order conflict is closed on this measurement.
 
 ### 12.1 Carried forward from v1.3
 
@@ -713,8 +713,8 @@ against v1.1. Their status under v2.0:
 | R-025 Node rewards | **Superseded** by R-037. |
 | R-026 Nothing may defer feedback over two solutions | **Stands.** Mirror + Fog/Cipher still compose. |
 | R-027 Rangefinder was not withholding anything | **Stands.** §5.2's `letter: null` is this ruling. |
-| R-028 Silent Start keeps its greens | **⚠ Conflict.** See below. |
-| R-029 Silent Start withholds a yellow; it does not invent a grey | **⚠ Conflict.** See below. |
+| R-028 Silent Start keeps its greens | **Stands.** §7's table now matches. |
+| R-029 Silent Start withholds a yellow; it does not invent a grey | **Stands.** §7's table now matches. |
 | R-030 A staked word must say so | **Stands**, and matters more — `RL.21` All In is still in the registry. |
 | R-031 An activation that produces nothing is refused, not consumed | **Stands.** |
 | R-032 Bought information must be visible after the drawer closes | **Mostly moot.** The paid reveal ladder is cut. The principle still binds `RL.07` The Auditor, whose stamp must survive the panel closing. |
@@ -751,24 +751,15 @@ reveal-ladder relics, and the ladder is cut, so they are obsolete rather than
 cut on the §6.4 test — which is presumably why they fell out of the note. Fixed
 in the registry.
 
-#### ⚠ One conflict unresolved, one closed
+#### No conflicts remain
 
-**1 · Silent Start (§7 vs R-028/R-029).** The §7 table says Silent Start's first
-guess "returns GREY only". That is the v1.1 wording, and v1.3 ruled it out twice.
-GREY means *this letter is absent*, so reporting grey over a letter that is
-present is not withholding information — it is emitting a false one, and R-014
-forbids the engine lying in a way the player cannot detect. It also broke the
-solver badly enough to cost 21 points of measured win rate before it was found
-(technical brief §13 I-27). R-029's rule is that suppression turns YELLOW into
-UNKNOWN and leaves GREEN alone: the row is quiet, not wrong.
+Silent Start's §7/R-028/R-029 conflict is resolved: §7's table was v1.1 wording,
+carried forward by mistake, and now reads "suppresses YELLOW to UNKNOWN; GREEN
+and GREY are unaffected", matching what R-028 and R-029 ruled and what the
+engine already ships (see `suppression()` in `lib/engine/feedback/chain.ts` and
+the `R-029 Silent Start` tests in `lib/engine/feedback/chain.test.ts`).
 
-**The engine ships R-029's behaviour** until this is ruled otherwise, on the
-grounds that the §7 line reads as inherited wording rather than a deliberate
-reversal. If the reversal *is* intended, say so and it changes in one function —
-but the solver has to be told at the same time, or the next sweep will describe
-the bot rather than the game.
-
-**2 · Boss order (§8.1/§8.2 vs v1.3's R-019) — resolved, R-054.** v2.0 puts the
+**Boss order (§8.1/§8.2 vs v1.3's R-019) — resolved, R-054.** v2.0 puts the
 Twins in Act I and the Cipher in Act II. v1.3 swapped them, on measurement: the
 Twins in Act I ended **20.5% of all runs** — half of every death in the game,
 against 4.3% for the next worst node — not because Mirror is broken but because
