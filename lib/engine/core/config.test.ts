@@ -76,6 +76,54 @@ describe('config.ts matches MECHANICS.md v2.0', () => {
     expect(num(bossOther)).toBe(CONFIG.economy.bossBankroll);
   });
 
+  it('§6.6 — the rarity table, per act', () => {
+    const rows = tableAfter('| | Act I | Act II | Act III |');
+    // Rows read `| COMMON | 60% | 42% | 26% |`. BOSS's cells are em dashes: its
+    // being 0 in code is the rule, not an omission, so it is asserted below.
+    const stated = Object.fromEntries(
+      rows.map((r) => [r[0]?.replace(/\*/g, ''), r.slice(1, 4).map((c) => c.replace(/[*%]/g, ''))]),
+    );
+    for (const rarity of ['COMMON', 'UNCOMMON', 'RARE'] as const) {
+      expect(stated[rarity], `§6.6 has no ${rarity} row`).toBeDefined();
+      ([0, 1, 2] as const).forEach((act) => {
+        expect(Number(stated[rarity]![act]) / 100, `act ${act + 1} ${rarity}`).toBeCloseTo(
+          CONFIG.rarityWeights[act][rarity],
+          5,
+        );
+      });
+    }
+    ([0, 1, 2] as const).forEach((act) => {
+      expect(CONFIG.rarityWeights[act].BOSS, `act ${act + 1} BOSS comes from §3.3`).toBe(0);
+      expect(CONFIG.rarityWeights[act].CONSUMABLE, `act ${act + 1} CONSUMABLE`).toBe(0);
+      const sum = (['COMMON', 'UNCOMMON', 'RARE'] as const).reduce(
+        (a, r) => a + CONFIG.rarityWeights[act][r],
+        0,
+      );
+      expect(sum, `act ${act + 1} shares do not total 1`).toBeCloseTo(1, 5);
+    });
+    // The curve §6.6 claims: rares get commoner and commons rarer, act on act.
+    expect(CONFIG.rarityWeights[0].RARE).toBeLessThan(CONFIG.rarityWeights[1].RARE);
+    expect(CONFIG.rarityWeights[1].RARE).toBeLessThan(CONFIG.rarityWeights[2].RARE);
+    expect(CONFIG.rarityWeights[0].COMMON).toBeGreaterThan(CONFIG.rarityWeights[1].COMMON);
+    expect(CONFIG.rarityWeights[1].COMMON).toBeGreaterThan(CONFIG.rarityWeights[2].COMMON);
+  });
+
+  it('§4.2 — the price table', () => {
+    const rows = tableAfter('| Item | Price |');
+    const named: Record<string, keyof typeof CONFIG.prices> = {
+      'Common relic': 'COMMON',
+      'Uncommon relic': 'UNCOMMON',
+      'Rare relic': 'RARE',
+      'Boss relic': 'BOSS',
+      Consumable: 'CONSUMABLE',
+    };
+    for (const [label, rarity] of Object.entries(named)) {
+      const row = rows.find((r) => r[0] === label);
+      expect(row, `§4.2 has no ${label} row`).toBeDefined();
+      expect(gold(row![1]!), label).toBe(CONFIG.prices[rarity]);
+    }
+  });
+
   it('§4.1/§4.2 — the refill ladder is the same six numbers in both places', () => {
     const written = CONFIG.economy.refillCosts.join(' / ');
     expect(SPEC, '§4.1 states the ladder').toContain(`${written}g`);
