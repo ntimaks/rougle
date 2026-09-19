@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG, withConfig } from './config';
 import { EffectDepthError } from './effects';
 import { resolveHook } from './hooks';
-import { applyEffects, canDispatch, initialState, reduce } from './reducer';
+import { applyEffects, canDispatch, heldRelics, initialState, reduce, relicSlots } from './reducer';
 import { emergencyCost, refillCost } from './bank';
+import { shopPrice } from './nodes';
 import { deserialize, serialize } from './serialize';
-import { CHARACTER_BY_CODE } from '../content/registry';
-import type { Action, GameState } from '../index';
+import { CHARACTER_BY_CODE, offerableRelics } from '../content/registry';
+import type { Action, GameState, RelicInstance } from '../index';
 import { enterFirstWord } from '../../../test/nav';
 import '../words/all';
 
@@ -335,6 +336,120 @@ describe('Gate 1 — determinism', () => {
       const s = reduce(initialState(SEED, code), { type: 'START_RUN', seed: SEED, characterCode: code }).state;
       expect(s.bankroll, code).toBe(CHARACTER_BY_CODE[code]!.bankroll_start);
     }
+  });
+});
+
+describe('§6.2 — the destroy-one flow at a full board', () => {
+  // Five held relics, a shop stocking a sixth. The reducer, not the shop
+  // component, has to enforce the cap — the whole point of MECHANICS.md §13.2
+  // and R-035's select-then-commit rule.
+  function atCapInShop(): { s: GameState; heldCodes: string[]; incoming: string } {
+    const codes = offerableRelics().map((d) => d.code);
+    const heldCodes = codes.slice(0, CONFIG.relicSlots);
+    const incoming = codes.find((c) => !heldCodes.includes(c))!;
+    const relics: RelicInstance[] = heldCodes.map((code, i) => ({
+      instanceId: `${code}#${i}`,
+      code,
+      state: {},
+      acquiredAt: i,
+      upgraded: false,
+    }));
+    const s: GameState = {
+      ...start(),
+      relics,
+      gold: 9999,
+      phase: 'SHOP',
+      shop: {
+        nodeId: 'a0-n0',
+        stock: [{ code: incoming, price: shopPrice(incoming, CONFIG), sold: false }],
+        rerolls: 0,
+        refillsSold: 0,
+      },
+    };
+    return { s, heldCodes, incoming };
+  }
+
+  it('buying a sixth relic at 5/5 does not grant it outright', () => {
+    const { s, heldCodes } = atCapInShop();
+    expect(heldRelics(s).length).toBe(relicSlots(s, CONFIG));
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 });
+    expect(bought.error).toBeUndefined();
+    // Held board is untouched — nothing is destroyed until confirmed (R-035).
+    expect(heldRelics(bought.state).map((r) => r.code).sort()).toEqual([...heldCodes].sort());
+  });
+
+  it('routes the phase to REPLACE, with the incoming relic visible and the board still full', () => {
+    const { s, incoming } = atCapInShop();
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 }).state;
+    // This is the bug fixed here: buyStock used to set pendingReplace without
+    // ever transitioning the phase, so the destroy-one screen was unreachable
+    // from a shop purchase (only from a boss reward's ACCEPT_OFFER).
+    expect(bought.phase).toBe('REPLACE');
+    expect(bought.pendingReplace).toEqual({ code: incoming });
+    expect(heldRelics(bought).length).toBe(relicSlots(bought, CONFIG));
+    // The shelf item is sold and the gold is already spent — that purchase was
+    // already confirmed by tapping BUY_STOCK. What is not yet spent is the
+    // relic slot: that is the confirmation this screen exists to collect.
+    expect(bought.shop!.stock[0]!.sold).toBe(true);
+    expect(bought.gold).toBe(s.gold - shopPrice(incoming, CONFIG));
+  });
+
+  it('a misclick cannot destroy the wrong relic — only REPLACE_RELIC on the pending grant commits', () => {
+    const { s } = atCapInShop();
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 }).state;
+    expect(canDispatch(bought, { type: 'SUBMIT_GUESS', guess: 'CRANE' })).not.toBeNull();
+    // Picking an instance that is not held is refused, not silently accepted.
+    expect(reduce(bought, { type: 'REPLACE_RELIC', instanceId: 'nope' }).error?.code).toBe(
+      'NO_SUCH_ITEM',
+    );
+    expect(heldRelics(bought).length).toBe(relicSlots(bought, CONFIG));
+  });
+
+  it('confirming REPLACE_RELIC destroys the chosen relic, grants the incoming one, and returns to the shop', () => {
+    const { s, heldCodes, incoming } = atCapInShop();
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 }).state;
+    const victim = heldRelics(bought)[2]!;
+    const out = reduce(bought, { type: 'REPLACE_RELIC', instanceId: victim.instanceId });
+    expect(out.error).toBeUndefined();
+    expect(out.state.pendingReplace).toBeNull();
+    const finalCodes = heldRelics(out.state).map((r) => r.code);
+    expect(finalCodes).toHaveLength(relicSlots(out.state, CONFIG));
+    expect(finalCodes).not.toContain(victim.code);
+    expect(finalCodes).toContain(incoming);
+    expect(finalCodes.sort()).toEqual(
+      [...heldCodes.filter((c) => c !== victim.code), incoming].sort(),
+    );
+    expect(out.events.some((e) => e.type === 'RELIC_DESTROYED' && e.instanceId === victim.instanceId)).toBe(
+      true,
+    );
+    // §6.2's board is a comparison, not a detour: the shop is still open with
+    // its other stock, not the map.
+    expect(out.state.phase).toBe('SHOP');
+    expect(out.state.shop).not.toBeNull();
+  });
+
+  it('declining keeps all five and drops the incoming relic, and can be dispatched from the pending state', () => {
+    const { s, heldCodes } = atCapInShop();
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 }).state;
+    // canDispatch has to agree the cancel button is legal here — it used to
+    // check pendingOffer only, which SKIP_OFFER from a shop-triggered
+    // pendingReplace is not.
+    expect(canDispatch(bought, { type: 'SKIP_OFFER' })).toBeNull();
+    const out = reduce(bought, { type: 'SKIP_OFFER' });
+    expect(out.state.pendingReplace).toBeNull();
+    expect(heldRelics(out.state).map((r) => r.code).sort()).toEqual([...heldCodes].sort());
+    expect(out.state.phase).toBe('SHOP');
+  });
+
+  it('a second full-board purchase cannot silently clobber the first pending relic', () => {
+    // Before the fix, buyStock never left phase SHOP, so nothing stopped a
+    // second BUY_STOCK from overwriting pendingReplace and losing the gold
+    // already spent on the first. Now the phase is REPLACE and BUY_STOCK is
+    // out of phase there.
+    const { s } = atCapInShop();
+    const bought = reduce(s, { type: 'BUY_STOCK', slot: 0 }).state;
+    expect(canDispatch(bought, { type: 'BUY_STOCK', slot: 0 })).not.toBeNull();
+    expect(reduce(bought, { type: 'BUY_STOCK', slot: 0 }).error?.code).toBe('WRONG_PHASE');
   });
 });
 
