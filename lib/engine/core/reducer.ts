@@ -191,7 +191,7 @@ export function canDispatch(
       return null;
     }
     case 'SKIP_OFFER':
-      if (!s.pendingOffer) return { code: 'NO_OFFER', message: 'Nothing to skip.' };
+      if (!s.pendingOffer && !s.pendingReplace) return { code: 'NO_OFFER', message: 'Nothing to skip.' };
       return null;
     case 'USE_ITEM': {
       // holdersInOrder normalises consumables into the relic shape, so the
@@ -523,18 +523,21 @@ function buyStock(s: GameState, slot: number, cfg: Readonly<GameConfig>): Reduce
   );
   const stock = s.shop.stock.map((x, i) => (i === slot ? { ...x, sold: true } : x));
   const bought = def?.isConsumable ? 0 : 1;
-  return {
-    state: {
-      ...granted.state,
-      shop: { ...s.shop, stock },
-      stats: { ...granted.state.stats, relicsBought: granted.state.stats.relicsBought + bought },
-    },
-    events: [
-      ...paid.events,
-      ...granted.events,
-      { type: 'STOCK_BOUGHT', code: item.code, price: item.price },
-    ],
+  const state: GameState = {
+    ...granted.state,
+    shop: { ...s.shop, stock },
+    stats: { ...granted.state.stats, relicsBought: granted.state.stats.relicsBought + bought },
   };
+  // §6.2 — a relic bought at a full board sets `pendingReplace` rather than
+  // being granted (see the GRANT_RELIC effect below). `advance` is what turns
+  // that into `phase: 'REPLACE'`; skipping it here left the destroy-one screen
+  // unreachable and a second full-board purchase would silently overwrite the
+  // first relic still waiting on a slot.
+  return advance(state, [
+    ...paid.events,
+    ...granted.events,
+    { type: 'STOCK_BOUGHT', code: item.code, price: item.price },
+  ], cfg);
 }
 
 /**
@@ -1393,6 +1396,11 @@ function skipNodes(s: GameState, count: number): GameState {
 function advance(s: GameState, events: GameEvent[], cfg: Readonly<GameConfig>): ReduceResult {
   if (s.pendingReplace) return { state: { ...s, phase: 'REPLACE' }, events };
   if (s.pendingOffer) return { state: { ...s, phase: 'REWARD' }, events };
+  // A shop purchase can itself set `pendingReplace` (§6.2, below), which routes
+  // here through the same door as a boss offer. Once that resolves there is
+  // nothing left pending, and `s.shop` is still the open shop — `leaveNode` is
+  // what clears it — so the player lands back on the shelf, not on the map.
+  if (s.shop) return { state: { ...s, phase: 'SHOP' }, events };
 
   const current = s.map.currentId ? s.map.nodes[s.map.currentId] : null;
   const nextIds = current ? current.next : s.map.available;

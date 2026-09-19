@@ -23,26 +23,34 @@ export function RelicCard({
   dimmed,
   index,
   onTap,
+  badge,
 }: {
   code: string;
   held: readonly string[];
   selected: boolean;
   dimmed: boolean;
   index: number;
-  onTap: () => void;
+  /** Omitted for a read-only card — e.g. the incoming relic on the §6.2 destroy-one screen. */
+  onTap?: () => void;
+  /** Overrides the rarity chip, e.g. "INCOMING" for a card that is not a pickable option. */
+  badge?: string;
 }) {
   const { animate } = useMotion();
   const def = REGISTRY[code];
   if (!def) return null;
 
+  const interactive = !!onTap;
   const synergy = synergyLine(def, held);
 
   return (
     <button
       type="button"
+      disabled={!interactive}
       onClick={onTap}
-      aria-pressed={selected}
-      className={`block w-full border text-left transition-[transform,box-shadow,opacity] duration-[120ms] ease-linear active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+      aria-pressed={interactive ? selected : undefined}
+      className={`block w-full border text-left transition-[transform,box-shadow,opacity] duration-[120ms] ease-linear ${
+        interactive ? 'active:translate-x-[2px] active:translate-y-[2px] active:shadow-none' : 'cursor-default'
+      } ${
         selected ? 'border-fg0 bg-strip shadow-[3px_3px_0_0_var(--dark-fg-0)]' : 'border-dark3 bg-panel'
       } ${dimmed ? 'opacity-40' : 'opacity-100'}`}
       style={
@@ -52,7 +60,7 @@ export function RelicCard({
       }
     >
       <div className="flex items-stretch border-b border-dark3">
-        <div className={`w-[5px] flex-none ${RARITY_SPINE[def.rarity]}`} aria-hidden />
+        <div className={`w-[5px] flex-none ${badge ? 'bg-accent' : RARITY_SPINE[def.rarity]}`} aria-hidden />
         <div
           className={`flex min-w-0 flex-1 items-center gap-2 px-[10px] py-[9px] ${
             selected ? 'bg-fg0 text-ground' : 'bg-strip text-fg0'
@@ -66,10 +74,14 @@ export function RelicCard({
           </span>
           <span
             className={`ml-auto flex-none border px-[4px] py-[3px] font-mono text-[8px] leading-none tracking-[0.14em] ${
-              selected ? 'border-ground' : `border-current ${RARITY_TEXT[def.rarity]}`
+              selected
+                ? 'border-ground'
+                : badge
+                  ? 'border-accent text-accent'
+                  : `border-current ${RARITY_TEXT[def.rarity]}`
             }`}
           >
-            {def.rarity}
+            {badge ?? def.rarity}
           </span>
         </div>
       </div>

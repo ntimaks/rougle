@@ -50,12 +50,20 @@ export function RewardScreen({ state }: { state: GameState }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-[10px] overflow-y-auto px-4 py-3">
+        {/*
+          §6.2 — "the incoming relic visible alongside the five held". Shown
+          as a full card, read-only: it is not one of the five destroy targets,
+          so it never takes onTap and can never itself be picked.
+        */}
+        {replacing && (
+          <RelicCard code={replacing.code} held={held} index={0} selected={false} dimmed={false} badge="INCOMING" />
+        )}
         {codes.map((code, i) => (
           <RelicCard
             key={code}
             code={code}
             held={held}
-            index={i}
+            index={replacing ? i + 1 : i}
             selected={picked === code}
             dimmed={picked !== null && picked !== code}
             onTap={() => setPicked(code)}
