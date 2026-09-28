@@ -625,9 +625,10 @@ The originals, and what v2.0 does to each, are in §12.1.
 
 1. **Relic card counter treatment.** Six relics need a persistent visible number. No current design state supports it. Blocking for those six.
 2. **Full-board acquisition UI.** Buying at 5/5 needs a destroy-one flow with the incoming relic visible alongside the five held. No current screen.
-3. **Long-word layout undemonstrated.** No screen shows 6 or 7 tiles. Seven at a 5px gap in a 430px column lands near 55px, under the 62px cap, so it should hold — but nobody has looked.
+3. ~~**Long-word layout undemonstrated.**~~ **Closed.** Verified against a live 6-letter (Long Word, Act II) and 7-letter (Longer Word, Act III) `WordScreen` at the 430px column: 6 letters hit the `max-h-[62px]` cap (tiles render at 62px), 7 letters land at ~52.6px, both well inside the cap with no overflow or wrap. The doc's arithmetic held.
 4. **Low-bankroll flicker duration.** `rg-flicker` loops indefinitely at ≤5. Under a run-long bankroll a player can sit there far longer than under per-act pools. Playtest for irritation.
 5. **Meta-progression.** Still out of scope.
+6. **Long-word hit targets below the 430px column.** Found while closing item 3. `Column` is `w-full max-w-[430px]`, so on a phone narrower than 430px the tiles shrink below the doc's reference case: a 7-letter tile measures ~44.7px at a 375px viewport (barely clears design/CLAUDE.md's 44px floor) and ~36.9px at 320px (fails it outright). Not fixed here — narrowing the grid's margins/gap for small phones is a design-side sizing call, not a one-line change.
 
 ---
 
